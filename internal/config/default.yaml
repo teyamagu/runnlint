@@ -1,0 +1,159 @@
+# runnlint のデフォルトルール。
+# プロジェクト直下に .runnlint.yaml を置くと、この設定を継承して上書きできる。
+# extends: none にすると継承しない。
+version: 1
+
+# インデントや重複キーなど、一般的な YAML の検査は yamllint に委譲する。
+yamllint:
+  enabled: true
+  bin: yamllint
+  # 未導入時の扱い。error にすると yamllint が無いだけで失敗する。
+  missing: warning
+  # 独自の yamllint 設定を使う場合:
+  # config: .yamllint.yaml
+
+ignore: []
+
+rules:
+  # --- runn の構造 ---
+  - id: duplicate-key
+    uses: duplicate-key
+    severity: error
+
+  - id: unknown-key
+    uses: unknown-key
+    severity: error
+
+  - id: book-shape
+    uses: book-shape
+    severity: error
+
+  - id: require-steps
+    uses: require-steps
+    severity: error
+
+  - id: label-format
+    uses: label-format
+    severity: error
+
+  - id: runner-reserved
+    uses: runner-reserved
+    severity: error
+
+  - id: runner-config
+    uses: runner-config
+    severity: error
+
+  - id: runner-defined
+    uses: runner-defined
+    severity: error
+
+  - id: step-shape
+    uses: step-shape
+    severity: error
+
+  - id: http-request
+    uses: http-request
+    severity: error
+
+  - id: grpc-request
+    uses: grpc-request
+    severity: error
+
+  - id: db-request
+    uses: db-request
+    severity: error
+
+  - id: exec-request
+    uses: exec-request
+    severity: error
+
+  - id: ssh-request
+    uses: ssh-request
+    severity: error
+
+  - id: cdp-request
+    uses: cdp-request
+    severity: error
+
+  - id: agent-request
+    uses: agent-request
+    severity: error
+
+  - id: include-request
+    uses: include-request
+    severity: error
+
+  - id: include-path
+    uses: include-path
+    severity: warning
+
+  - id: needs-path
+    uses: needs-path
+    severity: warning
+
+  - id: local-path
+    uses: local-path
+    severity: warning
+
+  # --- 式と参照 ---
+  - id: expr-syntax
+    uses: expr-syntax
+    severity: error
+
+  - id: expr-braces
+    uses: expr-braces
+    severity: warning
+
+  - id: step-ref
+    uses: step-ref
+    severity: error
+
+  - id: var-ref
+    uses: var-ref
+    severity: warning
+    # CLI や include 元から渡す変数はここに書くと警告しない。
+    # options:
+    #   ignore:
+    #     - token
+
+  - id: loop-index
+    uses: loop-index
+    severity: warning
+
+  - id: previous-step
+    uses: previous-step
+    severity: warning
+
+  - id: defer-experimental
+    uses: defer-experimental
+    severity: info
+
+  # --- YAML だけで書くルール ---
+  # select はドット区切り。* は mapping の各値、または sequence の各要素。
+  # steps が list でも map でも steps.* で各 step を指す。
+  - id: require-desc
+    severity: warning
+    message: "runbook に desc がありません"
+    check:
+      select: desc
+      exists: true
+
+  - id: no-debug
+    severity: warning
+    message: "debug が有効です"
+    check:
+      select: debug
+      not_equals: true
+
+  - id: loop-until-with-test
+    severity: warning
+    message: "step {{ .key }} は loop.until と test を同時に持っています。test は毎周評価されるため、リトライが始まる前に失敗します"
+    check:
+      select: steps.*
+      where:
+        - path: loop.until
+          exists: true
+        - path: test
+          exists: true
+      forbid: true

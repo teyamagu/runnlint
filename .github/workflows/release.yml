@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: タグから GitHub Release を作る
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: 最新安定版の Go を導入
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: テスト
+        run: go test ./...
+
+      - name: タグがバージョンと一致するか
+        run: |
+          set -eu
+          got=$(go run ./cmd/runnlint --version)
+          want="runnlint ${GITHUB_REF_NAME#v}"
+          if [ "$got" != "$want" ]; then
+            echo "::error::--version は '${got}' です。タグ ${GITHUB_REF_NAME} は '${want}' である必要があります。"
+            exit 1
+          fi
+
+      - name: バイナリを作る
+        run: |
+          set -eu
+          version=${GITHUB_REF_NAME#v}
+          mkdir -p dist
+          for pair in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            goos=${pair%/*}
+            goarch=${pair#*/}
+            ext=""
+            if [ "$goos" = "windows" ]; then
+              ext=".exe"
+            fi
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags "-s -w" -o "dist/runnlint_${version}_${goos}_${goarch}${ext}" ./cmd/runnlint
+          done
+          cd dist
+          sha256sum ./* > SHA256SUMS
+
+      - name: 変更履歴を取り出す
+        run: |
+          set -eu
+          version=${GITHUB_REF_NAME#v}
+          awk -v ver="$version" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md に ## [${version}] の本文がありません"
+            exit 1
+          fi
+
+      - name: GitHub Release を作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          args=(release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md)
+          case "$GITHUB_REF_NAME" in
+            *-*) args+=(--prerelease) ;;
+          esac
+          gh "${args[@]}"

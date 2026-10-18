@@ -1,0 +1,286 @@
+package rules
+
+import (
+	"bytes"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"text/template"
+
+	"github.com/teyamagu/runnlint/internal/config"
+	"github.com/teyamagu/runnlint/internal/runbook"
+)
+
+type match struct {
+	value runbook.Value
+	key   string
+	path  string
+}
+
+func runCheck(c *Context) {
+	check := c.Rule.Check
+	if check == nil || c.Doc == nil {
+		return
+	}
+	matchRe, err := compileRe(check.Matches)
+	if err != nil {
+		c.Add(c.Doc.Root.Node, "matches の正規表現が不正です: %s", err.Error())
+		return
+	}
+	notRe, err := compileRe(check.NotMatch)
+	if err != nil {
+		c.Add(c.Doc.Root.Node, "not_matches の正規表現が不正です: %s", err.Error())
+		return
+	}
+	var whereRe []*regexp.Regexp
+	for _, cond := range check.Where {
+		re, err := compileRe(cond.Matches)
+		if err != nil {
+			c.Add(c.Doc.Root.Node, "where.matches の正規表現が不正です: %s", err.Error())
+			return
+		}
+		whereRe = append(whereRe, re)
+	}
+
+	found := selectPath(c.Doc.Root, check.Select)
+	if check.Exists != nil && *check.Exists && len(found) == 0 {
+		node, path := deepest(c.Doc.Root, splitPath(check.Select))
+		c.Add(node.Node, "%s", render(c, path, "", runbook.Value{}, "パス "+check.Select+" がありません"))
+		return
+	}
+	if check.Exists != nil && !*check.Exists && len(found) > 0 {
+		for _, m := range found {
+			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, "パス "+m.path+" があります"))
+		}
+		return
+	}
+
+	for _, m := range found {
+		if !whereMatch(m.value, check.Where, whereRe) {
+			continue
+		}
+		if check.Forbid {
+			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, "条件に一致しました"))
+			continue
+		}
+		if msg, ok := violate(m.value, check, matchRe, notRe); ok {
+			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, msg))
+		}
+	}
+}
+
+func compileRe(expr string) (*regexp.Regexp, error) {
+	if expr == "" {
+		return nil, nil
+	}
+	return regexp.Compile(expr)
+}
+
+func violate(v runbook.Value, check *config.Check, matchRe, notRe *regexp.Regexp) (string, bool) {
+	if check.Equals != nil && check.Equals.Set && !equalValue(v, check.Equals.Value) {
+		return "値が " + fmt.Sprint(check.Equals.Value) + " ではありません", true
+	}
+	if check.NotEquals != nil && check.NotEquals.Set && equalValue(v, check.NotEquals.Value) {
+		return "値が " + fmt.Sprint(check.NotEquals.Value) + " です", true
+	}
+	text := scalarText(v)
+	if matchRe != nil && (v.Kind != runbook.KindString && v.Kind != runbook.KindNumber || !matchRe.MatchString(text)) {
+		return "値がパターンに一致しません", true
+	}
+	if notRe != nil && (v.Kind == runbook.KindString || v.Kind == runbook.KindNumber) && notRe.MatchString(text) {
+		return "値が禁止パターンに一致します", true
+	}
+	if len(check.OneOf) > 0 && !oneOf(v, check.OneOf) {
+		return "値が許可された一覧にありません", true
+	}
+	if check.MinLen != nil && v.Len() < *check.MinLen {
+		return fmt.Sprintf("長さが %d 未満です", *check.MinLen), true
+	}
+	if check.MaxLen != nil && v.Len() > *check.MaxLen {
+		return fmt.Sprintf("長さが %d を超えています", *check.MaxLen), true
+	}
+	return "", false
+}
+
+func whereMatch(v runbook.Value, conds []config.Cond, res []*regexp.Regexp) bool {
+	for i, cond := range conds {
+		target := v
+		if cond.Path != "" {
+			next, ok := v.Lookup(cond.Path)
+			if cond.Exists != nil && *cond.Exists && !ok {
+				return false
+			}
+			if cond.Exists != nil && !*cond.Exists {
+				if ok {
+					return false
+				}
+				continue
+			}
+			if !ok {
+				return false
+			}
+			target = next
+		} else if cond.Exists != nil {
+			return false
+		}
+		if cond.Equals != nil && cond.Equals.Set && !equalValue(target, cond.Equals.Value) {
+			return false
+		}
+		if i < len(res) && res[i] != nil {
+			text := scalarText(target)
+			if !res[i].MatchString(text) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func oneOf(v runbook.Value, values []any) bool {
+	for _, want := range values {
+		if equalValue(v, want) {
+			return true
+		}
+	}
+	return false
+}
+
+func equalValue(v runbook.Value, want any) bool {
+	if want == nil {
+		return v.Kind == runbook.KindNull
+	}
+	switch w := want.(type) {
+	case bool:
+		return v.Kind == runbook.KindBool && v.Bool == w
+	case string:
+		return v.Kind == runbook.KindString && v.String == w
+	case int:
+		return v.Kind == runbook.KindNumber && v.Number == strconv.Itoa(w)
+	case int64:
+		return v.Kind == runbook.KindNumber && v.Number == strconv.FormatInt(w, 10)
+	case float64:
+		if v.Kind != runbook.KindNumber {
+			return false
+		}
+		f, err := strconv.ParseFloat(v.Number, 64)
+		return err == nil && f == w
+	default:
+		return scalarText(v) == fmt.Sprint(want)
+	}
+}
+
+func scalarText(v runbook.Value) string {
+	switch v.Kind {
+	case runbook.KindString:
+		return v.String
+	case runbook.KindNumber:
+		return v.Number
+	case runbook.KindBool:
+		return strconv.FormatBool(v.Bool)
+	case runbook.KindNull:
+		return "null"
+	default:
+		return ""
+	}
+}
+
+func selectPath(root runbook.Value, path string) []match {
+	return walkPath(root, splitPath(path), "", "")
+}
+
+func splitPath(path string) []string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	return strings.Split(path, ".")
+}
+
+func walkPath(v runbook.Value, segs []string, acc, key string) []match {
+	if len(segs) == 0 {
+		if acc == "" {
+			acc = "$"
+		}
+		return []match{{value: v, key: key, path: acc}}
+	}
+	seg := segs[0]
+	if seg == "*" {
+		switch v.Kind {
+		case runbook.KindSeq:
+			var out []match
+			for i, el := range v.Seq {
+				next := acc + "[" + strconv.Itoa(i) + "]"
+				out = append(out, walkPath(el, segs[1:], next, strconv.Itoa(i))...)
+			}
+			return out
+		case runbook.KindMap:
+			var out []match
+			for _, e := range v.Map {
+				next := e.Key
+				if acc != "" {
+					next = acc + "." + e.Key
+				}
+				out = append(out, walkPath(e.Value, segs[1:], next, e.Key)...)
+			}
+			return out
+		default:
+			return nil
+		}
+	}
+	if v.Kind != runbook.KindMap {
+		return nil
+	}
+	child, ok := v.Get(seg)
+	if !ok {
+		return nil
+	}
+	next := seg
+	if acc != "" {
+		next = acc + "." + seg
+	}
+	return walkPath(child, segs[1:], next, seg)
+}
+
+func deepest(root runbook.Value, segs []string) (runbook.Value, string) {
+	cur := root
+	acc := ""
+	for _, seg := range segs {
+		if seg == "*" || cur.Kind != runbook.KindMap {
+			return cur, acc
+		}
+		next, ok := cur.Get(seg)
+		if !ok {
+			return cur, acc
+		}
+		if acc == "" {
+			acc = seg
+		} else {
+			acc += "." + seg
+		}
+		cur = next
+	}
+	return cur, acc
+}
+
+func render(c *Context, path, key string, v runbook.Value, fallback string) string {
+	msg := c.Rule.Message
+	if strings.TrimSpace(msg) == "" {
+		msg = fallback
+	}
+	tpl, err := template.New("msg").Option("missingkey=zero").Parse(msg)
+	if err != nil {
+		return msg
+	}
+	var buf bytes.Buffer
+	data := map[string]any{
+		"path":  path,
+		"key":   key,
+		"value": scalarText(v),
+		"rule":  c.Rule.ID,
+	}
+	if err := tpl.Execute(&buf, data); err != nil {
+		return msg
+	}
+	return buf.String()
+}

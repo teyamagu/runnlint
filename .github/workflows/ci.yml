@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    # 新しい Go の安定版と、runn の記法定義の更新を、コードの変更が無くても週次で確認する。
+    - cron: "17 0 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 最新安定版の Go でテスト
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: 最新安定版の Go を導入
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: テスト
+        run: go test ./...

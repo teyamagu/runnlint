@@ -1,0 +1,4 @@
+/runnlint
+/dist/
+*.out
+coverage.txt

@@ -1,0 +1,33 @@
+desc: Login and get projects.
+runners:
+  req: https://example.com/api/v1
+  db: mysql://root:mypass@localhost:3306/testdb
+vars:
+  username: alice
+  password: ${TEST_PASS}
+labels:
+  - users
+  - auth
+steps:
+  find_user:
+    desc: Find user
+    db:
+      query: SELECT id FROM users WHERE name = '{{ vars.username }}'
+  login:
+    desc: Login
+    req:
+      /login:
+        post:
+          body:
+            application/json:
+              name: "{{ vars.username }}"
+              password: "{{ vars.password }}"
+    test: steps.login.res.status == 200
+  list_projects:
+    req:
+      /projects:
+        get:
+          headers:
+            Authorization: "token {{ steps.login.res.body.session_token }}"
+          body: null
+    test: steps.list_projects.res.status == 200
