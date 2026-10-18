@@ -56,7 +56,7 @@ yamllint:
   # config: .yamllint.yaml
 
 ignore:
-  - examples/bad.yml
+  - examples/bad
 
 rules:
   # 組み込みルールを止めるときは、同じ id に severity: off だけを書く。
@@ -137,8 +137,8 @@ rules:
 
 ```console
 go test ./...
-go run ./cmd/runnlint --no-yamllint examples/http.yml
-go run ./cmd/runnlint --no-yamllint examples/bad.yml
+go run ./cmd/runnlint --no-yamllint examples/valid
+go run ./cmd/runnlint --no-yamllint examples/bad/http-request.yml
 ```
 
 `go test ./...` は、次も確認します。
@@ -149,7 +149,7 @@ go run ./cmd/runnlint --no-yamllint examples/bad.yml
 
 新しい安定版が出ると、`.go-version` と `go.mod` を上げるまでこのテストが失敗します。CI は先にその Go でテスト一式を実行するので、宣言を上げる前に互換性を確認できます。
 
-`examples/http.yml` は通る runbook、`examples/bad.yml` は検出例です。
+`examples/valid` は通る runbook です。HTTP と DB は `examples/valid/http.yml` です。`examples/bad` は既定ルールごとに1ファイルの検出例で、ファイル名がルール id です。ディレクトリ走査では `examples/bad` を無視します。ファイルを直接指定すると検査します。
 
 ## ライセンス
 

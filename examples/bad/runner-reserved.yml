@@ -1,0 +1,9 @@
+# runner の名前に、step の予約語である exec を使った例。
+desc: reserved runner name
+runners:
+  exec: https://example.com
+steps:
+  - exec:
+      /:
+        get:
+          body: null

@@ -1,0 +1,6 @@
+desc: Run a command over SSH.
+runners:
+  sc: ssh://user@example.com
+steps:
+  - sc:
+      command: hostname

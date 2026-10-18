@@ -1,0 +1,5 @@
+# debug を有効にした例。
+desc: debug enabled
+debug: true
+steps:
+  - test: "true"

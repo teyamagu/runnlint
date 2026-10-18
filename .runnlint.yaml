@@ -1,4 +1,4 @@
 extends: default
 
 ignore:
-  - examples/bad.yml
+  - examples/bad

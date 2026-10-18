@@ -1,0 +1,6 @@
+# needs が指すファイルが存在しない例。
+desc: missing need
+needs:
+  auth: missing-need.yml
+steps:
+  - test: "true"

@@ -1,0 +1,3 @@
+# steps が空で、実行する step が無い例。
+desc: empty steps
+steps: []

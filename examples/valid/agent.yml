@@ -1,0 +1,9 @@
+desc: Ask an agent.
+runners:
+  ai:
+    agent: claude
+    model: opus
+steps:
+  - ai:
+      prompt: hello
+      clearContext: false

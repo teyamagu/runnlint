@@ -1,0 +1,8 @@
+# openapi3 が指すファイルが存在しない例。
+desc: missing openapi
+runners:
+  req:
+    endpoint: https://example.com
+    openapi3: missing-openapi.yml
+steps:
+  - test: "true"

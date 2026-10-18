@@ -1,0 +1,9 @@
+desc: Open a page in Chrome.
+runners:
+  br: cdp://127.0.0.1:9222
+steps:
+  - br:
+      actions:
+        - title
+        - navigate:
+            url: https://example.com

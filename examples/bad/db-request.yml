@@ -1,0 +1,7 @@
+# DB の step に query が無い例。
+desc: missing query
+runners:
+  db: mysql://root:pass@localhost:3306/app
+steps:
+  - db:
+      trace: false

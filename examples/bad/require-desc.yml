@@ -1,0 +1,3 @@
+# runbook に desc が無い例。
+steps:
+  - test: "true"

@@ -49,7 +49,7 @@ func TestLoadOverride(t *testing.T) {
 	}
 }
 
-// examples/bad.yml、vendor 配下、*.gen.yml に合うパスで Ignored が true になることを確認する。examples/http.yml では false になることを確認する。
+// examples/bad.yml、vendor 配下、*.gen.yml に合うパスで Ignored が true になることを確認する。examples/valid/http.yml では false になることを確認する。
 func TestIgnore(t *testing.T) {
 	cfg := &Config{Ignore: []string{"examples/bad.yml", "vendor/**", "*.gen.yml"}}
 	if !cfg.Ignored("examples/bad.yml") {
@@ -61,7 +61,7 @@ func TestIgnore(t *testing.T) {
 	if !cfg.Ignored("dir/foo.gen.yml") && !cfg.Ignored("foo.gen.yml") {
 		t.Fatal("basename")
 	}
-	if cfg.Ignored("examples/http.yml") {
+	if cfg.Ignored("examples/valid/http.yml") {
 		t.Fatal("http.yml は対象です")
 	}
 }

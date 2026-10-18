@@ -1,0 +1,9 @@
+# gRPC のメソッドを package.Service/Method の形で書いていない例。
+desc: bad grpc method
+runners:
+  greq: grpc://localhost:8080
+steps:
+  - greq:
+      Hello:
+        message:
+          name: alice

@@ -1,0 +1,5 @@
+# runners に定義していない名前を、step から呼び出している例。
+desc: undefined runner
+steps:
+  - nope:
+      query: SELECT 1

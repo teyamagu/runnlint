@@ -1,0 +1,3 @@
+desc: Refer to the current step by index.
+steps:
+  - test: steps[0].res.status == 200

@@ -1,0 +1,8 @@
+desc: Call a gRPC method.
+runners:
+  greq: grpc://localhost:8080
+steps:
+  - greq:
+      pkg.Svc/Method:
+        message:
+          name: alice

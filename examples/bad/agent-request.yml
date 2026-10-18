@@ -1,0 +1,9 @@
+# agent の prompt に、文字列以外を書いた例。
+desc: prompt type
+runners:
+  ai:
+    agent: claude
+    model: opus
+steps:
+  - ai:
+      prompt: 1

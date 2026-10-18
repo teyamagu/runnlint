@@ -1,0 +1,6 @@
+# runner の URL スキームが、runn の知っているものではない例。
+desc: bad scheme
+runners:
+  req: htts://example.com
+steps:
+  - test: "true"

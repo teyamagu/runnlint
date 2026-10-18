@@ -1,0 +1,7 @@
+# steps に同じ名前が2回書いてある例。
+desc: duplicate step name
+steps:
+  login:
+    test: "true"
+  login:
+    test: "false"

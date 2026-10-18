@@ -1,0 +1,4 @@
+desc: Run a command.
+steps:
+  - exec:
+      command: echo ok

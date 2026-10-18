@@ -1,0 +1,5 @@
+# exec の step に command が無い例。
+desc: exec without command
+steps:
+  - exec:
+      stdin: hello

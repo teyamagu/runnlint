@@ -1,0 +1,7 @@
+# vars に定義していない名前を参照している例。
+desc: undefined var
+vars:
+  username: alice
+steps:
+  - exec:
+      command: "echo {{ vars.password }}"

@@ -1,0 +1,10 @@
+# POST なのに body が無い例。
+desc: post without body
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /login:
+        post:
+          headers:
+            Authorization: token

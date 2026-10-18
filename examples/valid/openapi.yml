@@ -1,0 +1,7 @@
+desc: HTTP runner with a local OpenAPI file.
+runners:
+  req:
+    endpoint: https://example.com
+    openapi3: ../fixtures/openapi.yml
+steps:
+  - test: "true"

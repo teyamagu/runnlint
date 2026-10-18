@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+## [0.1.1]
+
+- 既定ルールごとの検出例を `examples/bad` に、通る runbook を `examples/valid` に置く。検出例のコメントは、壊れている箇所を日本語で書く。
+
 ## [0.1.0]
 
 最初のリリースです。runn の runbook について、runn 固有の記法を検査します。

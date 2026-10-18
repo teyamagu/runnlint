@@ -1,0 +1,6 @@
+# まだ実行していない後続の step を参照している例。
+desc: forward reference
+steps:
+  - test: steps[1].res.status == 200
+  - exec:
+      command: echo ok

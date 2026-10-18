@@ -1,0 +1,4 @@
+# test の式が途中で切れている例。
+desc: broken expression
+steps:
+  - test: "current.res.status =="

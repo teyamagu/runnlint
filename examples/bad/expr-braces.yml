@@ -1,0 +1,4 @@
+# test に書く式を、テンプレートの {{ }} で包んでしまった例。
+desc: braces around expression
+steps:
+  - test: "{{ current.res.status == 200 }}"

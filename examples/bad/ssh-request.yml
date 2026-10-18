@@ -1,0 +1,8 @@
+# SSH の step に、command 以外のキーを書いた例。
+desc: ssh extra key
+runners:
+  sc: ssh://user@example.com
+steps:
+  - sc:
+      command: hostname
+      extra: 1

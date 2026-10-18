@@ -1,0 +1,5 @@
+# step の実行を後回しにする defer を書いた例。defer は実験的な機能です。
+desc: deferred step
+steps:
+  - defer: true
+    test: "true"

@@ -1,0 +1,4 @@
+# loop の外で、繰り返しの添字 i を使っている例。
+desc: index outside loop
+steps:
+  - test: i == 0

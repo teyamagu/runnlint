@@ -1,0 +1,5 @@
+desc: Declare a needed runbook.
+needs:
+  login: http.yml
+steps:
+  - test: "true"

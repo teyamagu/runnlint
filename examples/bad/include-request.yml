@@ -1,0 +1,7 @@
+# include に、読み込むファイルの path と、その場に書く steps を同時に指定した例。
+desc: path and steps
+steps:
+  - include:
+      path: child.yml
+      steps:
+        - test: "true"

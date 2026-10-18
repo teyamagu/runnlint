@@ -1,0 +1,13 @@
+# 同じ step に、loop.until と test を両方書いた例。
+desc: until and test
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /status:
+        get:
+          body: null
+    loop:
+      count: 3
+      until: current.res.status == 200
+    test: current.res.status == 200

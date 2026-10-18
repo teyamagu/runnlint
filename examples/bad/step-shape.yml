@@ -1,0 +1,12 @@
+# 1つの step に、HTTP と DB の runner を同時に書いた例。
+desc: two main runners
+runners:
+  req: https://example.com
+  db: mysql://root:pass@localhost:3306/app
+steps:
+  - req:
+      /:
+        get:
+          body: null
+    db:
+      query: SELECT 1

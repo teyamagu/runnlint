@@ -1,0 +1,4 @@
+# desc に文字列以外を書いた例。
+desc: 1
+steps:
+  - test: "true"

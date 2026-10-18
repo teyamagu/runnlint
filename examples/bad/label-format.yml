@@ -1,0 +1,6 @@
+# 空白を含む label を書いた例。
+desc: bad label
+labels:
+  - bad label
+steps:
+  - test: "true"
