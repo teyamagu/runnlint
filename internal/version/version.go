@@ -5,7 +5,7 @@ package version
 import "regexp"
 
 // Version はリリースする版。Git のタグは先頭に v を付ける。
-const Version = "0.1.1"
+const Version = "0.1.2"
 
 // semver は MAJOR.MINOR.PATCH と、任意のプレリリース部。先頭の v は含めない。
 var semver = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
