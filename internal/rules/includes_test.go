@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -142,5 +143,50 @@ func TestRequiresIncluded(t *testing.T) {
 		if got := requiresIncluded(in); got != want {
 			t.Errorf("%q: got %v want %v", in, got, want)
 		}
+	}
+}
+
+func varRefMessages(t *testing.T, path string, refs *Refs) []string {
+	t.Helper()
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := LintWith(path, src, defaultConfig(t), refs)
+	return messagesOf(got, "var-ref")
+}
+
+// ディレクトリを走査したとき、include 元の include.vars で渡す変数は var-ref を出さないことを確認する。
+// 呼び出し元が複数あれば、どれかで渡す変数を定義済みとする。parent.vars も include 元があれば親の外とは言わない。
+// どこからも渡されない変数と、include されない runbook の未定義の変数は、これまでどおり指摘する。
+func TestVarRefUsesIncludeVars(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Join(moduleRoot(t), "internal", "rules", "testdata", "includevars"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs := refsFor(t, []string{dir}, dir)
+	got := varRefMessages(t, filepath.Join(dir, "child.yml"), refs)
+	if len(got) != 1 || !strings.Contains(got[0], "vars.typo") {
+		t.Fatalf("%v", got)
+	}
+	if got := varRefMessages(t, filepath.Join(dir, "solo-included.yml"), refs); len(got) != 0 {
+		t.Fatalf("%v", got)
+	}
+	if got := varRefMessages(t, filepath.Join(dir, "toplevel.yml"), refs); len(got) != 2 {
+		t.Fatalf("%v", got)
+	}
+}
+
+// include 元を読まずにファイルだけを lint したとき、if: included の runbook では var-ref を出さず、それ以外はこれまでどおり出すことを確認する。
+func TestVarRefWithoutCallers(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Join(moduleRoot(t), "internal", "rules", "testdata", "includevars"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := varRefMessages(t, filepath.Join(dir, "solo-included.yml"), nil); len(got) != 0 {
+		t.Fatalf("%v", got)
+	}
+	if got := varRefMessages(t, filepath.Join(dir, "child.yml"), nil); len(got) != 4 {
+		t.Fatalf("%v", got)
 	}
 }

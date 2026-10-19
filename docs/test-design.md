@@ -53,5 +53,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-17 | `# runnlint disable-line` は行末ならその行、コメント行なら次の空でもコメントでもない行の診断を、全ルール共通の層で消す。複数行スカラーの診断はキーの行で消せる。引用符とブロックの中の `#` は抑制ではない。未知のルール、yamllint のルール、未知の指示、何も消さない抑制は `unused-suppression`。off のルールは除く。baseline より先に効く | `internal/rules/suppress_test.go`、`internal/app/contract_test.go` |
 | RULE-18 | HTTP と gRPC の空の `headers`（`{}` と null）は受ける | `internal/rules/falsepositive_test.go` |
 | RULE-19 | `/` で始まらない HTTP の path は既定で診断しない。`options.require-leading-slash: true` のときだけ warning | 同 |
+| RULE-20 | `var-ref` は、include 元の `include.vars` で渡す変数を定義済みとする。include 元があれば `parent.vars` を外と言わない。include 元が見つからない `if: included` の runbook では `vars` を調べない | `internal/rules/includes_test.go`（`testdata/includevars`） |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。

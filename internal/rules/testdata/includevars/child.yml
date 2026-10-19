@@ -1,0 +1,8 @@
+# parent.yml から token と user を渡される。typo はどこからも渡されない。
+desc: child
+vars:
+  own: 1
+steps:
+  - dump: vars.token + vars.user + string(vars.own)
+  - dump: vars.typo
+  - dump: parent.vars.base

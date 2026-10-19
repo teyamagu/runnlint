@@ -169,7 +169,7 @@ rules:
 | `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式 |
 | `expr-braces` | warning | 式として読むフィールドを `{{ }}` で包んでいないこと |
 | `step-ref` | error | list は `steps[n]`、map は `steps.name`。まだ実行されていない step は参照できない。自分自身は参照できる |
-| `var-ref` | warning | `vars.name` が、その runbook の `vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
+| `var-ref` | warning | `vars.name` が、その runbook の `vars` か、include 元の `include.vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
 | `loop-index` | warning | `i` は `loop` の中だけ |
 | `previous-step` | warning | 先頭 step と book 直下では `previous` を使えない |
 | `defer-experimental` | info | `defer` は実験的機能 |
@@ -187,7 +187,13 @@ rules:
         - token
 ```
 
-`ignore` は文字列の配列です。ここに書いた名前は、`vars` にも `parent.vars` にも無くて警告しません。CLI や include 元から渡す変数向けです。
+`ignore` は文字列の配列です。ここに書いた名前は、`vars` にも `parent.vars` にも無くて警告しません。CLI から渡す変数向けです。
+
+include 元から渡す変数は、`ignore` に書かなくても数えます。lint の前に、走査したディレクトリと `--include-root`、引数のファイルから include を集めます（`included-unreferenced` と同じ範囲です）。
+
+- include 元が見つかったときは、どれかの include 元が `include.vars` で渡す変数を定義済みとします。`include.vars` が mapping でなく中身が分からないときは、そのファイルの `vars` を調べません。`parent.vars` も、include 元ごとに違うので調べません。
+- include 元が見つからず、トップレベルの `if` が `included` の runbook は、include されて動く前提なので `vars` を調べません。ファイルを1つだけ渡したときに誤検知しないためです。
+- それ以外の runbook は、これまでどおり、その runbook の `vars` だけを見ます。
 
 `http-request` は `options.require-leading-slash` を読みます。`true` にすると、`/` でも `://` でも始まらない path（`graphql` など）を warning にします。runn は endpoint と path をつないで動かすので、既定では見ません。
 

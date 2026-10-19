@@ -164,7 +164,7 @@ rules:
 | `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式 |
 | `expr-braces` | 式フィールドを `{{ }}` で囲んでいないこと |
 | `step-ref` | list は `steps[n]`、map は `steps.name`。未来の step は不可 |
-| `var-ref` | `vars.name` が `vars` にあること |
+| `var-ref` | `vars.name` が `vars` か、include 元の `include.vars` にあること |
 | `loop-index` | `i` は `loop` の中だけ |
 | `previous-step` | 先頭 step の `previous` |
 | `defer-experimental` | `defer` は実験的機能 |

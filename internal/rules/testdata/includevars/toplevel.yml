@@ -1,0 +1,5 @@
+# include されない runbook の未定義の変数は、これまでどおり指摘する。
+desc: top
+steps:
+  - dump: vars.missing
+  - dump: parent.vars.missing

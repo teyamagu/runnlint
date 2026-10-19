@@ -118,7 +118,7 @@ rules:
   - id: var-ref
     uses: var-ref
     severity: warning
-    # CLI や include 元から渡す変数はここに書くと警告しない。
+    # include 元の include.vars で渡す変数は自動で数える。CLI から渡す変数はここに書くと警告しない。
     # options:
     #   ignore:
     #     - token
