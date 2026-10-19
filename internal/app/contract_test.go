@@ -340,7 +340,7 @@ func TestIncludedUnreferencedExampleCommand(t *testing.T) {
 	path := "examples/bad/included-unreferenced.yml"
 	var stdout bytes.Buffer
 	code, err := Run(context.Background(), Options{Paths: []string{path}, NoYamllint: true, Stdout: &stdout})
-	if err != nil || code != 0 || strings.Contains(stdout.String(), "[included-unreferenced]") {
+	if err != nil || code != 0 || stdout.Len() != 0 {
 		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
 	}
 	stdout.Reset()
@@ -350,7 +350,7 @@ func TestIncludedUnreferencedExampleCommand(t *testing.T) {
 		NoYamllint:   true,
 		Stdout:       &stdout,
 	})
-	if err != nil || code != 0 || !strings.Contains(stdout.String(), path+":") || !strings.Contains(stdout.String(), "[included-unreferenced]") {
+	if err != nil || code != 0 || strings.Count(stdout.String(), "[included-unreferenced]") != 1 || strings.Contains(stdout.String(), "[unused-suppression]") {
 		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
 	}
 }
