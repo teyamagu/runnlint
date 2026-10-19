@@ -199,8 +199,6 @@ go run ./cmd/runnlint --no-yamllint --include-root examples examples/bad/include
 
 新しい安定版が出ると、`.go-version` と `go.mod` を上げるまでこのテストが失敗します。CI は先にその Go でテスト一式を実行するので、宣言を上げる前に互換性を確認できます。
 
-README 先頭のカバレッジ、コードとテストの比率、テスト時間は、main の CI が [octocov](https://github.com/k1LoW/octocov) で測って更新します。ビルド結果は GitHub Actions のバッジです。
-
 `examples/valid` は通る runbook です。HTTP と DB は `examples/valid/http.yml` です。`examples/bad` は既定ルールごとに1ファイルの検出例で、ファイル名がルール id です。ディレクトリ走査では `examples/bad` を無視します。ファイルを直接指定すると検査します。`included-unreferenced` だけは、ファイルを直接渡しただけでは判定しません。上の `--include-root examples` を付けたコマンドで出します。
 
 ## ライセンス
