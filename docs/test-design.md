@@ -41,7 +41,7 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-04 | 未カバーだった組み込み。`unknown-key` と `x-`、`book-shape`、`require-steps`、`defer-experimental`、`ssh-request`、`cdp-request`、`agent-request`、`include-request`、`needs-path`、`local-path`、自分自身の step 参照 | `internal/rules/builtin_test.go` |
 | RULE-05 | `var-ref` の `options.ignore` と `severity: off`。`parent.vars` は include の外では警告 | 同 |
 | RULE-06 | デフォルトの `require-desc` と `no-debug` | 同 |
-| RULE-07 | 宣言的ルールの `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`one_of`、`min_len`、`max_len`、`where`、`forbid`、メッセージ、`steps.*`、壊れた正規表現 | `internal/rules/declare_test.go` `lint_test.go` `TestCustomRule` |
+| RULE-07 | 宣言的ルールの `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`where`、`forbid`、メッセージ、`steps.*`、壊れた正規表現 | `internal/rules/declare_test.go` `lint_test.go` `TestCustomRule` |
 | RULE-08 | `{{ }}` は引用符の中を式の終わりにしない。時間の数値とテンプレート | `internal/rules/expr_test.go` |
 | RULE-09 | 各検査関数の分岐。HTTP の media type、gRPC の `message` / `messages`、DB、exec、SSH、CDP の引数、agent、include、runner 設定、book の型、step 参照の可視性、`parent.vars`、`i` と `previous` | `internal/rules/branch_test.go` |
 | RULE-10 | yamllint が無いとき、`missing` の深刻度で診断する。`off` と無効化では診断しない | `internal/yamllint/yamllint_test.go` |
@@ -55,5 +55,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-18 | HTTP と gRPC の空の `headers`（`{}` と null）は受ける | `internal/rules/falsepositive_test.go` |
 | RULE-19 | `/` で始まらない HTTP の path は既定で診断しない。`options.require-leading-slash: true` のときだけ warning | 同 |
 | RULE-20 | `var-ref` は、include 元の `include.vars` で渡す変数を定義済みとする。include 元があれば `parent.vars` を外と言わない。include 元が見つからない `if: included` の runbook では `vars` を調べない | `internal/rules/includes_test.go`（`testdata/includevars`） |
+| RULE-21 | `test` と `bind` の式の中の `{{` はテンプレートにしない。値全体が1つの `{{ }}` のときは中身を式として解析し、`expr-braces` を出す。`{{` で始まるが1つに収まらないときは `expr-braces` だけで、式の解析エラーは出さない | `internal/rules/falsepositive_test.go` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。

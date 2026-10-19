@@ -172,8 +172,8 @@ rules:
 | `include-path` | warning | include の path と、include runner の path がファイルとして存在すること |
 | `needs-path` | warning | `needs` の値がファイルとして存在すること |
 | `local-path` | warning | HTTP / gRPC / SSH runner の証明書や proto などのローカルパスが存在すること |
-| `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式 |
-| `expr-braces` | warning | 式として読むフィールドを `{{ }}` で包んでいないこと |
+| `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式。`test` と `bind` の式の中にある `{{` はテンプレートにしない |
+| `expr-braces` | warning | 式として読むフィールドを `{{ }}` で包んでいないこと。`test` と `bind` は、値全体が `{{ }}` のときだけ。文字列の中の `{{` は対象外 |
 | `step-ref` | error | list は `steps[n]`、map は `steps.name`。まだ実行されていない step は参照できない。自分自身は参照できる |
 | `var-ref` | warning | `vars.name` が、その runbook の `vars` か、include 元の `include.vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
 | `loop-index` | warning | `i` は `loop` の中だけ |
@@ -269,12 +269,26 @@ list の要素を選んだときの `key` は `0` から始まる番号、map �
 | `not_equals` | 値が同じ |
 | `matches` | 文字列か数値が、正規表現に一致しない |
 | `not_matches` | 文字列か数値が、正規表現に一致する |
+| `key_matches` | キーが正規表現に一致しない |
+| `key_not_matches` | キーが正規表現に一致する |
 | `one_of` | 値が一覧のどれとも違う |
 | `min_len` | 文字列の文字数、sequence の件数、mapping の件数が小さい |
 | `max_len` | 同じく、大きい |
 | `forbid: true` | `where` に合った値がある。他の条件は見ません |
 
 正規表現は Go の RE2 です。壊れていると、その runbook のルートに診断を出します。
+
+`key_matches` と `key_not_matches` は、選んだ値のキーを見ます。map の `steps.*` では step 名、list の `steps.*` では `0` から始まる番号です。診断の位置はキーの行です。list にはキーのノードが無いので、値の行になります。既定のルールに step 名の規約はありません。必要なプロジェクトが書きます。既存の step 名は baseline で許容できます。
+
+```yaml
+rules:
+  - id: step-name
+    severity: warning
+    message: "step 名 {{ .key }} が規約に合いません"
+    check:
+      select: steps.*
+      key_matches: '^[a-z][a-z0-9-]*$'
+```
 
 `where` は、判定の前に値を絞ります。一覧でも、mapping 1件でも書けます。複数あるときはすべてに合う値だけを残します。`where` に書けるのは `path`、`exists`、`equals`、`matches` です。`path` は、選んだ値からの相対パスです。
 

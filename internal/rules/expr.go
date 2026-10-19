@@ -27,8 +27,10 @@ type site struct {
 	field  string
 	kind   siteKind
 	braced bool
-	tree   *parser.Tree
-	err    error
+	// skipParse は式として解析しない。{{ }} で包んだ if などの式は、テンプレート側が中を見る。
+	skipParse bool
+	tree      *parser.Tree
+	err       error
 }
 
 func analyze(root *runbook.Book) []site {
@@ -44,17 +46,20 @@ func analyze(root *runbook.Book) []site {
 		for i := range b.Steps {
 			step := &b.Steps[i]
 			for _, e := range step.Value.Map {
-				if e.Key == "include" {
+				switch e.Key {
+				case "include":
 					walkIncludeStrings(e.Value, b, step, &sites)
-					continue
+				case "test", "bind":
+					// 式として collectStepExprs が読む。中の {{ はテンプレートにしない。
+				default:
+					walkStrings(e.Value, b, step, &sites)
 				}
-				walkStrings(e.Value, b, step, &sites)
 			}
 			collectStepExprs(b, step, &sites)
 		}
 	})
 	for i := range sites {
-		if sites[i].err != nil || sites[i].braced {
+		if sites[i].err != nil || sites[i].skipParse {
 			continue
 		}
 		src := sites[i].src
@@ -178,16 +183,52 @@ func addExpr(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value
 		return
 	}
 	src := expandEnvPlaceholders(v.String)
-	braced := strings.Contains(src, "{{")
+	braced := false
+	skipParse := false
+	if field == "test" || field == "bind" {
+		// 中の {{ はテンプレートではない。値全体を包んだときだけ expr-braces の対象にする。
+		src, braced, skipParse = classifyExprBraces(src)
+	} else if strings.Contains(src, "{{") {
+		braced = true
+		skipParse = true
+	}
 	*sites = append(*sites, site{
-		book:   b,
-		step:   step,
-		node:   v.Node,
-		src:    src,
-		field:  field,
-		kind:   siteExpr,
-		braced: braced,
+		book:      b,
+		step:      step,
+		node:      v.Node,
+		src:       src,
+		field:     field,
+		kind:      siteExpr,
+		braced:    braced,
+		skipParse: skipParse,
 	})
+}
+
+// classifyExprBraces は test と bind の {{ の扱いを決める。
+// 値全体が1つの {{ }} なら、包みを外した中身を式として解析し、expr-braces の対象にする。
+// {{ で始まるが1つのテンプレートに収まらないときは、式としては解析せず expr-braces だけ出す。
+// それ以外の {{ は文字列の中なので、値全体を式として解析する。
+func classifyExprBraces(src string) (parseSrc string, braced, skipParse bool) {
+	s := strings.TrimSpace(src)
+	if !strings.HasPrefix(s, "{{") {
+		return src, false, false
+	}
+	if inner, ok := soleTemplate(s); ok {
+		return inner, true, false
+	}
+	return src, true, true
+}
+
+// soleTemplate は、s 全体が1つの {{ }} であるとき中身を返す。s は {{ で始まっている。
+func soleTemplate(s string) (string, bool) {
+	inner, end, ok := scanTemplate(s, len("{{"))
+	if !ok {
+		return "", false
+	}
+	if strings.TrimSpace(s[end:]) != "" {
+		return "", false
+	}
+	return inner, true
 }
 
 // envPlaceholder は ${...} の代わりに式へ入れる識別子。
