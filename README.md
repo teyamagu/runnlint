@@ -124,7 +124,7 @@ rules:
 
 `check.select` はドット区切りです。`*` は mapping の各値、または sequence の各要素です。`steps` が list でも map でも `steps.*` で各 step を指します。
 
-使える条件は `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`forbid` です。`key_matches` はキー名を見ます。map の step 名の規約に使えます。`where` で絞り込んでから判定します。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}` を使えます。
+使える条件は `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`forbid` です。`key_matches` はキー名を見ます。map の step 名の規約に使えます。`where` で絞り込んでから判定します。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}`、`{{ .rule }}` を使えます。
 
 ```yaml
 rules:
@@ -156,14 +156,14 @@ rules:
 | `step-shape` | main runner は 1 つ、`runner:` は単独 |
 | `http-request` | path、メソッド、`body` の media type |
 | `grpc-request` | `package.Service/Method`、`message` |
-| `db-request` | `query` |
+| `db-request` | 空でない `query` と、任意の `trace` |
 | `exec-request` | `command` と `shell` |
 | `ssh-request` | `command` |
 | `cdp-request` | `actions` とアクション名 |
 | `agent-request` | `prompt` |
 | `include-request` | `path` と `steps` の排他 |
 | `include-path` / `needs-path` / `local-path` | 参照先ファイルの存在 |
-| `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式。`test` と `bind` の中の `{{` はテンプレートにしない |
+| `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式。式の前に `${...}` を展開し、括弧の外の `#` から行末をコメントとして除く。`test` と `bind` の中の `{{` はテンプレートにしない。`bind` は文字列のほか、mapping、配列、数値も受ける |
 | `expr-braces` | 式フィールドを `{{ }}` で囲んでいないこと。`test` と `bind` は値全体を包んだときだけ |
 | `step-ref` | list は `steps[n]`、map は `steps.name`。未来の step は不可 |
 | `var-ref` | `vars.name` が `vars` か、include 元の `include.vars` にあること |
@@ -171,7 +171,7 @@ rules:
 | `previous-step` | 先頭 step の `previous` |
 | `defer-experimental` | `defer` は実験的機能 |
 | `included-unreferenced` | `if: included` の runbook が、走査した範囲のどこからも include されていない |
-| `unused-suppression` | 存在しないルールを書いた抑制コメントと、何も抑制しなかった抑制コメント |
+| `unused-suppression` | 存在しないルール、何も抑制しなかった抑制、複数行スカラーの中に書いた抑制、`disable-line` 以外の指示 |
 
 `require-desc`、`no-debug`、`loop-until-with-test` はデフォルトの宣言的ルールです。
 
@@ -183,6 +183,7 @@ rules:
 go test ./...
 go run ./cmd/runnlint --no-yamllint examples/valid
 go run ./cmd/runnlint --no-yamllint examples/bad/http-request.yml
+go run ./cmd/runnlint --no-yamllint --include-root examples examples/bad/included-unreferenced.yml
 ```
 
 `go test ./...` は、次も確認します。
@@ -193,7 +194,7 @@ go run ./cmd/runnlint --no-yamllint examples/bad/http-request.yml
 
 新しい安定版が出ると、`.go-version` と `go.mod` を上げるまでこのテストが失敗します。CI は先にその Go でテスト一式を実行するので、宣言を上げる前に互換性を確認できます。
 
-`examples/valid` は通る runbook です。HTTP と DB は `examples/valid/http.yml` です。`examples/bad` は既定ルールごとに1ファイルの検出例で、ファイル名がルール id です。ディレクトリ走査では `examples/bad` を無視します。ファイルを直接指定すると検査します。
+`examples/valid` は通る runbook です。HTTP と DB は `examples/valid/http.yml` です。`examples/bad` は既定ルールごとに1ファイルの検出例で、ファイル名がルール id です。ディレクトリ走査では `examples/bad` を無視します。ファイルを直接指定すると検査します。`included-unreferenced` だけは、ファイルを直接渡しただけでは判定しません。上の `--include-root examples` を付けたコマンドで出します。
 
 ## ライセンス
 

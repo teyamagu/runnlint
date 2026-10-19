@@ -1,4 +1,6 @@
 # include されたときだけ動く runbook なのに、examples のどこからも include されていない例。
+# ディレクトリ走査では examples/bad を無視する。ファイルを直接渡すと、このルールは判定しない。
+# 検出するときは --include-root examples を付けて、このファイルを渡す。
 desc: orphan included runbook
 if: included
 steps:

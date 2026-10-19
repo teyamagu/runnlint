@@ -136,7 +136,8 @@ rules:
     severity: info
 
   # --- 抑制コメント ---
-  # "# runnlint disable-line rule:<id>" のうち、存在しないルールを書いたもの、何も抑制しなかったもの。
+  # "# runnlint disable-line" のうち、存在しないルールを書いたもの、何も抑制しなかったもの、
+  # 複数行スカラーの中に書いたもの、disable-line 以外の指示。
   - id: unused-suppression
     uses: unused-suppression
     severity: warning

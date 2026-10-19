@@ -334,6 +334,45 @@ func TestInlineSuppressionBeforeBaseline(t *testing.T) {
 	}
 }
 
+// examples/bad/included-unreferenced.yml を直接渡したとき included-unreferenced が出ず、--include-root examples を足したときに出ることを確認する。
+func TestIncludedUnreferencedExampleCommand(t *testing.T) {
+	t.Chdir(moduleRoot(t))
+	path := "examples/bad/included-unreferenced.yml"
+	var stdout bytes.Buffer
+	code, err := Run(context.Background(), Options{Paths: []string{path}, NoYamllint: true, Stdout: &stdout})
+	if err != nil || code != 0 || stdout.Len() != 0 {
+		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
+	}
+	stdout.Reset()
+	code, err = Run(context.Background(), Options{
+		Paths:        []string{path},
+		IncludeRoots: []string{"examples"},
+		NoYamllint:   true,
+		Stdout:       &stdout,
+	})
+	if err != nil || code != 0 || strings.Count(stdout.String(), "[included-unreferenced]") != 1 || strings.Contains(stdout.String(), "[unused-suppression]") {
+		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
+	}
+}
+
+func moduleRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod が見つかりません")
+		}
+		dir = parent
+	}
+}
+
 // 別のツールの .runnlint.yaml があっても終了コード 2 で止まらず、警告を出してデフォルトで検査することを確認する。
 func TestForeignConfigIsSkipped(t *testing.T) {
 	dir := t.TempDir()

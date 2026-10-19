@@ -15,7 +15,7 @@ runnlint が runbook を検査するときの設定です。YAML で書き、同
 
 1 と 2 は runnlint だけが使う名前で、新しく置くときはこちらを使います。3 から 6 は従来の名前で、同じ名前の別のツールの設定ファイルと重なることがあります。そのため従来の名前のファイルは、runnlint のルールファイルの形のときだけ使います。トップレベルに未知のキーがある、型が違う、`version` が 1 でない、YAML として読めない、のどれかなら、標準エラーに `warning:` を出して読み飛ばし、次の候補（同じディレクトリの残りの名前、親ディレクトリ）を探します。従来の名前で書いた runnlint の設定は、これまでどおり読まれます。`rules` の項目の中など、トップレベルより下の未知のキーは runnlint の設定の書き損じとみなし、`warning:` を出したうえで読み込みます。
 
-1 と 2 の固有の名前と、`--config` で渡したファイルは読み飛ばしません。固有の名前は形が違えば終了コード `2` で失敗します。`--config` のファイルは後方互換のため、未知のキーがあっても `warning:` を出して読み込みます。
+1 と 2 の固有の名前と、`--config` で渡したファイルは読み飛ばしません。固有の名前は形が違えば終了コード `2` で失敗します。形の違いには、`version` が `1` でないことも含みます。`--config` のファイルは後方互換のため、未知のキーや `1` 以外の `version` があっても `warning:` を出して読み込みます。
 
 見つからなければ、バイナリに埋め込んだデフォルトを使います。中身は次で確認できます。
 
@@ -33,7 +33,7 @@ version: 1
 extends: default
 
 ignore:
-  - examples/bad.yml
+  - examples/bad
   - vendor/**
 
 yamllint:
@@ -52,7 +52,7 @@ rules:
 
 | フィールド | 意味 |
 | --- | --- |
-| `version` | いまは `1`。省略して継承すると、デフォルトの `1` が残ります。値の検査はしていません。 |
+| `version` | いまは `1` だけを受けます。省略すると、継承後にデフォルトの `1` が残ります。`1` 以外のとき、固有の名前は終了コード `2` で失敗し、従来の名前は `warning:` を出して読み飛ばします。`--config` で渡したファイルは `warning:` を出して読み込みます。 |
 | `extends` | `default` または省略でデフォルトを継承します。`none`（大文字小文字を問わない）で継承しません。それ以外の文字列も、いまは継承と同じです。 |
 | `ignore` | ディレクトリ走査で読み飛ばすパス。指定するとデフォルトの一覧の後ろに足します。キーを省略するとデフォルトのままです。 |
 | `yamllint` | 一般的な YAML 検査の委譲先。書いた項目だけを上書きします。 |
@@ -101,7 +101,7 @@ rules:
 
 | 書き方 | 例 |
 | --- | --- |
-| パスそのもの | `examples/bad.yml` |
+| パスそのもの | `examples/fixtures/openapi.yml` |
 | 末尾がディレクトリ | `vendor` は `vendor/...` を含む |
 | `*` と `?` | `*.gen.yml` はベース名にも一致する |
 | `**` | `vendor/**` は途中のディレクトリをまたぐ |
@@ -163,7 +163,7 @@ rules:
 | `step-shape` | error | step の main runner は1つ。`runner:` は他の runner と同じ step に書けない |
 | `http-request` | error | path、メソッド、`headers` / `body` / `useCookie` / `trace`。`/` で始まらない path は既定では見ない（下の `options`） |
 | `grpc-request` | error | `package.Service/Method`、`message` と `messages` の排他 |
-| `db-request` | error | `query` |
+| `db-request` | error | 空でない `query` と、任意の `trace` |
 | `exec-request` | error | `command`、`shell`、`stdin`、`background`、`liveOutput`、`env` |
 | `ssh-request` | error | `command` だけ |
 | `cdp-request` | error | `actions` とアクション名、引数 |
@@ -172,7 +172,7 @@ rules:
 | `include-path` | warning | include の path と、include runner の path がファイルとして存在すること |
 | `needs-path` | warning | `needs` の値がファイルとして存在すること |
 | `local-path` | warning | HTTP / gRPC / SSH runner の証明書や proto などのローカルパスが存在すること |
-| `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式。`test` と `bind` の式の中にある `{{` はテンプレートにしない |
+| `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式。式の前に値の `${...}` を展開し、括弧の外の `#` から行末をコメントとして除く。`test` と `bind` の式の中にある `{{` はテンプレートにしない。`bind` は文字列のほか、mapping、配列、数値も受け、中の文字列を式として検査する |
 | `expr-braces` | warning | 式として読むフィールドを `{{ }}` で包んでいないこと。`test` と `bind` は、値全体が `{{ }}` のときだけ。文字列の中の `{{` は対象外 |
 | `step-ref` | error | list は `steps[n]`、map は `steps.name`。まだ実行されていない step は参照できない。自分自身は参照できる |
 | `var-ref` | warning | `vars.name` が、その runbook の `vars` か、include 元の `include.vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
