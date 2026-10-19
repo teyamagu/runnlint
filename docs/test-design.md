@@ -30,14 +30,14 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 
 ## 組み込みルールと独自ルール
 
-デフォルト設定は、登録された組み込みルールをすべて有効にする。宣言的ルールは `uses` を持たない。`severity: off` のルールは診断を出さない。`var-ref` の `options.ignore` だけが組み込みルールの追加設定である。
+デフォルト設定は、登録された組み込みルールをすべて有効にする。宣言的ルールは `uses` を持たない。`severity: off` のルールは診断を出さない。`var-ref` の `options.ignore` と `http-request` の `options.require-leading-slash` が組み込みルールの追加設定である。
 
 | ID | 契約 | テスト |
 | --- | --- | --- |
 | RULE-01 | デフォルトの `uses` は登録済みの組み込みと一致し、宣言的ルールは `check` | `internal/rules/catalog_test.go` |
 | RULE-02 | 正常な HTTP、DB、map steps、動的 runner、inline include、アンカー | `lint_test.go` `TestValidRunbooks` `TestAnchorMerge` |
 | RULE-03 | 代表的な組み込みの検出と深刻度 | `lint_test.go` `TestRunnSpecificRules` |
-| RULE-04 | 未カバーだった組み込み。`unknown-key` と `x-`、`book-shape`、`require-steps`、`defer-experimental`、`ssh-request`、`cdp-request`、`agent-request`、`include-request`、`needs-path`、`local-path`、HTTP path の warning、自分自身の step 参照 | `internal/rules/builtin_test.go` |
+| RULE-04 | 未カバーだった組み込み。`unknown-key` と `x-`、`book-shape`、`require-steps`、`defer-experimental`、`ssh-request`、`cdp-request`、`agent-request`、`include-request`、`needs-path`、`local-path`、自分自身の step 参照 | `internal/rules/builtin_test.go` |
 | RULE-05 | `var-ref` の `options.ignore` と `severity: off`。`parent.vars` は include の外では警告 | 同 |
 | RULE-06 | デフォルトの `require-desc` と `no-debug` | 同 |
 | RULE-07 | 宣言的ルールの `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`one_of`、`min_len`、`max_len`、`where`、`forbid`、メッセージ、`steps.*`、壊れた正規表現 | `internal/rules/declare_test.go` `lint_test.go` `TestCustomRule` |
@@ -52,5 +52,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-16 | `included-unreferenced` は、走査範囲か `--include-root` の中にある `if: included`（`included == true`、`included && ...` を含む）の runbook が、どこからも include されていないときだけ出す。`||`、`!`、`if` 無し、動的な参照で照合しうるもの、直接渡しただけのファイルは出さない。ignore したファイルも参照元に数える | `internal/rules/includes_test.go`（`testdata/included`）、`internal/app/contract_test.go` |
 | RULE-17 | `# runnlint disable-line` は行末ならその行、コメント行なら次の空でもコメントでもない行の診断を、全ルール共通の層で消す。複数行スカラーの診断はキーの行で消せる。引用符とブロックの中の `#` は抑制ではない。未知のルール、yamllint のルール、未知の指示、何も消さない抑制は `unused-suppression`。off のルールは除く。baseline より先に効く | `internal/rules/suppress_test.go`、`internal/app/contract_test.go` |
 | RULE-18 | HTTP と gRPC の空の `headers`（`{}` と null）は受ける | `internal/rules/falsepositive_test.go` |
+| RULE-19 | `/` で始まらない HTTP の path は既定で診断しない。`options.require-leading-slash: true` のときだけ warning | 同 |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。

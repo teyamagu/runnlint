@@ -311,3 +311,32 @@ steps:
           body: null
 `, "http-request", "headers は mapping です")
 }
+
+// / で始まらない HTTP の path は runn が endpoint とつないで動くので、既定では http-request を出さないことを確認する。
+// options.require-leading-slash: true のときだけ warning を出す。
+func TestHTTPPathWithoutLeadingSlash(t *testing.T) {
+	src := `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - req:
+      graphql:
+        post:
+          body:
+            application/json:
+              query: "{ viewer { login } }"
+`
+	checkNoFalsePositive(t, []fpCase{{"graphql", "http-request", src}})
+	got := lintConfig(t, `
+rules:
+  - id: http-request
+    severity: error
+    options:
+      require-leading-slash: true
+`, src)
+	msgs := messagesOf(got, "http-request")
+	if len(msgs) != 1 || !strings.Contains(msgs[0], "graphql は / から始めます") || got[0].Severity != "warning" {
+		t.Fatalf("%+v", got)
+	}
+}

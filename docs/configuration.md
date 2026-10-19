@@ -155,7 +155,7 @@ rules:
 | `runner-config` | error | runner の種別判定と、種別ごとの設定キー |
 | `runner-defined` | error | step の runner が `runners` か、それより前の `runner:` で定義されていること |
 | `step-shape` | error | step の main runner は1つ。`runner:` は他の runner と同じ step に書けない |
-| `http-request` | error | path、メソッド、`headers` / `body` / `useCookie` / `trace`。`/` でも `://` でも始まらない path だけは warning |
+| `http-request` | error | path、メソッド、`headers` / `body` / `useCookie` / `trace`。`/` で始まらない path は既定では見ない（下の `options`） |
 | `grpc-request` | error | `package.Service/Method`、`message` と `messages` の排他 |
 | `db-request` | error | `query` |
 | `exec-request` | error | `command`、`shell`、`stdin`、`background`、`liveOutput`、`env` |
@@ -176,7 +176,7 @@ rules:
 | `included-unreferenced` | warning | トップレベルの `if` が `included`（`included == true` や `included && ...` を含む）の runbook が、走査した範囲のどこかから include されていること |
 | `unused-suppression` | warning | `# runnlint disable-line` のうち、存在しないルールを書いたもの、何も抑制しなかったもの、複数行スカラーの中に書いたもの、`disable-line` 以外の指示。書き方は README の「インライン抑制」 |
 
-`options` を読む組み込みルールは `var-ref` だけです。
+`options` を読む組み込みルールは `var-ref` と `http-request` です。
 
 ```yaml
 rules:
@@ -188,6 +188,16 @@ rules:
 ```
 
 `ignore` は文字列の配列です。ここに書いた名前は、`vars` にも `parent.vars` にも無くて警告しません。CLI や include 元から渡す変数向けです。
+
+`http-request` は `options.require-leading-slash` を読みます。`true` にすると、`/` でも `://` でも始まらない path（`graphql` など）を warning にします。runn は endpoint と path をつないで動かすので、既定では見ません。
+
+```yaml
+rules:
+  - id: http-request
+    severity: error
+    options:
+      require-leading-slash: true
+```
 
 ### included-unreferenced の判定範囲
 

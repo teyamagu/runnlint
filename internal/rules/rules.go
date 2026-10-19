@@ -189,3 +189,8 @@ func optionSet(opts map[string]any, key string) map[string]struct{} {
 	}
 	return out
 }
+
+func optionBool(opts map[string]any, key string) bool {
+	v, ok := opts[key].(bool)
+	return ok && v
+}

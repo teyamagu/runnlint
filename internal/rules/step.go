@@ -266,7 +266,8 @@ func checkHTTP(c *Context, v runbook.Value) {
 	path := v.Map[0]
 	if path.Key == "" {
 		c.Add(path.KeyNode, "HTTP の path が空です")
-	} else if !strings.Contains(path.Key, "{{") && !strings.HasPrefix(path.Key, "/") && !strings.Contains(path.Key, "://") {
+	} else if optionBool(c.Rule.Options, "require-leading-slash") && !runbook.ContainsTemplate(path.Key) && !strings.HasPrefix(path.Key, "/") && !strings.Contains(path.Key, "://") {
+		// runn は endpoint と path をつなぐので、graphql のような path も動く。揃えたいときだけ options で有効にする。
 		c.AddAt(finding.Warning, path.KeyNode, "HTTP の path %s は / から始めます", path.Key)
 	}
 	methods := path.Value
