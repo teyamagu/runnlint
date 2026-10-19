@@ -1,0 +1,21 @@
+# カバレッジ、コードとテストの比率、テスト時間のバッジを docs/ に書く。
+# main ではそのファイルを push する。閾値は置かない。
+coverage:
+  paths:
+    - coverage.out
+  badge:
+    path: docs/coverage.svg
+codeToTestRatio:
+  code:
+    - "**/*.go"
+    - "!**/*_test.go"
+  test:
+    - "**/*_test.go"
+  badge:
+    path: docs/ratio.svg
+testExecutionTime:
+  badge:
+    path: docs/time.svg
+push:
+  if: is_default_branch
+  message: "カバレッジのバッジを更新する [skip ci]"

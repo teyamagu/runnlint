@@ -1,4 +1,4 @@
-name: CI
+name: build
 
 on:
   push:
@@ -10,7 +10,8 @@ on:
     - cron: "17 0 * * 1"
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
   test:
@@ -26,4 +27,7 @@ jobs:
           go-version: stable
 
       - name: テスト
-        run: go test ./...
+        run: go test ./... -coverprofile=coverage.out
+
+      - name: カバレッジのバッジを更新する
+        uses: k1LoW/octocov-action@v1
