@@ -1,0 +1,96 @@
+name: runn follow
+
+on:
+  schedule:
+    # CI の週次テストのあとで、記法の差があれば取り込みの PR を作る。
+    - cron: "47 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  follow:
+    name: 記法の差を取り込み、修正 PR を作る
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v6
+
+      - name: 最新安定版の Go を導入
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: 最新の runn から記法定義を取り込む
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          go run ./cmd/runnfollow
+          if git diff --quiet -- internal/runnspec; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$(tr -d '[:space:]' < internal/runnspec/VERSION)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ルールと examples を確認する
+        id: verify
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          set +e
+          go test ./... > test.log 2>&1
+          code=$?
+          set -e
+          tail -n 80 test.log
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: 修正 PR を作る
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="${{ steps.sync.outputs.tag }}"
+          branch="follow-runn-${tag}"
+          open=$(gh pr list --state open --json headRefName --jq ".[] | select(.headRefName==\"${branch}\") | .headRefName")
+          if [ -n "$open" ]; then
+            echo "開いている PR があります: ${branch}"
+            exit 0
+          fi
+          if git ls-remote --heads origin "$branch" | grep -q .; then
+            echo "ブランチ ${branch} が既にあります"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add internal/runnspec/VERSION internal/runnspec/runbook.schema.yaml internal/runnspec/cdpfn.src
+          git commit -m "runn ${tag} のスキーマと CDP アクション定義を取り込む。"
+          git push -u origin HEAD
+
+          result="ルールと examples のテストは通っています。"
+          draft=()
+          if [ "${{ steps.verify.outputs.code }}" != "0" ]; then
+            result="ルールと examples のテストが失敗しています。スキーマに無い規則（loop の count、HTTP の body、runner の判定など）か、examples の修正が残っています。"
+            draft=(--draft)
+          fi
+          {
+            echo "## 概要"
+            echo
+            echo "runn ${tag} で \`runbook.schema.yaml\` または \`cdpfn.go\` が変わったので、取り込みを更新しました。"
+            echo
+            echo "$result"
+            echo
+            echo "タグだけが進み、この2ファイルが同じときは PR を作りません。パーサ上書きは自動では変えません。"
+            echo
+            echo "## テスト"
+            echo
+            echo '```'
+            tail -n 80 test.log
+            echo '```'
+          } > pr-body.md
+          gh pr create --title "runn ${tag} の記法定義に追従する" --body-file pr-body.md "${draft[@]}"

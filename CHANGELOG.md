@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- runn のスキーマと CDP アクション定義が変わったとき、取り込みを更新してルールと examples を確認し、修正 PR を作る。
 - 設定の `version`、`{{ .rule }}`、`db-request` の `trace`、式の `${...}` と行コメント、`bind` の値の形を文書に書く。`included-unreferenced` の検出例を再現するコマンドを書く。
 
 ## [0.1.3]

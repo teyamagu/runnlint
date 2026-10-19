@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,10 +18,10 @@ func TestFollowsRunnNotation(t *testing.T) {
 	pin := Version()
 	schemaPin := fetchText(t, rawURL(pin, "runbook.schema.yaml"))
 	cdpPin := fetchText(t, rawURL(pin, "cdpfn.go"))
-	if !bytes.Equal(canon(schemaPin), canon(SchemaYAML())) {
+	if !bytes.Equal(Canon(schemaPin), Canon(SchemaYAML())) {
 		t.Fatalf("取り込んだスキーマが runn %s の runbook.schema.yaml と一致しません", pin)
 	}
-	if !bytes.Equal(canon(cdpPin), canon(CDPSource())) {
+	if !bytes.Equal(Canon(cdpPin), Canon(CDPSource())) {
 		t.Fatalf("取り込んだ cdpfn.src が runn %s の cdpfn.go と一致しません", pin)
 	}
 
@@ -28,10 +30,10 @@ func TestFollowsRunnNotation(t *testing.T) {
 		return
 	}
 	var changed []string
-	if !bytes.Equal(canon(fetchText(t, rawURL(latest, "runbook.schema.yaml"))), canon(schemaPin)) {
+	if !bytes.Equal(Canon(fetchText(t, rawURL(latest, "runbook.schema.yaml"))), Canon(schemaPin)) {
 		changed = append(changed, "runbook.schema.yaml")
 	}
-	if !bytes.Equal(canon(fetchText(t, rawURL(latest, "cdpfn.go"))), canon(cdpPin)) {
+	if !bytes.Equal(Canon(fetchText(t, rawURL(latest, "cdpfn.go"))), Canon(cdpPin)) {
 		changed = append(changed, "cdpfn.go")
 	}
 	if len(changed) == 0 {
@@ -88,7 +90,47 @@ func fetchText(t *testing.T, url string) []byte {
 	return body
 }
 
-func canon(b []byte) []byte {
-	b = bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
-	return bytes.TrimRight(b, "\n")
+// 中身が同じ定義は差が無く、スキーマか CDP のどちらかが違うときは、そのファイル名だけが返ることを確認する。改行コードの違いは差にしないことを確認する。
+func TestChangedIgnoresNewlineAndSameBytes(t *testing.T) {
+	schema := []byte("a: 1\n")
+	cdp := []byte("var CDPFnMap\n")
+	if files := Changed(schema, cdp, []byte("a: 1\r\n"), cdp); len(files) != 0 {
+		t.Fatalf("改行を差にしています: %v", files)
+	}
+	files := Changed(schema, cdp, []byte("a: 2\n"), []byte("var CDPFnMap\r\n"))
+	if len(files) != 1 || files[0] != "runbook.schema.yaml" {
+		t.Fatalf("%v", files)
+	}
+	files = Changed(schema, cdp, schema, []byte("other\n"))
+	if len(files) != 1 || files[0] != "cdpfn.src" {
+		t.Fatalf("%v", files)
+	}
+}
+
+// WriteNotation がタグと2つの定義を、比較に使う形で書くことを確認する。空のタグや空の定義は失敗することを確認する。
+func TestWriteNotation(t *testing.T) {
+	dir := t.TempDir()
+	if err := WriteNotation(dir, " v9.9.9\n", []byte("a: 1\r\n"), []byte("cdp\n")); err != nil {
+		t.Fatal(err)
+	}
+	tag, err := os.ReadFile(filepath.Join(dir, "VERSION"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(tag) != "v9.9.9\n" {
+		t.Fatalf("VERSION = %q", tag)
+	}
+	schema, err := os.ReadFile(filepath.Join(dir, "runbook.schema.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(schema) != "a: 1\n" {
+		t.Fatalf("schema = %q", schema)
+	}
+	if err := WriteNotation(dir, " ", []byte("a: 1\n"), []byte("cdp\n")); err == nil {
+		t.Fatal("空のタグを受けています")
+	}
+	if err := WriteNotation(dir, "v1.0.0", []byte(" \n"), []byte("cdp\n")); err == nil {
+		t.Fatal("空のスキーマを受けています")
+	}
 }
