@@ -41,6 +41,31 @@ runnlint --version
 
 `included-unreferenced` は、ほかのファイルからの include を見るので、判定する範囲が決まっています。ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけを判定し、参照元はその範囲の YAML をすべて読みます。ファイルを1つだけ渡したときは判定しません。include 元が走査範囲の外にあるときは `--include-root` で足します。詳しくは [docs/configuration.md](docs/configuration.md#included-unreferenced-の判定範囲) です。
 
+### インライン抑制
+
+行ごとの診断は、YAML のコメントで抑制できます。書き方は yamllint の `# yamllint disable-line rule:...` に揃えています。
+
+```yaml
+steps:
+  - req:
+      /legacy:
+        get:
+          body: null
+    # コメントだけの行に書くと、次の行（空行とコメント行は飛ばす）に効く
+    # runnlint disable-line rule:var-ref -- include 元から渡される
+    test: current.res.status == vars.expected
+  # 行末に書くと、その行に効く
+  - dump: vars.legacy # runnlint disable-line rule:var-ref -- 理由
+  - dump: vars.legacy # runnlint disable-line -- ルールを省くと、その行のすべてのルール
+```
+
+- ルールは `rule:<id>` か `<id>` を、空白かカンマで区切って並べます。`--` から後ろは理由として読み飛ばします。ルールを省くとその行のすべてのルールを抑制します。範囲が広くなるので、理由を書いてください。
+- 組み込みルール、YAML だけで書いたルール、`included-unreferenced`、`parse` のすべてに効きます。行の無い、ファイル全体の診断は対象外です。yamllint の診断は `# yamllint disable-line` で抑制します。
+- 複数行のスカラー（`|` や `>`）の中の式の診断は、キーの行に出ます。抑制はキーの行の行末（`test: | # runnlint disable-line rule:expr-syntax`）か、その前の行に書きます。ブロックの中に書いたコメントは値の一部なので抑制になりません。なお、`test` などの式の中の `# ...` は、runn と同じくコメントとして取り除いてから検査します。
+- 存在しないルールを書いた抑制、何も抑制しなかった抑制、ブロックの中に書いた抑制、`disable-line` 以外の指示は、`unused-suppression`（warning）で知らせます。`severity: off` にしたルールを名指ししたものは知らせません。
+
+インライン抑制は baseline より先に効きます。抑制した診断は baseline に書かれず、`--baseline` で照合する前に取り除かれます。`unused-suppression` は普通の診断なので、baseline に入れることも、`severity: off` で止めることもできます。
+
 ### baseline
 
 既存の違反を受け入れたまま導入するには、いまの診断を baseline として書き出し、以後はそれを渡します。baseline にある診断は出さず、新しく増えた診断だけを出します。終了コードも、残った診断だけで決まります。
@@ -144,6 +169,7 @@ rules:
 | `previous-step` | 先頭 step の `previous` |
 | `defer-experimental` | `defer` は実験的機能 |
 | `included-unreferenced` | `if: included` の runbook が、走査した範囲のどこからも include されていない |
+| `unused-suppression` | 存在しないルールを書いた抑制コメントと、何も抑制しなかった抑制コメント |
 
 `require-desc`、`no-debug`、`loop-until-with-test` はデフォルトの宣言的ルールです。
 

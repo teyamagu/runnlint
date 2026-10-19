@@ -46,6 +46,9 @@ func run(args []string) int {
 	fs.BoolVar(&showVersion, "version", false, "バージョンを出力して終了する")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "使い方: runnlint [flags] [path...]\n\nrunn の runbook を検査します。一般的な YAML の検査は yamllint に委譲します。\n\n")
+		fmt.Fprintf(os.Stderr, "行の診断は YAML のコメントで抑制できます。行末ならその行、コメントだけの行なら次の行に効きます。\n")
+		fmt.Fprintf(os.Stderr, "  test: current.res.status == 200 # runnlint disable-line rule:expr-syntax -- 理由\n")
+		fmt.Fprintf(os.Stderr, "  # runnlint disable-line rule:var-ref,step-ref\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {

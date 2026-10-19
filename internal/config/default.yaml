@@ -135,6 +135,12 @@ rules:
     uses: defer-experimental
     severity: info
 
+  # --- 抑制コメント ---
+  # "# runnlint disable-line rule:<id>" のうち、存在しないルールを書いたもの、何も抑制しなかったもの。
+  - id: unused-suppression
+    uses: unused-suppression
+    severity: warning
+
   # --- YAML だけで書くルール ---
   # select はドット区切り。* は mapping の各値、または sequence の各要素。
   # steps が list でも map でも steps.* で各 step を指す。

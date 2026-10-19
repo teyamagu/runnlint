@@ -311,3 +311,25 @@ func TestIncludedUnreferencedConfigAndBaseline(t *testing.T) {
 		t.Fatalf("code = %d err = %v", code, err)
 	}
 }
+
+// インライン抑制は baseline より先に効くことを確認する。抑制した診断は baseline に書かれず、使われない抑制の unused-suppression は baseline で除ける。
+func TestInlineSuppressionBeforeBaseline(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"book.yml": "desc: d\nsteps:\n  - dump: vars.a # runnlint disable-line rule:var-ref\n  - dump: x # runnlint disable-line rule:var-ref\n",
+	})
+	if _, out := runText(t, Options{Paths: []string{"."}, WriteBaseline: "baseline.json"}); out != "" {
+		t.Fatalf("%s", out)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"rule": "var-ref"`) || !strings.Contains(string(raw), `"rule": "unused-suppression"`) {
+		t.Fatalf("%s", raw)
+	}
+	if code, out := runText(t, Options{Paths: []string{"."}, Baseline: "baseline.json"}); code != 0 || out != "" {
+		t.Fatalf("code = %d\n%s", code, out)
+	}
+}

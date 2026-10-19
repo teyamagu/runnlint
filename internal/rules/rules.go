@@ -84,7 +84,7 @@ func LintWith(filename string, src []byte, cfg *config.Config, refs *Refs) ([]fi
 		}}, false
 	}
 	doc.Book.SetLocation(filename, filepath.Dir(filename))
-	return lintDocument(doc, cfg, refs), doc.IsRunbook()
+	return applySuppressions(filename, src, lintDocument(doc, cfg, refs), cfg), doc.IsRunbook()
 }
 
 func lintDocument(doc *runbook.Document, cfg *config.Config, refs *Refs) []finding.Finding {

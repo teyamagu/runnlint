@@ -174,6 +174,7 @@ rules:
 | `previous-step` | warning | 先頭 step と book 直下では `previous` を使えない |
 | `defer-experimental` | info | `defer` は実験的機能 |
 | `included-unreferenced` | warning | トップレベルの `if` が `included`（`included == true` や `included && ...` を含む）の runbook が、走査した範囲のどこかから include されていること |
+| `unused-suppression` | warning | `# runnlint disable-line` のうち、存在しないルールを書いたもの、何も抑制しなかったもの、複数行スカラーの中に書いたもの、`disable-line` 以外の指示。書き方は README の「インライン抑制」 |
 
 `options` を読む組み込みルールは `var-ref` だけです。
 
