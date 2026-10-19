@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- 設定の `version`、`{{ .rule }}`、`db-request` の `trace`、式の `${...}` と行コメント、`bind` の値の形を文書に書く。`included-unreferenced` の検出例を再現するコマンドを書く。
+
 ## [0.1.3]
 
 ### 追加
