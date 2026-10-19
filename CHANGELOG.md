@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### 追加
+
+- `--write-baseline FILE` と `--baseline FILE`。既存の診断を記録し、新しく増えた診断だけを出す。照合はファイル・ルール ID・メッセージの件数で、行のずれに影響されない。
+- インライン抑制 `# runnlint disable-line [rule:<id>...] [-- 理由]`。行末ならその行、コメント行なら次の行の診断を消す。使われない抑制は `unused-suppression`（warning）で知らせる。
+- `included-unreferenced`（warning）。`if: included` の runbook が、走査した範囲のどこからも include されていないことを指摘する。参照元を探す範囲を足す `--include-root DIR`。
+- 設定ファイルの固有の名前 `.runnlint-runn.yaml` / `.runnlint-runn.yml`。従来の名前より先に探す。
+- `http-request` の `options.require-leading-slash`。
+
+### 変更
+
+- 式は、runn と同じく `${...}` を展開し、`#` の行コメントを取り除いてから解析する。未設定の環境変数やコメントで `expr-syntax` を出さない。
+- `{{ }}` の中の入れ子の括弧と波括弧で、式の終わりを読み違えない。
+- `bind` の値に mapping や配列、数値を書ける。中の文字列は式として検査する。
+- 空の `headers`（`{}` と null）を受ける。
+- `/` で始まらない HTTP の path は、既定では warning にしない。
+- `var-ref` は、include 元の `include.vars` で渡す変数を定義済みとする。include 元が見つからない `if: included` の runbook では `vars` を調べない。
+- 探索で見つけた `.runnlint.yaml` などが runnlint のルールファイルの形でないときは、警告を出して読み飛ばす。終了コード 2 で止まらない。
+
 ## [0.1.1]
 
 - 既定ルールごとの検出例を `examples/bad` に、通る runbook を `examples/valid` に置く。検出例のコメントは、壊れている箇所を日本語で書く。
