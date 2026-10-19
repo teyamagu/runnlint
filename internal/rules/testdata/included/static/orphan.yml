@@ -1,0 +1,5 @@
+# どこからも include されない。
+desc: orphan
+if: included
+steps:
+  - test: "true"

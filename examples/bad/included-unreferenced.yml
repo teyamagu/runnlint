@@ -1,0 +1,5 @@
+# include されたときだけ動く runbook なのに、examples のどこからも include されていない例。
+desc: orphan included runbook
+if: included
+steps:
+  - test: "true"

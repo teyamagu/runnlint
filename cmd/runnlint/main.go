@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/teyamagu/runnlint/internal/app"
 	"github.com/teyamagu/runnlint/internal/config"
@@ -23,6 +24,9 @@ func run(args []string) int {
 		configPath    string
 		format        string
 		noYamllint    bool
+		baselinePath  string
+		writeBaseline string
+		includeRoots  stringList
 		printConfig   bool
 		printYamllint bool
 		listRules     bool
@@ -33,12 +37,18 @@ func run(args []string) int {
 	fs.StringVar(&format, "format", "text", "出力形式 (text, json, github)")
 	fs.StringVar(&format, "f", "text", "出力形式 (text, json, github)")
 	fs.BoolVar(&noYamllint, "no-yamllint", false, "yamllint を実行しない")
+	fs.StringVar(&baselinePath, "baseline", "", "既存の診断を記録したファイル。一致する診断を出さない")
+	fs.Var(&includeRoots, "include-root", "include の参照元を探す追加のディレクトリ。繰り返し指定できる")
+	fs.StringVar(&writeBaseline, "write-baseline", "", "今回の診断を baseline として書き出して終了する")
 	fs.BoolVar(&printConfig, "print-config", false, "デフォルトのルールファイルを出力して終了する")
 	fs.BoolVar(&printYamllint, "print-yamllint-config", false, "組み込みの yamllint 設定を出力して終了する")
 	fs.BoolVar(&listRules, "list-rules", false, "有効なルール一覧を出力して終了する")
 	fs.BoolVar(&showVersion, "version", false, "バージョンを出力して終了する")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "使い方: runnlint [flags] [path...]\n\nrunn の runbook を検査します。一般的な YAML の検査は yamllint に委譲します。\n\n")
+		fmt.Fprintf(os.Stderr, "行の診断は YAML のコメントで抑制できます。行末ならその行、コメントだけの行なら次の行に効きます。\n")
+		fmt.Fprintf(os.Stderr, "  test: current.res.status == 200 # runnlint disable-line rule:expr-syntax -- 理由\n")
+		fmt.Fprintf(os.Stderr, "  # runnlint disable-line rule:var-ref,step-ref\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -75,6 +85,9 @@ func run(args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 2
 		}
+		for _, w := range cfg.Warnings {
+			fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		}
 		if err := rules.CheckConfig(cfg); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 2
@@ -90,10 +103,13 @@ func run(args []string) int {
 	}
 
 	code, err := app.Run(context.Background(), app.Options{
-		Paths:      fs.Args(),
-		Config:     configPath,
-		Format:     format,
-		NoYamllint: noYamllint,
+		Paths:         fs.Args(),
+		Config:        configPath,
+		Format:        format,
+		NoYamllint:    noYamllint,
+		Baseline:      baselinePath,
+		WriteBaseline: writeBaseline,
+		IncludeRoots:  includeRoots,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -103,4 +119,14 @@ func run(args []string) int {
 		return code
 	}
 	return code
+}
+
+// stringList は繰り返し指定できる文字列のフラグ。
+type stringList []string
+
+func (s *stringList) String() string { return strings.Join(*s, ",") }
+
+func (s *stringList) Set(v string) error {
+	*s = append(*s, v)
+	return nil
 }

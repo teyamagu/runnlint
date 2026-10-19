@@ -4,12 +4,18 @@ runnlint が runbook を検査するときの設定です。YAML で書き、同
 
 ## 探索
 
-`-c` / `--config` が無いとき、カレントディレクトリから親へ次の順で最初の1件を使います。
+`-c` / `--config` が無いとき、カレントディレクトリから親へ、各ディレクトリで次の順に探して最初の1件を使います。
 
-1. `.runnlint.yaml`
-2. `.runnlint.yml`
-3. `runnlint.yaml`
-4. `runnlint.yml`
+1. `.runnlint-runn.yaml`
+2. `.runnlint-runn.yml`
+3. `.runnlint.yaml`
+4. `.runnlint.yml`
+5. `runnlint.yaml`
+6. `runnlint.yml`
+
+1 と 2 は runnlint だけが使う名前で、新しく置くときはこちらを使います。3 から 6 は従来の名前で、同じ名前の別のツールの設定ファイルと重なることがあります。そのため従来の名前のファイルは、runnlint のルールファイルの形のときだけ使います。トップレベルに未知のキーがある、型が違う、`version` が 1 でない、YAML として読めない、のどれかなら、標準エラーに `warning:` を出して読み飛ばし、次の候補（同じディレクトリの残りの名前、親ディレクトリ）を探します。従来の名前で書いた runnlint の設定は、これまでどおり読まれます。`rules` の項目の中など、トップレベルより下の未知のキーは runnlint の設定の書き損じとみなし、`warning:` を出したうえで読み込みます。
+
+1 と 2 の固有の名前と、`--config` で渡したファイルは読み飛ばしません。固有の名前は形が違えば終了コード `2` で失敗します。`--config` のファイルは後方互換のため、未知のキーがあっても `warning:` を出して読み込みます。
 
 見つからなければ、バイナリに埋め込んだデフォルトを使います。中身は次で確認できます。
 
@@ -155,7 +161,7 @@ rules:
 | `runner-config` | error | runner の種別判定と、種別ごとの設定キー |
 | `runner-defined` | error | step の runner が `runners` か、それより前の `runner:` で定義されていること |
 | `step-shape` | error | step の main runner は1つ。`runner:` は他の runner と同じ step に書けない |
-| `http-request` | error | path、メソッド、`headers` / `body` / `useCookie` / `trace`。`/` でも `://` でも始まらない path だけは warning |
+| `http-request` | error | path、メソッド、`headers` / `body` / `useCookie` / `trace`。`/` で始まらない path は既定では見ない（下の `options`） |
 | `grpc-request` | error | `package.Service/Method`、`message` と `messages` の排他 |
 | `db-request` | error | `query` |
 | `exec-request` | error | `command`、`shell`、`stdin`、`background`、`liveOutput`、`env` |
@@ -169,12 +175,14 @@ rules:
 | `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式 |
 | `expr-braces` | warning | 式として読むフィールドを `{{ }}` で包んでいないこと |
 | `step-ref` | error | list は `steps[n]`、map は `steps.name`。まだ実行されていない step は参照できない。自分自身は参照できる |
-| `var-ref` | warning | `vars.name` が、その runbook の `vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
+| `var-ref` | warning | `vars.name` が、その runbook の `vars` か、include 元の `include.vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
 | `loop-index` | warning | `i` は `loop` の中だけ |
 | `previous-step` | warning | 先頭 step と book 直下では `previous` を使えない |
 | `defer-experimental` | info | `defer` は実験的機能 |
+| `included-unreferenced` | warning | トップレベルの `if` が `included`（`included == true` や `included && ...` を含む）の runbook が、走査した範囲のどこかから include されていること |
+| `unused-suppression` | warning | `# runnlint disable-line` のうち、存在しないルールを書いたもの、何も抑制しなかったもの、複数行スカラーの中に書いたもの、`disable-line` 以外の指示。書き方は README の「インライン抑制」 |
 
-`options` を読む組み込みルールは `var-ref` だけです。
+`options` を読む組み込みルールは `var-ref` と `http-request` です。
 
 ```yaml
 rules:
@@ -185,7 +193,40 @@ rules:
         - token
 ```
 
-`ignore` は文字列の配列です。ここに書いた名前は、`vars` にも `parent.vars` にも無くて警告しません。CLI や include 元から渡す変数向けです。
+`ignore` は文字列の配列です。ここに書いた名前は、`vars` にも `parent.vars` にも無くて警告しません。CLI から渡す変数向けです。
+
+include 元から渡す変数は、`ignore` に書かなくても数えます。lint の前に、走査したディレクトリと `--include-root`、引数のファイルから include を集めます（`included-unreferenced` と同じ範囲です）。
+
+- include 元が見つかったときは、どれかの include 元が `include.vars` で渡す変数を定義済みとします。`include.vars` が mapping でなく中身が分からないときは、そのファイルの `vars` を調べません。`parent.vars` も、include 元ごとに違うので調べません。
+- パスに `{{ }}` や `${...}` を含む include は、参照先になりうるファイルに、渡しうる変数として `include.vars` を足すだけです。include 元が見つかったとは扱いません。
+- include 元が見つからず、トップレベルの `if` が `included` の runbook は、include されて動く前提なので `vars` を調べません。ファイルを1つだけ渡したときに誤検知しないためです。
+- それ以外の runbook は、これまでどおり、その runbook の `vars` だけを見ます。
+
+`http-request` は `options.require-leading-slash` を読みます。`true` にすると、`/` でも `://` でも始まらない path（`graphql` など）を warning にします。runn は endpoint と path をつないで動かすので、既定では見ません。
+
+```yaml
+rules:
+  - id: http-request
+    severity: error
+    options:
+      require-leading-slash: true
+```
+
+### included-unreferenced の判定範囲
+
+`if: included` は「include されたときだけ動く」という意味です。どこからも include されていない runbook は実行されず、置き去りになっています。このルールは、ほかのファイルからの参照を見る唯一のルールです。参照元が lint の対象に入っていないと誤検知になるので、判定する範囲を次のように決めています。
+
+- 判定するのは、ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけです。ファイルを直接渡したときは、そのファイルが `--include-root` の中に無ければ判定しません。
+- 参照元として、走査したディレクトリと `--include-root` の中の YAML をすべて読みます。`ignore` で検査から外したファイルも参照元として読みます。直接渡したファイルも参照元になります。
+- include のパスは `include-path` と同じく、include する側のファイルのあるディレクトリから解決します。`include: path`、`include.path`、include runner の `path` を参照として数えます。
+- `{{ }}` や `${...}` を含むパスは値が分からないので、最後の動的な部分より後ろの文字列で終わるファイルをすべて「参照されている」とみなします。`{{ vars.name }}.yml` なら、すべての `.yml` が該当します。指摘しない側に倒すためです。
+- `if` が `included || ...` や `!included` のように単体でも真になりうる式は対象外です。`included && ...` は、include されたときにしか動かないので対象にします。
+
+include 元が走査範囲の外にあるときは、親ディレクトリを `--include-root` に足してください。
+
+```console
+runnlint --include-root . books/payments
+```
 
 デフォルトには、宣言的ルールの `require-desc`、`no-debug`、`loop-until-with-test` も入っています。これらに `uses` はありません。
 

@@ -20,6 +20,7 @@ func TestBadExamplesCoverDefaultRules(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	badDir := filepath.Join(root, "examples", "bad")
+	refs := refsFor(t, []string{filepath.Join(root, "examples")}, filepath.Join(root, "examples"))
 	entries, err := os.ReadDir(badDir)
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +36,7 @@ func TestBadExamplesCoverDefaultRules(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, is := Lint(rel, src, cfg)
+		got, is := LintWith(rel, src, cfg, refs)
 		if !is {
 			t.Fatalf("%s は runbook ではありません: %+v", rel, got)
 		}
@@ -63,6 +64,7 @@ func TestValidExamplesAreClean(t *testing.T) {
 		t.Fatal(err)
 	}
 	validDir := filepath.Join(root, "examples", "valid")
+	refs := refsFor(t, []string{filepath.Join(root, "examples")}, filepath.Join(root, "examples"))
 	entries, err := os.ReadDir(validDir)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +85,7 @@ func TestValidExamplesAreClean(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, is := Lint(rel, src, cfg)
+		got, is := LintWith(rel, src, cfg, refs)
 		if !is || len(got) > 0 {
 			t.Fatalf("%s: runbook=%v findings=%+v", rel, is, got)
 		}

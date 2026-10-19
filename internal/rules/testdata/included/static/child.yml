@@ -1,0 +1,5 @@
+# parent.yml から文字列で include される。
+desc: included child
+if: included
+steps:
+  - test: "true"

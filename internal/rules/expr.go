@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/file"
 	"github.com/expr-lang/expr/parser"
+	"github.com/expr-lang/expr/parser/lexer"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"gopkg.in/yaml.v3"
 )
@@ -55,7 +57,12 @@ func analyze(root *runbook.Book) []site {
 		if sites[i].err != nil || sites[i].braced {
 			continue
 		}
-		tree, err := parser.Parse(strings.TrimSpace(sites[i].src))
+		src := sites[i].src
+		if sites[i].kind == siteExpr {
+			// runn は test や if などの式だけ # コメントを取り除いてから評価する。{{ }} の中は取り除かない。
+			src = trimSharpComment(src)
+		}
+		tree, err := parser.Parse(strings.TrimSpace(src))
 		sites[i].tree = tree
 		sites[i].err = err
 	}
@@ -79,7 +86,7 @@ func walkIncludeStrings(v runbook.Value, b *runbook.Book, step *runbook.Step, si
 func walkStrings(v runbook.Value, b *runbook.Book, step *runbook.Step, sites *[]site) {
 	switch v.Kind {
 	case runbook.KindString:
-		inners, err := extractTemplates(v.String)
+		inners, err := extractTemplates(expandEnvPlaceholders(v.String))
 		if err != nil {
 			*sites = append(*sites, site{book: b, step: step, node: v.Node, src: v.String, field: "template", kind: siteTemplate, err: err})
 			return
@@ -130,7 +137,7 @@ func collectStepExprs(b *runbook.Book, step *runbook.Step, sites *[]site) {
 	}
 	if v, ok := step.Value.Get("bind"); ok && v.Kind == runbook.KindMap {
 		for _, e := range v.Map {
-			addExpr(sites, b, step, e.Value, "bind")
+			addBindExprs(sites, b, step, e.Value)
 		}
 	}
 	if loop, ok := step.Value.Get("loop"); ok && loop.Kind == runbook.KindMap {
@@ -139,6 +146,22 @@ func collectStepExprs(b *runbook.Book, step *runbook.Step, sites *[]site) {
 		}
 		if v, ok := loop.Get("count"); ok {
 			addCountExpr(sites, b, step, v)
+		}
+	}
+}
+
+// addBindExprs は runn の EvalAny と同じく、mapping と配列の中の文字列を式として集める。
+func addBindExprs(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value) {
+	switch v.Kind {
+	case runbook.KindString:
+		addExpr(sites, b, step, v, "bind")
+	case runbook.KindSeq:
+		for _, el := range v.Seq {
+			addBindExprs(sites, b, step, el)
+		}
+	case runbook.KindMap:
+		for _, e := range v.Map {
+			addBindExprs(sites, b, step, e.Value)
 		}
 	}
 }
@@ -154,16 +177,103 @@ func addExpr(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value
 	if v.Kind != runbook.KindString {
 		return
 	}
-	braced := strings.Contains(v.String, "{{")
+	src := expandEnvPlaceholders(v.String)
+	braced := strings.Contains(src, "{{")
 	*sites = append(*sites, site{
 		book:   b,
 		step:   step,
 		node:   v.Node,
-		src:    v.String,
+		src:    src,
 		field:  field,
 		kind:   siteExpr,
 		braced: braced,
 	})
+}
+
+// envPlaceholder は ${...} の代わりに式へ入れる識別子。
+const envPlaceholder = "__runnlint_env__"
+
+// expandEnvPlaceholders は、runn が YAML を読む前に値の ${...} を環境変数で展開するのに合わせる。
+// 値は実行環境で変わるので読まず、識別子に置き換える。未設定の変数でも構文検査は誤検知しない。
+// ${A:-${B}} のような入れ子は外側ごと1つに置き換える。閉じていない ${ はそのまま残す。
+func expandEnvPlaceholders(s string) string {
+	if !strings.Contains(s, "${") {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] == '$' && i+1 < len(s) && s[i+1] == '{' {
+			if end := envEnd(s, i+2); end > 0 {
+				b.WriteString(envPlaceholder)
+				i = end
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
+}
+
+func envEnd(s string, start int) int {
+	depth := 1
+	for j := start; j < len(s); j++ {
+		switch s[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return j + 1
+			}
+		}
+	}
+	return -1
+}
+
+// trimSharpComment は runn の trimDeprecatedComment と同じく、括弧の外の # から行末までを取り除く。
+// 文字列リテラルの中の # は字句解析で文字列になるので残る。( ) や { } の中の # はクロージャの引数として残す。
+// runn は字句の位置を文字数で数えたままバイト列を切るが、ここでは文字単位で切る。
+func trimSharpComment(cond string) string {
+	if !strings.Contains(cond, "#") || commentCol(cond) < 0 {
+		return cond
+	}
+	var kept []string
+	for _, line := range strings.Split(cond, "\n") {
+		if strings.HasPrefix(strings.Trim(line, " "), "#") {
+			continue
+		}
+		if col := commentCol(line); col > 0 {
+			kept = append(kept, strings.TrimRight(string([]rune(line)[:col]), " "))
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.TrimRight(strings.Join(kept, "\n"), "\n")
+}
+
+// commentCol はコメントとして扱う # の文字位置。無いか字句解析できなければ -1。
+func commentCol(s string) int {
+	tokens, err := lexer.Lex(file.NewSource(s))
+	if err != nil {
+		return -1
+	}
+	inBrace, inParen := false, false
+	for _, t := range tokens {
+		switch {
+		case t.Kind == lexer.Bracket && t.Value == "{":
+			inBrace = true
+		case t.Kind == lexer.Bracket && t.Value == "}":
+			inBrace = false
+		case t.Kind == lexer.Bracket && t.Value == "(":
+			inParen = true
+		case t.Kind == lexer.Bracket && t.Value == ")":
+			inParen = false
+		case t.Kind == lexer.Operator && t.Value == "#" && !inBrace && !inParen:
+			return t.From
+		}
+	}
+	return -1
 }
 
 func extractTemplates(s string) ([]string, error) {
@@ -182,8 +292,18 @@ func extractTemplates(s string) ([]string, error) {
 	return out, nil
 }
 
+// scanTemplate は start から閉じる }} を探す。引用符の中と、式の ( ) [ ] { } の中の }} は終わりにしない。
+// 括弧が釣り合わず見つからなければ、runn と同じく引用符の外で最初の }} を終わりとする。
 func scanTemplate(s string, start int) (string, int, bool) {
+	if inner, end, ok := scanTemplateDepth(s, start, true); ok {
+		return inner, end, true
+	}
+	return scanTemplateDepth(s, start, false)
+}
+
+func scanTemplateDepth(s string, start int, nested bool) (string, int, bool) {
 	in := byte(0)
+	depth := 0
 	for j := start; j < len(s); {
 		c := s[j]
 		if in != 0 {
@@ -197,13 +317,19 @@ func scanTemplate(s string, start int) (string, int, bool) {
 			j++
 			continue
 		}
-		if c == '"' || c == '\'' || c == '`' {
+		switch {
+		case c == '"' || c == '\'' || c == '`':
 			in = c
-			j++
-			continue
-		}
-		if c == '}' && j+1 < len(s) && s[j+1] == '}' {
+		case c == '}' && depth == 0 && j+1 < len(s) && s[j+1] == '}':
 			return s[start:j], j + 2, true
+		case !nested:
+		case c == '(' || c == '[' || c == '{':
+			depth++
+		case c == ')' || c == ']' || c == '}':
+			if depth == 0 {
+				return "", 0, false
+			}
+			depth--
 		}
 		j++
 	}

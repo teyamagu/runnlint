@@ -1,0 +1,5 @@
+# outside/parent.yml からだけ include される。static だけを走査すると参照元が見えない。
+desc: included from outside
+if: included
+steps:
+  - test: "true"

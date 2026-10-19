@@ -1,0 +1,5 @@
+# if: included なのに include 元が見つからない。渡される変数が分からないので var-ref を出さない。
+desc: solo
+if: included
+steps:
+  - dump: vars.fromParent

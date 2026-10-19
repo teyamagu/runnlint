@@ -30,12 +30,52 @@ runnlint path/to/runbooks/
 runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
+runnlint --baseline runnlint-baseline.json .
+runnlint --include-root . books/payments
 runnlint --list-rules
-runnlint --print-config > .runnlint.yaml
+runnlint --print-config > .runnlint-runn.yaml
 runnlint --version
 ```
 
 終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。
+
+`included-unreferenced` は、ほかのファイルからの include を見るので、判定する範囲が決まっています。ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけを判定し、参照元はその範囲の YAML をすべて読みます。ファイルを1つだけ渡したときは判定しません。include 元が走査範囲の外にあるときは `--include-root` で足します。詳しくは [docs/configuration.md](docs/configuration.md#included-unreferenced-の判定範囲) です。
+
+### インライン抑制
+
+行ごとの診断は、YAML のコメントで抑制できます。書き方は yamllint の `# yamllint disable-line rule:...` に揃えています。
+
+```yaml
+steps:
+  - req:
+      /legacy:
+        get:
+          body: null
+    # コメントだけの行に書くと、次の行（空行とコメント行は飛ばす）に効く
+    # runnlint disable-line rule:var-ref -- include 元から渡される
+    test: current.res.status == vars.expected
+  # 行末に書くと、その行に効く
+  - dump: vars.legacy # runnlint disable-line rule:var-ref -- 理由
+  - dump: vars.legacy # runnlint disable-line -- ルールを省くと、その行のすべてのルール
+```
+
+- ルールは `rule:<id>` か `<id>` を、空白かカンマで区切って並べます。`--` から後ろは理由として読み飛ばします。ルールを省くとその行のすべてのルールを抑制します。範囲が広くなるので、理由を書いてください。
+- 組み込みルール、YAML だけで書いたルール、`included-unreferenced`、`parse` のすべてに効きます。行の無い、ファイル全体の診断は対象外です。yamllint の診断は `# yamllint disable-line` で抑制します。
+- 複数行のスカラー（`|` や `>`）の中の式の診断は、キーの行に出ます。抑制はキーの行の行末（`test: | # runnlint disable-line rule:expr-syntax`）か、その前の行に書きます。ブロックの中に書いたコメントは値の一部なので抑制になりません。なお、`test` などの式の中の `# ...` は、runn と同じくコメントとして取り除いてから検査します。
+- 存在しないルールを書いた抑制、何も抑制しなかった抑制、ブロックの中に書いた抑制、`disable-line` 以外の指示は、`unused-suppression`（warning）で知らせます。`severity: off` にしたルールを名指ししたものは知らせません。
+
+インライン抑制は baseline より先に効きます。抑制した診断は baseline に書かれず、`--baseline` で照合する前に取り除かれます。`unused-suppression` は普通の診断なので、baseline に入れることも、`severity: off` で止めることもできます。
+
+### baseline
+
+既存の違反を受け入れたまま導入するには、いまの診断を baseline として書き出し、以後はそれを渡します。baseline にある診断は出さず、新しく増えた診断だけを出します。終了コードも、残った診断だけで決まります。
+
+```console
+runnlint --write-baseline runnlint-baseline.json .
+runnlint --baseline runnlint-baseline.json .
+```
+
+`--write-baseline` は error / warning / info をすべて書き出し、終了コード `0` で終わります。照合のキーは、baseline ファイルのあるディレクトリからの相対パス、ルール ID、メッセージです。行と列は使わないので、違反の前に行を足しても既存の違反のままです。同じキーの診断は件数で照合し、記録より増えた分を新しい診断として出します。直した違反が baseline に残っているときは件数を標準エラーに出すので、同じコマンドで書き直してください。
 
 製品の版は Semantic Versioning です。ルールファイルの `version: 1` とは別です。番号の上げ方と、タグからのリリースは [docs/versioning.md](docs/versioning.md) に書いてあります。
 
@@ -43,7 +83,9 @@ runnlint --version
 
 フィールドの意味、継承、宣言的ルールの書き方は [docs/configuration.md](docs/configuration.md) にまとめています。runn の更新への追従は [docs/runn-follow.md](docs/runn-follow.md) です。
 
-カレントディレクトリから親へ `.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` の順に探します。ファイルが無ければ組み込みのデフォルトを使います。`extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きします。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きします。
+カレントディレクトリから親へ `.runnlint-runn.yaml`、`.runnlint-runn.yml`、`.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` の順に探します。ファイルが無ければ組み込みのデフォルトを使います。`--config` でパスを直接指定することもできます。
+
+新しく置くときは、runnlint だけが使う `.runnlint-runn.yaml` にしてください。`.runnlint.yaml` などの従来の名前は同じ名前の別のツールと重なることがあるので、runnlint のルールファイルの形（トップレベルに未知のキーが無い、型が合う、`version` が 1）のときだけ使い、違えば `warning:` を出して読み飛ばします。従来の名前の runnlint の設定は、そのまま読まれます。`extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きします。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きします。
 
 ```yaml
 version: 1
@@ -124,10 +166,12 @@ rules:
 | `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式 |
 | `expr-braces` | 式フィールドを `{{ }}` で囲んでいないこと |
 | `step-ref` | list は `steps[n]`、map は `steps.name`。未来の step は不可 |
-| `var-ref` | `vars.name` が `vars` にあること |
+| `var-ref` | `vars.name` が `vars` か、include 元の `include.vars` にあること |
 | `loop-index` | `i` は `loop` の中だけ |
 | `previous-step` | 先頭 step の `previous` |
 | `defer-experimental` | `defer` は実験的機能 |
+| `included-unreferenced` | `if: included` の runbook が、走査した範囲のどこからも include されていない |
+| `unused-suppression` | 存在しないルールを書いた抑制コメントと、何も抑制しなかった抑制コメント |
 
 `require-desc`、`no-debug`、`loop-until-with-test` はデフォルトの宣言的ルールです。
 

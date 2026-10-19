@@ -1,0 +1,12 @@
+desc: vars を渡して include する
+vars:
+  base: https://example.com
+steps:
+  - include:
+      path: child.yml
+      vars:
+        token: abc
+  - include:
+      path: child.yml
+      vars:
+        user: alice

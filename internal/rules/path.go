@@ -2,7 +2,6 @@ package rules
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/teyamagu/runnlint/internal/runbook"
@@ -78,22 +77,11 @@ func checkExists(c *Context, b *runbook.Book, v runbook.Value) {
 	if v.Kind != runbook.KindString {
 		return
 	}
-	s := strings.TrimSpace(v.String)
-	if s == "" || runbook.ContainsTemplate(s) {
+	path, ok := resolveLocal(b, v.String)
+	if !ok {
 		return
-	}
-	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
-		return
-	}
-	path := s
-	if !filepath.IsAbs(path) {
-		dir := b.Dir
-		if dir == "" {
-			dir = "."
-		}
-		path = filepath.Join(dir, s)
 	}
 	if _, err := os.Stat(path); err != nil {
-		c.Add(v.Node, "ファイル %s が見つかりません", s)
+		c.Add(v.Node, "ファイル %s が見つかりません", strings.TrimSpace(v.String))
 	}
 }

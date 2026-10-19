@@ -1,0 +1,10 @@
+desc: include する側
+runners:
+  inc:
+    path: runner-child.yml
+steps:
+  - include: child.yml
+  - include:
+      path: ./nested/../with-vars.yml
+      vars:
+        token: abc

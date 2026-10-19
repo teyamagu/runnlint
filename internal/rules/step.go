@@ -85,11 +85,7 @@ func checkBind(c *Context, v runbook.Value) {
 	if len(v.Map) == 0 {
 		c.Add(v.Node, "bind が空です")
 	}
-	for _, e := range v.Map {
-		if e.Value.Kind != runbook.KindString {
-			c.Add(e.Value.Node, "bind.%s は式です", e.Key)
-		}
-	}
+	// 値は文字列の式に限らない。runn は mapping と配列を再帰的に評価し、それ以外はそのまま束縛する。
 }
 
 func checkStepRunners(c *Context, b *runbook.Book, step runbook.Step) {
@@ -270,7 +266,8 @@ func checkHTTP(c *Context, v runbook.Value) {
 	path := v.Map[0]
 	if path.Key == "" {
 		c.Add(path.KeyNode, "HTTP の path が空です")
-	} else if !strings.Contains(path.Key, "{{") && !strings.HasPrefix(path.Key, "/") && !strings.Contains(path.Key, "://") {
+	} else if optionBool(c.Rule.Options, "require-leading-slash") && !runbook.ContainsTemplate(path.Key) && !strings.HasPrefix(path.Key, "/") && !strings.Contains(path.Key, "://") {
+		// runn は endpoint と path をつなぐので、graphql のような path も動く。揃えたいときだけ options で有効にする。
 		c.AddAt(finding.Warning, path.KeyNode, "HTTP の path %s は / から始めます", path.Key)
 	}
 	methods := path.Value
@@ -304,6 +301,10 @@ func checkHTTP(c *Context, v runbook.Value) {
 
 func checkHeaders(c *Context, v runbook.Value) {
 	if v.Kind == runbook.KindString && strings.Contains(v.String, "{{") {
+		return
+	}
+	if v.Kind == runbook.KindNull {
+		// headers: だけで値を書かないのは、ヘッダーなしと同じ。
 		return
 	}
 	if v.Kind != runbook.KindMap {

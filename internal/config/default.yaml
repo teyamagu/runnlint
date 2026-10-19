@@ -1,5 +1,5 @@
 # runnlint のデフォルトルール。
-# プロジェクト直下に .runnlint.yaml を置くと、この設定を継承して上書きできる。
+# プロジェクト直下に .runnlint-runn.yaml（従来の .runnlint.yaml も可）を置くと、この設定を継承して上書きできる。
 # extends: none にすると継承しない。
 version: 1
 
@@ -96,6 +96,12 @@ rules:
     uses: local-path
     severity: warning
 
+  # if: included の runbook が、走査した範囲のどこからも include されていないこと。
+  # ディレクトリを走査したときと、--include-root の中のファイルだけを判定する。
+  - id: included-unreferenced
+    uses: included-unreferenced
+    severity: warning
+
   # --- 式と参照 ---
   - id: expr-syntax
     uses: expr-syntax
@@ -112,7 +118,7 @@ rules:
   - id: var-ref
     uses: var-ref
     severity: warning
-    # CLI や include 元から渡す変数はここに書くと警告しない。
+    # include 元の include.vars で渡す変数は自動で数える。CLI から渡す変数はここに書くと警告しない。
     # options:
     #   ignore:
     #     - token
@@ -128,6 +134,12 @@ rules:
   - id: defer-experimental
     uses: defer-experimental
     severity: info
+
+  # --- 抑制コメント ---
+  # "# runnlint disable-line rule:<id>" のうち、存在しないルールを書いたもの、何も抑制しなかったもの。
+  - id: unused-suppression
+    uses: unused-suppression
+    severity: warning
 
   # --- YAML だけで書くルール ---
   # select はドット区切り。* は mapping の各値、または sequence の各要素。

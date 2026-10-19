@@ -150,22 +150,6 @@ steps:
 			rule: "local-path",
 			sev:  finding.Warning,
 		},
-		{
-			// path が login の HTTP step を lint したとき、http-request が warning で出ることを確認する。
-			name: "http path warning",
-			src: `
-desc: x
-runners:
-  req: https://example.com
-steps:
-  - req:
-      login:
-        get:
-          body: null
-`,
-			rule: "http-request",
-			sev:  finding.Warning,
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
