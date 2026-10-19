@@ -2,8 +2,10 @@
 package config
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,7 +28,19 @@ type Config struct {
 
 	// SourceDir は設定ファイルがあるディレクトリ。空ならカレントディレクトリ。
 	SourceDir string `yaml:"-"`
+	// Warnings は読み込みを止めるほどではない設定の問題。標準エラーに出す。
+	Warnings []string `yaml:"-"`
 }
+
+// UniqueName は runnlint だけが使う設定ファイル名。探索では最初に探す。
+const UniqueName = ".runnlint-runn.yaml"
+
+// 探索するファイル名。固有の名前を先に、従来の名前を後に探す。
+// 従来の名前は同名の別ツールと重なるので、runnlint のルールファイルの形でなければ読み飛ばす。
+var (
+	uniqueNames = []string{UniqueName, ".runnlint-runn.yml"}
+	legacyNames = []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"}
+)
 
 // Yamllint は汎用 YAML lint の委譲先。
 type Yamllint struct {
@@ -129,15 +143,25 @@ func Load(path string) (*Config, error) {
 	if err := base.Validate(); err != nil {
 		return nil, fmt.Errorf("デフォルトルールが不正です: %w", err)
 	}
-	if path == "" {
-		path = discover()
+	var warnings []string
+	explicit := path != ""
+	if !explicit {
+		path, warnings = discover()
 	}
 	if path == "" {
+		base.Warnings = warnings
 		return base, nil
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("ルールファイルを読めません: %w", err)
+	}
+	if err := checkShape(raw); err != nil {
+		if !explicit {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		// --config で渡したファイルは、未知のキーがあっても従来どおり読む。
+		warnings = append(warnings, fmt.Sprintf("%s: %v", path, err))
 	}
 	user, err := parseBytes(raw, filepath.Dir(path))
 	if err != nil {
@@ -152,7 +176,25 @@ func Load(path string) (*Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	cfg.Warnings = warnings
 	return cfg, nil
+}
+
+// checkShape は raw が runnlint のルールファイルの形か確かめる。未知のキー、型の違い、未知の version は失敗。
+func checkShape(raw []byte) error {
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	dec.KnownFields(true)
+	var cfg Config
+	if err := dec.Decode(&cfg); err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return fmt.Errorf("runnlint のルールファイルの形ではありません: %w", err)
+	}
+	if cfg.Version != 0 && cfg.Version != 1 {
+		return fmt.Errorf("runnlint のルールファイルの version は 1 です (version: %d)", cfg.Version)
+	}
+	return nil
 }
 
 func mustDefault() []byte {
@@ -358,21 +400,39 @@ func globMatch(pattern, path string) bool {
 	return re.MatchString(path)
 }
 
-func discover() string {
+// discover はカレントディレクトリから親へルールファイルを探す。
+// 従来の名前で runnlint の形でないファイルは、警告を残して読み飛ばす。
+func discover() (string, []string) {
 	dir, err := os.Getwd()
 	if err != nil {
-		return ""
+		return "", nil
 	}
+	var warnings []string
 	for {
-		for _, name := range []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"} {
+		for _, name := range uniqueNames {
 			candidate := filepath.Join(dir, name)
 			if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
-				return candidate
+				return candidate, warnings
 			}
+		}
+		for _, name := range legacyNames {
+			candidate := filepath.Join(dir, name)
+			st, err := os.Stat(candidate)
+			if err != nil || st.IsDir() {
+				continue
+			}
+			raw, err := os.ReadFile(candidate)
+			if err == nil {
+				err = checkShape(raw)
+			}
+			if err == nil {
+				return candidate, warnings
+			}
+			warnings = append(warnings, fmt.Sprintf("%s を読み飛ばします。別のツールの設定ファイルかもしれません (%v)。runnlint の設定は %s に置くか、--config で指定します", candidate, err, UniqueName))
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return ""
+			return "", warnings
 		}
 		dir = parent
 	}

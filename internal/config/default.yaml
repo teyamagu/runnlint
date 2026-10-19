@@ -1,5 +1,5 @@
 # runnlint のデフォルトルール。
-# プロジェクト直下に .runnlint.yaml を置くと、この設定を継承して上書きできる。
+# プロジェクト直下に .runnlint-runn.yaml（従来の .runnlint.yaml も可）を置くと、この設定を継承して上書きできる。
 # extends: none にすると継承しない。
 version: 1
 

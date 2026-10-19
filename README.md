@@ -33,7 +33,7 @@ runnlint --no-yamllint .
 runnlint --baseline runnlint-baseline.json .
 runnlint --include-root . books/payments
 runnlint --list-rules
-runnlint --print-config > .runnlint.yaml
+runnlint --print-config > .runnlint-runn.yaml
 runnlint --version
 ```
 
@@ -83,7 +83,9 @@ runnlint --baseline runnlint-baseline.json .
 
 フィールドの意味、継承、宣言的ルールの書き方は [docs/configuration.md](docs/configuration.md) にまとめています。runn の更新への追従は [docs/runn-follow.md](docs/runn-follow.md) です。
 
-カレントディレクトリから親へ `.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` の順に探します。ファイルが無ければ組み込みのデフォルトを使います。`extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きします。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きします。
+カレントディレクトリから親へ `.runnlint-runn.yaml`、`.runnlint-runn.yml`、`.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` の順に探します。ファイルが無ければ組み込みのデフォルトを使います。`--config` でパスを直接指定することもできます。
+
+新しく置くときは、runnlint だけが使う `.runnlint-runn.yaml` にしてください。`.runnlint.yaml` などの従来の名前は同じ名前の別のツールと重なることがあるので、runnlint のルールファイルの形（未知のキーが無い、`version` が 1）のときだけ使い、違えば `warning:` を出して読み飛ばします。従来の名前の runnlint の設定は、そのまま読まれます。`extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きします。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きします。
 
 ```yaml
 version: 1

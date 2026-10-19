@@ -85,6 +85,9 @@ func run(args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 2
 		}
+		for _, w := range cfg.Warnings {
+			fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		}
 		if err := rules.CheckConfig(cfg); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 2

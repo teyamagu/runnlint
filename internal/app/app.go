@@ -50,6 +50,9 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	if err != nil {
 		return 2, err
 	}
+	for _, w := range cfg.Warnings {
+		fmt.Fprintf(opt.Stderr, "warning: %s\n", w)
+	}
 	if err := rules.CheckConfig(cfg); err != nil {
 		return 2, err
 	}

@@ -333,3 +333,18 @@ func TestInlineSuppressionBeforeBaseline(t *testing.T) {
 		t.Fatalf("code = %d\n%s", code, out)
 	}
 }
+
+// 別のツールの .runnlint.yaml があっても終了コード 2 で止まらず、警告を出してデフォルトで検査することを確認する。
+func TestForeignConfigIsSkipped(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		".runnlint.yaml": "linters:\n  enable: [all]\n",
+		"book.yml":       "desc: d\nsteps:\n  - test: \"true\"\n",
+	})
+	var stdout, stderr bytes.Buffer
+	code, err := Run(context.Background(), Options{Paths: []string{"."}, NoYamllint: true, Stdout: &stdout, Stderr: &stderr})
+	if err != nil || code != 0 || !strings.Contains(stderr.String(), "warning: ") || !strings.Contains(stderr.String(), ".runnlint-runn.yaml") {
+		t.Fatalf("code = %d err = %v\n%s", code, err, stderr.String())
+	}
+}
