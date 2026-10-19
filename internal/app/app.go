@@ -3,11 +3,13 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 
+	"github.com/teyamagu/runnlint/internal/baseline"
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/finding"
 	"github.com/teyamagu/runnlint/internal/report"
@@ -21,8 +23,12 @@ type Options struct {
 	Config     string
 	Format     string
 	NoYamllint bool
-	Stdout     io.Writer
-	Stderr     io.Writer
+	// Baseline は既存の診断を記録したファイル。一致する診断は出さない。
+	Baseline string
+	// WriteBaseline は今回の診断をすべて書き出すファイル。書いたら終了コード 0 で終える。
+	WriteBaseline string
+	Stdout        io.Writer
+	Stderr        io.Writer
 }
 
 var rootKeyRe = regexp.MustCompile(`(?m)^(?:steps|runners):`)
@@ -44,6 +50,13 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	}
 	if err := rules.CheckConfig(cfg); err != nil {
 		return 2, err
+	}
+	var base *baseline.Baseline
+	if opt.Baseline != "" && opt.WriteBaseline == "" {
+		base, err = baseline.Load(opt.Baseline)
+		if err != nil {
+			return 2, err
+		}
 	}
 	paths := opt.Paths
 	if len(paths) == 0 {
@@ -74,6 +87,24 @@ func Run(ctx context.Context, opt Options) (int, error) {
 			return 2, err
 		}
 		findings = append(findings, extra...)
+	}
+	if opt.WriteBaseline != "" {
+		if err := baseline.Write(opt.WriteBaseline, findings); err != nil {
+			return 2, err
+		}
+		fmt.Fprintf(opt.Stderr, "baseline %s に %d 件の診断を書きました\n", opt.WriteBaseline, len(findings))
+		return 0, nil
+	}
+	if base != nil {
+		res := base.Filter(findings)
+		findings = res.Findings
+		if res.Suppressed > 0 || res.Stale > 0 {
+			fmt.Fprintf(opt.Stderr, "baseline %s: 既存の %d 件を除きました", opt.Baseline, res.Suppressed)
+			if res.Stale > 0 {
+				fmt.Fprintf(opt.Stderr, "。%d 件は解消済みです。--write-baseline で更新できます", res.Stale)
+			}
+			fmt.Fprintln(opt.Stderr)
+		}
 	}
 	if err := report.Write(opt.Stdout, opt.Format, findings); err != nil {
 		return 2, err

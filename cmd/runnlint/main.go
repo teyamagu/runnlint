@@ -23,6 +23,8 @@ func run(args []string) int {
 		configPath    string
 		format        string
 		noYamllint    bool
+		baselinePath  string
+		writeBaseline string
 		printConfig   bool
 		printYamllint bool
 		listRules     bool
@@ -33,6 +35,8 @@ func run(args []string) int {
 	fs.StringVar(&format, "format", "text", "出力形式 (text, json, github)")
 	fs.StringVar(&format, "f", "text", "出力形式 (text, json, github)")
 	fs.BoolVar(&noYamllint, "no-yamllint", false, "yamllint を実行しない")
+	fs.StringVar(&baselinePath, "baseline", "", "既存の診断を記録したファイル。一致する診断を出さない")
+	fs.StringVar(&writeBaseline, "write-baseline", "", "今回の診断を baseline として書き出して終了する")
 	fs.BoolVar(&printConfig, "print-config", false, "デフォルトのルールファイルを出力して終了する")
 	fs.BoolVar(&printYamllint, "print-yamllint-config", false, "組み込みの yamllint 設定を出力して終了する")
 	fs.BoolVar(&listRules, "list-rules", false, "有効なルール一覧を出力して終了する")
@@ -90,10 +94,12 @@ func run(args []string) int {
 	}
 
 	code, err := app.Run(context.Background(), app.Options{
-		Paths:      fs.Args(),
-		Config:     configPath,
-		Format:     format,
-		NoYamllint: noYamllint,
+		Paths:         fs.Args(),
+		Config:        configPath,
+		Format:        format,
+		NoYamllint:    noYamllint,
+		Baseline:      baselinePath,
+		WriteBaseline: writeBaseline,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

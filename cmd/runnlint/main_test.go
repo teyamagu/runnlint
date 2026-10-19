@@ -136,3 +136,21 @@ func TestCommandExitCodes(t *testing.T) {
 		t.Fatalf("stderr = %s", stderr)
 	}
 }
+
+// --write-baseline で書き出したファイルを --baseline に渡すと、既存の error が出ず終了コードが 0 になることを確認する。
+func TestBaselineFlags(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	bad := []byte("desc: bad\nsteps:\n  - nope:\n      query: SELECT 1\n")
+	if err := os.WriteFile(filepath.Join(dir, "bad.yml"), bad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := capture(t, []string{"--no-yamllint", "--write-baseline", "baseline.json", "bad.yml"})
+	if code != 0 || stdout != "" || !strings.Contains(stderr, "baseline.json") {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+	code, stdout, stderr = capture(t, []string{"--no-yamllint", "--baseline", "baseline.json", "bad.yml"})
+	if code != 0 || stdout != "" {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+}

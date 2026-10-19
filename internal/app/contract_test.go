@@ -157,3 +157,66 @@ func TestRunFailures(t *testing.T) {
 		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
 	}
 }
+
+// --write-baseline で既存の診断を書き出したあと --baseline を渡すと、既存の診断は出ず終了コードが 0 になることを確認する。新しい違反を足すと、その診断だけが出て 1 になることを確認する。
+func TestBaselineReportsOnlyNewFindings(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	bad := "desc: bad\nsteps:\n  - nope:\n      query: SELECT 1\n"
+	if err := os.WriteFile(filepath.Join(dir, "bad.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code, err := Run(context.Background(), Options{
+		Paths:         []string{"."},
+		NoYamllint:    true,
+		WriteBaseline: "runnlint-baseline.json",
+		Stdout:        &stdout,
+		Stderr:        &stderr,
+	})
+	if err != nil || code != 0 {
+		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "runnlint-baseline.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code, err = Run(context.Background(), Options{
+		Paths:      []string{"."},
+		NoYamllint: true,
+		Baseline:   "runnlint-baseline.json",
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+	})
+	if err != nil || code != 0 || stdout.Len() != 0 || !bytes.Contains(stderr.Bytes(), []byte("baseline")) {
+		t.Fatalf("code = %d err = %v\nstdout:\n%s\nstderr:\n%s", code, err, stdout.String(), stderr.String())
+	}
+
+	// 先頭に行を足して既存の違反の行をずらし、新しい違反を足す。
+	bad = "# shifted\n" + bad + "  - other:\n      query: SELECT 2\n"
+	if err := os.WriteFile(filepath.Join(dir, "bad.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	code, err = Run(context.Background(), Options{
+		Paths:      []string{"."},
+		NoYamllint: true,
+		Baseline:   "runnlint-baseline.json",
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+	})
+	if err != nil || code != 1 || bytes.Contains(stdout.Bytes(), []byte("nope")) || !bytes.Contains(stdout.Bytes(), []byte("other")) {
+		t.Fatalf("code = %d err = %v\n%s", code, err, stdout.String())
+	}
+}
+
+// 存在しない baseline を渡すと、終了コード 2 で失敗することを確認する。
+func TestMissingBaselineFails(t *testing.T) {
+	t.Chdir(t.TempDir())
+	code, err := Run(context.Background(), Options{Paths: []string{"."}, NoYamllint: true, Baseline: "missing.json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}})
+	if err == nil || code != 2 {
+		t.Fatalf("code = %d err = %v", code, err)
+	}
+}

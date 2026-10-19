@@ -30,12 +30,24 @@ runnlint path/to/runbooks/
 runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
+runnlint --baseline runnlint-baseline.json .
 runnlint --list-rules
 runnlint --print-config > .runnlint.yaml
 runnlint --version
 ```
 
 終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。
+
+### baseline
+
+既存の違反を受け入れたまま導入するには、いまの診断を baseline として書き出し、以後はそれを渡します。baseline にある診断は出さず、新しく増えた診断だけを出します。終了コードも、残った診断だけで決まります。
+
+```console
+runnlint --write-baseline runnlint-baseline.json .
+runnlint --baseline runnlint-baseline.json .
+```
+
+`--write-baseline` は error / warning / info をすべて書き出し、終了コード `0` で終わります。照合のキーは、baseline ファイルのあるディレクトリからの相対パス、ルール ID、メッセージです。行と列は使わないので、違反の前に行を足しても既存の違反のままです。同じキーの診断は件数で照合し、記録より増えた分を新しい診断として出します。直した違反が baseline に残っているときは件数を標準エラーに出すので、同じコマンドで書き直してください。
 
 製品の版は Semantic Versioning です。ルールファイルの `version: 1` とは別です。番号の上げ方と、タグからのリリースは [docs/versioning.md](docs/versioning.md) に書いてあります。
 

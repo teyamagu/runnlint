@@ -24,6 +24,7 @@
 | BIN-12 | スキーマと `cdpfn.go` からキーと CDP アクションを読む。最新リリースとの差で失敗する | `internal/runnspec` |
 | BIN-13 | Go の最新安定版と、依存ライセンス | `internal/gotoolchain`、`internal/license` |
 | BIN-14 | 製品バージョンは semver。`--version` は `runnlint X.Y.Z`。変更履歴にその節がある | `internal/version`、`cmd/runnlint/main_test.go` |
+| BIN-15 | `--write-baseline` は全診断を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の診断を出さない。新しい診断だけで終了コードを決める。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
 
 BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。
 
