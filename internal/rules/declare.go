@@ -10,12 +10,14 @@ import (
 
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/runbook"
+	"gopkg.in/yaml.v3"
 )
 
 type match struct {
-	value runbook.Value
-	key   string
-	path  string
+	value   runbook.Value
+	keyNode *yaml.Node
+	key     string
+	path    string
 }
 
 func runCheck(c *Context) {
@@ -31,6 +33,16 @@ func runCheck(c *Context) {
 	notRe, err := compileRe(check.NotMatch)
 	if err != nil {
 		c.Add(c.Doc.Root.Node, "not_matches の正規表現が不正です: %s", err.Error())
+		return
+	}
+	keyRe, err := compileRe(check.KeyMatches)
+	if err != nil {
+		c.Add(c.Doc.Root.Node, "key_matches の正規表現が不正です: %s", err.Error())
+		return
+	}
+	keyNotRe, err := compileRe(check.KeyNotMatch)
+	if err != nil {
+		c.Add(c.Doc.Root.Node, "key_not_matches の正規表現が不正です: %s", err.Error())
 		return
 	}
 	var whereRe []*regexp.Regexp
@@ -64,8 +76,12 @@ func runCheck(c *Context) {
 			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, "条件に一致しました"))
 			continue
 		}
-		if msg, ok := violate(m.value, check, matchRe, notRe); ok {
-			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, msg))
+		if msg, onKey, ok := violate(m.value, m.key, check, matchRe, notRe, keyRe, keyNotRe); ok {
+			node := m.value.Node
+			if onKey && m.keyNode != nil {
+				node = m.keyNode
+			}
+			c.Add(node, "%s", render(c, m.path, m.key, m.value, msg))
 		}
 	}
 }
@@ -77,30 +93,36 @@ func compileRe(expr string) (*regexp.Regexp, error) {
 	return regexp.Compile(expr)
 }
 
-func violate(v runbook.Value, check *config.Check, matchRe, notRe *regexp.Regexp) (string, bool) {
+func violate(v runbook.Value, key string, check *config.Check, matchRe, notRe, keyRe, keyNotRe *regexp.Regexp) (string, bool, bool) {
 	if check.Equals != nil && check.Equals.Set && !equalValue(v, check.Equals.Value) {
-		return "値が " + fmt.Sprint(check.Equals.Value) + " ではありません", true
+		return "値が " + fmt.Sprint(check.Equals.Value) + " ではありません", false, true
 	}
 	if check.NotEquals != nil && check.NotEquals.Set && equalValue(v, check.NotEquals.Value) {
-		return "値が " + fmt.Sprint(check.NotEquals.Value) + " です", true
+		return "値が " + fmt.Sprint(check.NotEquals.Value) + " です", false, true
 	}
 	text := scalarText(v)
 	if matchRe != nil && (v.Kind != runbook.KindString && v.Kind != runbook.KindNumber || !matchRe.MatchString(text)) {
-		return "値がパターンに一致しません", true
+		return "値がパターンに一致しません", false, true
 	}
 	if notRe != nil && (v.Kind == runbook.KindString || v.Kind == runbook.KindNumber) && notRe.MatchString(text) {
-		return "値が禁止パターンに一致します", true
+		return "値が禁止パターンに一致します", false, true
+	}
+	if keyRe != nil && !keyRe.MatchString(key) {
+		return "キーがパターンに一致しません", true, true
+	}
+	if keyNotRe != nil && keyNotRe.MatchString(key) {
+		return "キーが禁止パターンに一致します", true, true
 	}
 	if len(check.OneOf) > 0 && !oneOf(v, check.OneOf) {
-		return "値が許可された一覧にありません", true
+		return "値が許可された一覧にありません", false, true
 	}
 	if check.MinLen != nil && v.Len() < *check.MinLen {
-		return fmt.Sprintf("長さが %d 未満です", *check.MinLen), true
+		return fmt.Sprintf("長さが %d 未満です", *check.MinLen), false, true
 	}
 	if check.MaxLen != nil && v.Len() > *check.MaxLen {
-		return fmt.Sprintf("長さが %d を超えています", *check.MaxLen), true
+		return fmt.Sprintf("長さが %d を超えています", *check.MaxLen), false, true
 	}
-	return "", false
+	return "", false, false
 }
 
 func whereMatch(v runbook.Value, conds []config.Cond, res []*regexp.Regexp) bool {
@@ -186,7 +208,7 @@ func scalarText(v runbook.Value) string {
 }
 
 func selectPath(root runbook.Value, path string) []match {
-	return walkPath(root, splitPath(path), "", "")
+	return walkPath(root, splitPath(path), "", "", nil)
 }
 
 func splitPath(path string) []string {
@@ -197,12 +219,12 @@ func splitPath(path string) []string {
 	return strings.Split(path, ".")
 }
 
-func walkPath(v runbook.Value, segs []string, acc, key string) []match {
+func walkPath(v runbook.Value, segs []string, acc, key string, keyNode *yaml.Node) []match {
 	if len(segs) == 0 {
 		if acc == "" {
 			acc = "$"
 		}
-		return []match{{value: v, key: key, path: acc}}
+		return []match{{value: v, key: key, keyNode: keyNode, path: acc}}
 	}
 	seg := segs[0]
 	if seg == "*" {
@@ -211,7 +233,7 @@ func walkPath(v runbook.Value, segs []string, acc, key string) []match {
 			var out []match
 			for i, el := range v.Seq {
 				next := acc + "[" + strconv.Itoa(i) + "]"
-				out = append(out, walkPath(el, segs[1:], next, strconv.Itoa(i))...)
+				out = append(out, walkPath(el, segs[1:], next, strconv.Itoa(i), nil)...)
 			}
 			return out
 		case runbook.KindMap:
@@ -221,7 +243,7 @@ func walkPath(v runbook.Value, segs []string, acc, key string) []match {
 				if acc != "" {
 					next = acc + "." + e.Key
 				}
-				out = append(out, walkPath(e.Value, segs[1:], next, e.Key)...)
+				out = append(out, walkPath(e.Value, segs[1:], next, e.Key, e.KeyNode)...)
 			}
 			return out
 		default:
@@ -231,15 +253,23 @@ func walkPath(v runbook.Value, segs []string, acc, key string) []match {
 	if v.Kind != runbook.KindMap {
 		return nil
 	}
-	child, ok := v.Get(seg)
-	if !ok {
+	var entry runbook.Entry
+	found := false
+	for _, e := range v.Map {
+		if e.Key == seg {
+			entry = e
+			found = true
+			break
+		}
+	}
+	if !found {
 		return nil
 	}
 	next := seg
 	if acc != "" {
 		next = acc + "." + seg
 	}
-	return walkPath(child, segs[1:], next, seg)
+	return walkPath(entry.Value, segs[1:], next, seg, entry.KeyNode)
 }
 
 func deepest(root runbook.Value, segs []string) (runbook.Value, string) {

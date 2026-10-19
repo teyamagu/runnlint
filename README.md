@@ -124,7 +124,7 @@ rules:
 
 `check.select` はドット区切りです。`*` は mapping の各値、または sequence の各要素です。`steps` が list でも map でも `steps.*` で各 step を指します。
 
-使える条件は `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`one_of`、`min_len`、`max_len`、`forbid` です。`where` で絞り込んでから判定します。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}` を使えます。
+使える条件は `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`forbid` です。`key_matches` はキー名を見ます。map の step 名の規約に使えます。`where` で絞り込んでから判定します。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}` を使えます。
 
 ```yaml
 rules:
@@ -163,8 +163,8 @@ rules:
 | `agent-request` | `prompt` |
 | `include-request` | `path` と `steps` の排他 |
 | `include-path` / `needs-path` / `local-path` | 参照先ファイルの存在 |
-| `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式 |
-| `expr-braces` | 式フィールドを `{{ }}` で囲んでいないこと |
+| `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式。`test` と `bind` の中の `{{` はテンプレートにしない |
+| `expr-braces` | 式フィールドを `{{ }}` で囲んでいないこと。`test` と `bind` は値全体を包んだときだけ |
 | `step-ref` | list は `steps[n]`、map は `steps.name`。未来の step は不可 |
 | `var-ref` | `vars.name` が `vars` か、include 元の `include.vars` にあること |
 | `loop-index` | `i` は `loop` の中だけ |

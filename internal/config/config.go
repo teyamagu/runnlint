@@ -62,17 +62,19 @@ type Rule struct {
 
 // Check は宣言的ルールの条件。
 type Check struct {
-	Select    string    `yaml:"select"`
-	Exists    *bool     `yaml:"exists"`
-	Equals    *Any      `yaml:"equals"`
-	NotEquals *Any      `yaml:"not_equals"`
-	Matches   string    `yaml:"matches"`
-	NotMatch  string    `yaml:"not_matches"`
-	OneOf     []any     `yaml:"one_of"`
-	MinLen    *int      `yaml:"min_len"`
-	MaxLen    *int      `yaml:"max_len"`
-	Forbid    bool      `yaml:"forbid"`
-	Where     WhereList `yaml:"where"`
+	Select      string    `yaml:"select"`
+	Exists      *bool     `yaml:"exists"`
+	Equals      *Any      `yaml:"equals"`
+	NotEquals   *Any      `yaml:"not_equals"`
+	Matches     string    `yaml:"matches"`
+	NotMatch    string    `yaml:"not_matches"`
+	KeyMatches  string    `yaml:"key_matches"`
+	KeyNotMatch string    `yaml:"key_not_matches"`
+	OneOf       []any     `yaml:"one_of"`
+	MinLen      *int      `yaml:"min_len"`
+	MaxLen      *int      `yaml:"max_len"`
+	Forbid      bool      `yaml:"forbid"`
+	Where       WhereList `yaml:"where"`
 }
 
 // Cond は select 結果を絞り込む条件。path は選択ノードからの相対パス。

@@ -203,6 +203,72 @@ steps:
 	}
 }
 
+// key_matches は map のキー名を見る。合う step 名は出さず、外れた step 名はキーの行に出す。
+// list の steps ではキーが 0 からの番号になる。key_not_matches は一致したキーを出す。
+func TestKeyMatches(t *testing.T) {
+	yml := `
+version: 1
+extends: none
+rules:
+  - id: custom
+    severity: warning
+    message: "key={{ .key }} path={{ .path }}"
+    check:
+      select: steps.*
+      key_matches: '^[a-z][a-z0-9-]*$'
+`
+	mapped := lintConfig(t, yml, "steps:\n  ok:\n    test: \"true\"\n  Bad:\n    test: \"true\"\n")
+	msgs := messagesOf(mapped, "custom")
+	if len(msgs) != 1 || !strings.Contains(msgs[0], "key=Bad") || !strings.Contains(msgs[0], "path=steps.Bad") {
+		t.Fatalf("%#v", msgs)
+	}
+	var line int
+	for _, f := range mapped {
+		if f.Rule == "custom" {
+			line = f.Line
+		}
+	}
+	if line != 4 {
+		t.Fatalf("診断の行 = %d。キーの行である 4 を期待します: %+v", line, mapped)
+	}
+
+	list := lintConfig(t, yml, "steps:\n  - test: \"true\"\n")
+	msgs = messagesOf(list, "custom")
+	if len(msgs) != 1 || !strings.Contains(msgs[0], "key=0") {
+		t.Fatalf("%#v", msgs)
+	}
+
+	not := lintConfig(t, `
+version: 1
+extends: none
+rules:
+  - id: custom
+    severity: error
+    message: "key={{ .key }}"
+    check:
+      select: steps.*
+      key_not_matches: '^_'
+`, "steps:\n  ok:\n    test: \"true\"\n  _hidden:\n    test: \"true\"\n")
+	msgs = messagesOf(not, "custom")
+	if len(msgs) != 1 || !strings.Contains(msgs[0], "key=_hidden") {
+		t.Fatalf("%#v", msgs)
+	}
+
+	bad := lintConfig(t, `
+version: 1
+extends: none
+rules:
+  - id: custom
+    check:
+      select: steps.*
+      key_matches: "("
+`, "steps:\n  ok:\n    test: \"true\"\n")
+	msgs = messagesOf(bad, "custom")
+	if len(msgs) != 1 || !strings.Contains(msgs[0], "key_matches") {
+		t.Fatalf("%#v", msgs)
+	}
+}
+
 // matches に '(' を書いたルールで lint したとき、custom が1件出てメッセージに「正規表現」が含まれることを確認する。
 func TestDeclarativeBadRegexp(t *testing.T) {
 	got := lintConfig(t, `

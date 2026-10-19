@@ -312,6 +312,79 @@ steps:
 `, "http-request", "headers は mapping です")
 }
 
+// test と bind の式の中にある {{ はテンプレートにしない。文字列の中なら expr-syntax も expr-braces も出さない。
+func TestBracesInsideTestAndBindAreNotTemplates(t *testing.T) {
+	checkNoFalsePositive(t, []fpCase{
+		{"test の文字列", "expr-syntax", `
+desc: d
+steps:
+  - test: 'current.res.body == "hello {{ name }}"'
+`},
+		{"test の文字列", "expr-braces", `
+desc: d
+steps:
+  - test: 'current.res.body == "hello {{ name }}"'
+`},
+		{"閉じていない {{", "expr-syntax", `
+desc: d
+steps:
+  - test: 'current.res.body == "{{"'
+`},
+		{"閉じていない {{", "expr-braces", `
+desc: d
+steps:
+  - test: 'current.res.body == "{{"'
+`},
+		{"bind の文字列", "expr-syntax", `
+desc: d
+steps:
+  - dump: "1"
+    bind:
+      note: '"{{title}}"'
+      body:
+        query: 'sprintf("{{%s}}", "a")'
+`},
+		{"bind の文字列", "expr-braces", `
+desc: d
+steps:
+  - dump: "1"
+    bind:
+      note: '"{{title}}"'
+      body:
+        query: 'sprintf("{{%s}}", "a")'
+`},
+	})
+}
+
+// 値全体を {{ }} で包んだ test と bind は expr-braces を出し、中身は式として解析する。
+// {{ で始まるが1つに収まらないときは、式の解析エラーを出さず expr-braces だけ出す。
+func TestWrappedTestAndBindStillWarn(t *testing.T) {
+	requireMessage(t, `
+desc: d
+steps:
+  - test: "{{ current.res.status == 200 }}"
+`, "expr-braces", "test")
+	requireMessage(t, `
+desc: d
+steps:
+  - dump: "1"
+    bind:
+      id: "{{ current }}"
+`, "expr-braces", "bind")
+	requireMessage(t, `
+desc: d
+steps:
+  - test: "{{ 1 + }}"
+`, "expr-syntax", "unexpected")
+	src := `
+desc: d
+steps:
+  - test: "{{ a }} {{ b }}"
+`
+	requireMessage(t, src, "expr-braces", "test")
+	rejectMessage(t, src, "expr-syntax", "")
+}
+
 // / で始まらない HTTP の path は runn が endpoint とつないで動くので、既定では http-request を出さないことを確認する。
 // options.require-leading-slash: true のときだけ warning を出す。
 func TestHTTPPathWithoutLeadingSlash(t *testing.T) {

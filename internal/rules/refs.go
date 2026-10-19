@@ -17,7 +17,7 @@ func init() {
 
 func exprSyntax(c *Context) {
 	for _, s := range c.Sites {
-		if s.err == nil || s.braced {
+		if s.err == nil {
 			continue
 		}
 		c.Add(s.node, "%s", s.err.Error())
