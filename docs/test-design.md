@@ -51,5 +51,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-15 | `bind` の値は mapping、配列、数値も受ける。中の文字列は式として検査する | 同 |
 | RULE-16 | `included-unreferenced` は、走査範囲か `--include-root` の中にある `if: included`（`included == true`、`included && ...` を含む）の runbook が、どこからも include されていないときだけ出す。`||`、`!`、`if` 無し、動的な参照で照合しうるもの、直接渡しただけのファイルは出さない。ignore したファイルも参照元に数える | `internal/rules/includes_test.go`（`testdata/included`）、`internal/app/contract_test.go` |
 | RULE-17 | `# runnlint disable-line` は行末ならその行、コメント行なら次の空でもコメントでもない行の診断を、全ルール共通の層で消す。複数行スカラーの診断はキーの行で消せる。引用符とブロックの中の `#` は抑制ではない。未知のルール、yamllint のルール、未知の指示、何も消さない抑制は `unused-suppression`。off のルールは除く。baseline より先に効く | `internal/rules/suppress_test.go`、`internal/app/contract_test.go` |
+| RULE-18 | HTTP と gRPC の空の `headers`（`{}` と null）は受ける | `internal/rules/falsepositive_test.go` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。

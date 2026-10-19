@@ -302,6 +302,10 @@ func checkHeaders(c *Context, v runbook.Value) {
 	if v.Kind == runbook.KindString && strings.Contains(v.String, "{{") {
 		return
 	}
+	if v.Kind == runbook.KindNull {
+		// headers: だけで値を書かないのは、ヘッダーなしと同じ。
+		return
+	}
 	if v.Kind != runbook.KindMap {
 		c.Add(v.Node, "headers は mapping です")
 		return

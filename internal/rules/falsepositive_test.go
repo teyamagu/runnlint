@@ -262,3 +262,52 @@ steps:
         id: current ==
 `, "expr-syntax", "unexpected")
 }
+
+// 空の headers（{} と null）は runn で通るので、http-request と grpc-request を出さないことを確認する。
+func TestEmptyHeaders(t *testing.T) {
+	checkNoFalsePositive(t, []fpCase{
+		{"HTTP の {}", "http-request", `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /a:
+        get:
+          headers: {}
+          body: null
+`},
+		{"HTTP の null", "http-request", `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /a:
+        get:
+          headers:
+          body: null
+`},
+		{"gRPC の null", "grpc-request", `
+desc: d
+runners:
+  greq: grpc://example.com:443
+steps:
+  - greq:
+      pkg.Service/Method:
+        headers:
+        message: {}
+`},
+	})
+	requireMessage(t, `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /a:
+        get:
+          headers: [a]
+          body: null
+`, "http-request", "headers は mapping です")
+}
