@@ -276,8 +276,18 @@ func extractTemplates(s string) ([]string, error) {
 	return out, nil
 }
 
+// scanTemplate は start から閉じる }} を探す。引用符の中と、式の ( ) [ ] { } の中の }} は終わりにしない。
+// 括弧が釣り合わず見つからなければ、runn と同じく引用符の外で最初の }} を終わりとする。
 func scanTemplate(s string, start int) (string, int, bool) {
+	if inner, end, ok := scanTemplateDepth(s, start, true); ok {
+		return inner, end, true
+	}
+	return scanTemplateDepth(s, start, false)
+}
+
+func scanTemplateDepth(s string, start int, nested bool) (string, int, bool) {
 	in := byte(0)
+	depth := 0
 	for j := start; j < len(s); {
 		c := s[j]
 		if in != 0 {
@@ -291,13 +301,19 @@ func scanTemplate(s string, start int) (string, int, bool) {
 			j++
 			continue
 		}
-		if c == '"' || c == '\'' || c == '`' {
+		switch {
+		case c == '"' || c == '\'' || c == '`':
 			in = c
-			j++
-			continue
-		}
-		if c == '}' && j+1 < len(s) && s[j+1] == '}' {
+		case c == '}' && depth == 0 && j+1 < len(s) && s[j+1] == '}':
 			return s[start:j], j + 2, true
+		case !nested:
+		case c == '(' || c == '[' || c == '{':
+			depth++
+		case c == ')' || c == ']' || c == '}':
+			if depth == 0 {
+				return "", 0, false
+			}
+			depth--
 		}
 		j++
 	}

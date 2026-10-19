@@ -185,3 +185,51 @@ func TestTrimSharpComment(t *testing.T) {
 		}
 	}
 }
+
+// {{ }} の中の入れ子の括弧と波括弧で、式の終わりを読み違えないことを確認する。
+func TestNestedBracketsInTemplates(t *testing.T) {
+	checkNoFalsePositive(t, []fpCase{
+		{"入れ子の関数呼び出し", "expr-syntax", `
+desc: d
+steps:
+  - dump: x
+    bind:
+      y: string(int("1"))
+  - exec:
+      command: |
+        echo "{{ string(int(len(toJSON({"a": {"b": 1}})))) }}"
+`},
+		{"map リテラルの入れ子", "expr-syntax", `
+desc: d
+steps:
+  - exec:
+      command: |
+        echo '{{ {"a": {"b": 1}}.a.b }}' '{{ {"a":1}}}'
+`},
+		{"配列とクロージャ", "expr-syntax", `
+desc: d
+steps:
+  - exec:
+      command: |
+        echo "{{ len(filter([{"n": 1}], {.n > 0})) }}"
+`},
+	})
+}
+
+func TestExtractTemplatesNested(t *testing.T) {
+	cases := map[string][]string{
+		`{{ {"a": {"b": 1}} }}`:    {` {"a": {"b": 1}} `},
+		`{{ {"a":1}}}`:             {` {"a":1}`},
+		`{{ f(g(x)) }}-{{ y }}`:    {` f(g(x)) `, ` y `},
+		`{{ "}}" }}`:               {` "}}" `},
+		`{{ a) }} {{ b }}`:         {` a) `, ` b `},
+		`{{ {"a": 1 }} {{ b }}`:    {` {"a": 1 `, ` b `},
+		`{{ toJSON({"a": [1]}) }}`: {` toJSON({"a": [1]}) `},
+	}
+	for in, want := range cases {
+		got, err := extractTemplates(in)
+		if err != nil || strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Errorf("%q: got %q (%v) want %q", in, got, err, want)
+		}
+	}
+}
