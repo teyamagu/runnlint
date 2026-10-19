@@ -53,11 +53,12 @@ runn の公式 JSON Schema（`runbook.schema.yaml`）は、上の 1 のとおり
 
 タグだけが進み、この2ファイルが同じなら失敗しません。依存関係だけのリリースで CI を赤くしないためです。
 
-失敗したら、次の順で更新します。
+毎週の [runn follow](../.github/workflows/runn-follow.yml) は、その差があるときだけ次を行います。
 
-1. 新しいタグの `runbook.schema.yaml` と `cdpfn.go` を、`internal/runnspec/runbook.schema.yaml` と `internal/runnspec/cdpfn.src` に置き換える
-2. `internal/runnspec/VERSION` をそのタグにする
-3. 上のパーサ上書きが、今回の changelog とまだ合っているか見る。HTTP や gRPC の中身が変わったリリースでは、ここを手で直す
-4. `go test ./...` を再実行する
+1. 新しいタグの `runbook.schema.yaml` と `cdpfn.go` を、`internal/runnspec/runbook.schema.yaml` と `internal/runnspec/cdpfn.src` に置き換える。`internal/runnspec/VERSION` をそのタグにする。
+2. `go test ./...` で、ルールと examples がまだ通るかを確認する。
+3. 結果を本文に書いた PR を作る。テストが失敗した PR は draft にする。スキーマに無い規則は自動では変えないので、失敗しているときはパーサ上書きか examples を手で直す。
+
+同じタグの PR やブランチが既にあるときは、新しくは作りません。手で追従するときも、上の 1 から 3 の順です。
 
 取り込んだ2ファイルは [k1LoW/runn](https://github.com/k1LoW/runn) の MIT License の著作物です。中身は比較のため、注釈を足さずに写しています。
