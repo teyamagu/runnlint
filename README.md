@@ -85,7 +85,7 @@ runnlint --baseline runnlint-baseline.json .
 
 カレントディレクトリから親へ `.runnlint-runn.yaml`、`.runnlint-runn.yml`、`.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` の順に探します。ファイルが無ければ組み込みのデフォルトを使います。`--config` でパスを直接指定することもできます。
 
-新しく置くときは、runnlint だけが使う `.runnlint-runn.yaml` にしてください。`.runnlint.yaml` などの従来の名前は同じ名前の別のツールと重なることがあるので、runnlint のルールファイルの形（未知のキーが無い、`version` が 1）のときだけ使い、違えば `warning:` を出して読み飛ばします。従来の名前の runnlint の設定は、そのまま読まれます。`extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きします。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きします。
+新しく置くときは、runnlint だけが使う `.runnlint-runn.yaml` にしてください。`.runnlint.yaml` などの従来の名前は同じ名前の別のツールと重なることがあるので、runnlint のルールファイルの形（トップレベルに未知のキーが無い、型が合う、`version` が 1）のときだけ使い、違えば `warning:` を出して読み飛ばします。従来の名前の runnlint の設定は、そのまま読まれます。`extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きします。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きします。
 
 ```yaml
 version: 1

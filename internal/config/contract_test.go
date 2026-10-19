@@ -428,3 +428,17 @@ func TestPrintedDefaultPassesShapeCheck(t *testing.T) {
 		t.Fatalf("%v %s", cfg.Warnings, cfg.SourceDir)
 	}
 }
+
+// 従来の名前の runnlint の設定で、rules の中に未知のキーがあるだけなら、読み飛ばさず警告を出して読み込むことを確認する。
+func TestLegacyConfigWithNestedTypoIsLoaded(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, ".runnlint.yaml", "extends: none\nrules:\n  - id: mine\n    severity: off\n    sevrity: error\n")
+	t.Chdir(root)
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "mine" || len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0], "sevrity") {
+		t.Fatalf("%+v", cfg)
+	}
+}

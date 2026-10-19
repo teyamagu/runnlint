@@ -156,12 +156,16 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ルールファイルを読めません: %w", err)
 	}
-	if err := checkShape(raw); err != nil {
+	foreign, nested := checkShape(raw)
+	if foreign != nil {
 		if !explicit {
-			return nil, fmt.Errorf("%s: %w", path, err)
+			return nil, fmt.Errorf("%s: %w", path, foreign)
 		}
 		// --config で渡したファイルは、未知のキーがあっても従来どおり読む。
-		warnings = append(warnings, fmt.Sprintf("%s: %v", path, err))
+		warnings = append(warnings, fmt.Sprintf("%s: %v", path, foreign))
+	}
+	if nested != nil {
+		warnings = append(warnings, fmt.Sprintf("%s: %v", path, nested))
 	}
 	user, err := parseBytes(raw, filepath.Dir(path))
 	if err != nil {
@@ -180,21 +184,41 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// checkShape は raw が runnlint のルールファイルの形か確かめる。未知のキー、型の違い、未知の version は失敗。
-func checkShape(raw []byte) error {
-	dec := yaml.NewDecoder(bytes.NewReader(raw))
-	dec.KnownFields(true)
-	var cfg Config
-	if err := dec.Decode(&cfg); err != nil {
-		if err == io.EOF {
-			return nil
+var topLevelKeys = map[string]struct{}{"version": {}, "extends": {}, "ignore": {}, "yamllint": {}, "rules": {}}
+
+// checkShape は raw が runnlint のルールファイルの形か確かめる。
+// foreign は別のツールの設定とみなす問題で、YAML として読めない、トップレベルに未知のキーがある、型が違う、version が 1 でない、のどれか。
+// nested は rules の中などの未知のキーで、runnlint の設定の書き損じとみなして警告だけにする。
+func checkShape(raw []byte) (foreign, nested error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return fmt.Errorf("YAML として読めません: %w", err), nil
+	}
+	if len(doc.Content) == 0 {
+		return nil, nil
+	}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return fmt.Errorf("トップレベルが mapping ではありません"), nil
+	}
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if _, ok := topLevelKeys[root.Content[i].Value]; !ok {
+			return fmt.Errorf("runnlint のルールファイルに無いキー %s があります (行 %d)", root.Content[i].Value, root.Content[i].Line), nil
 		}
-		return fmt.Errorf("runnlint のルールファイルの形ではありません: %w", err)
+	}
+	var cfg Config
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		return fmt.Errorf("runnlint のルールファイルの形ではありません: %w", err), nil
 	}
 	if cfg.Version != 0 && cfg.Version != 1 {
-		return fmt.Errorf("runnlint のルールファイルの version は 1 です (version: %d)", cfg.Version)
+		return fmt.Errorf("runnlint のルールファイルの version は 1 です (version: %d)", cfg.Version), nil
 	}
-	return nil
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	dec.KnownFields(true)
+	if err := dec.Decode(&Config{}); err != nil && err != io.EOF {
+		return nil, fmt.Errorf("未知のキーを無視します: %w", err)
+	}
+	return nil, nil
 }
 
 func mustDefault() []byte {
@@ -423,7 +447,7 @@ func discover() (string, []string) {
 			}
 			raw, err := os.ReadFile(candidate)
 			if err == nil {
-				err = checkShape(raw)
+				err, _ = checkShape(raw)
 			}
 			if err == nil {
 				return candidate, warnings
