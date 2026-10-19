@@ -1,5 +1,10 @@
 # runnlint
 
+[![build](https://github.com/teyamagu/runnlint/actions/workflows/ci.yml/badge.svg)](https://github.com/teyamagu/runnlint/actions/workflows/ci.yml)
+[![coverage](docs/coverage.svg)](docs/coverage.svg)
+[![code to test ratio](docs/ratio.svg)](docs/ratio.svg)
+[![test execution time](docs/time.svg)](docs/time.svg)
+
 [runn](https://github.com/k1LoW/runn) の runbook を検査する linter です。
 
 インデント、重複キー、行長といった一般的な YAML の検査は [yamllint](https://yamllint.readthedocs.io/) に任せます。runn 固有の runner、step、`{{ }}`、`steps` の参照は、このツールが検査します。ルールの有効化、深刻度、追加は YAML で記述します。
