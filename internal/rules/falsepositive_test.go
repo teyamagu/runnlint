@@ -122,3 +122,66 @@ func TestExpandEnvPlaceholders(t *testing.T) {
 		t.Fatal("placeholder は識別子です")
 	}
 }
+
+// runn は式を評価する前に # の行コメントを取り除く。文字列リテラルとクロージャの中の # は残す。
+func TestSharpCommentsInExpressions(t *testing.T) {
+	checkNoFalsePositive(t, []fpCase{
+		{"行頭と行末のコメント", "expr-syntax", `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /a:
+        get:
+    test: |
+      # ステータスを見る
+      current.res.status == 200 # ok
+      && current.res.body.tag == "#tag" # 文字列の中の # は残す
+`},
+		{"if のコメント", "expr-syntax", `
+desc: d
+steps:
+  - dump: x
+    if: true # 常に実行
+`},
+		{"クロージャの # と併用", "expr-syntax", `
+desc: d
+steps:
+  - dump: x
+    test: |
+      all([1, 2], # > 0) # すべて正
+`},
+	})
+}
+
+// コメントを取り除いたあとに残る式の誤りは expr-syntax で検出することを確認する。
+func TestSharpCommentKeepsRealSyntaxErrors(t *testing.T) {
+	requireMessage(t, `
+desc: d
+steps:
+  - dump: x
+    test: |
+      # コメント
+      1 == # 右辺が無い
+`, "expr-syntax", "unexpected")
+}
+
+func TestTrimSharpComment(t *testing.T) {
+	cases := map[string]string{
+		"a == 1 # c":                 "a == 1",
+		"# c\na == 1":                "a == 1",
+		"  # c\na == 1\n":            "a == 1",
+		`a == "#x"`:                  `a == "#x"`,
+		"map(xs, # * 2)":             "map(xs, # * 2)",
+		"map(xs, # * 2) # c":         "map(xs, # * 2)",
+		"\"日本\" == a # コメント":         "\"日本\" == a",
+		"a == 1 // 標準のコメント":          "a == 1 // 標準のコメント",
+		"filter(xs, {# > 1}) # c\n1": "filter(xs, {# > 1})\n1",
+	}
+	for in, want := range cases {
+		if got := trimSharpComment(in); got != want {
+			t.Errorf("%q: got %q want %q", in, got, want)
+		}
+	}
+}

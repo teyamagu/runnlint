@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/file"
 	"github.com/expr-lang/expr/parser"
+	"github.com/expr-lang/expr/parser/lexer"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"gopkg.in/yaml.v3"
 )
@@ -55,7 +57,12 @@ func analyze(root *runbook.Book) []site {
 		if sites[i].err != nil || sites[i].braced {
 			continue
 		}
-		tree, err := parser.Parse(strings.TrimSpace(sites[i].src))
+		src := sites[i].src
+		if sites[i].kind == siteExpr {
+			// runn は test や if などの式だけ # コメントを取り除いてから評価する。{{ }} の中は取り除かない。
+			src = trimSharpComment(src)
+		}
+		tree, err := parser.Parse(strings.TrimSpace(src))
 		sites[i].tree = tree
 		sites[i].err = err
 	}
@@ -203,6 +210,51 @@ func envEnd(s string, start int) int {
 			if depth == 0 {
 				return j + 1
 			}
+		}
+	}
+	return -1
+}
+
+// trimSharpComment は runn の trimDeprecatedComment と同じく、括弧の外の # から行末までを取り除く。
+// 文字列リテラルの中の # は字句解析で文字列になるので残る。( ) や { } の中の # はクロージャの引数として残す。
+// runn は字句の位置を文字数で数えたままバイト列を切るが、ここでは文字単位で切る。
+func trimSharpComment(cond string) string {
+	if !strings.Contains(cond, "#") || commentCol(cond) < 0 {
+		return cond
+	}
+	var kept []string
+	for _, line := range strings.Split(cond, "\n") {
+		if strings.HasPrefix(strings.Trim(line, " "), "#") {
+			continue
+		}
+		if col := commentCol(line); col > 0 {
+			kept = append(kept, strings.TrimRight(string([]rune(line)[:col]), " "))
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.TrimRight(strings.Join(kept, "\n"), "\n")
+}
+
+// commentCol はコメントとして扱う # の文字位置。無いか字句解析できなければ -1。
+func commentCol(s string) int {
+	tokens, err := lexer.Lex(file.NewSource(s))
+	if err != nil {
+		return -1
+	}
+	inBrace, inParen := false, false
+	for _, t := range tokens {
+		switch {
+		case t.Kind == lexer.Bracket && t.Value == "{":
+			inBrace = true
+		case t.Kind == lexer.Bracket && t.Value == "}":
+			inBrace = false
+		case t.Kind == lexer.Bracket && t.Value == "(":
+			inParen = true
+		case t.Kind == lexer.Bracket && t.Value == ")":
+			inParen = false
+		case t.Kind == lexer.Operator && t.Value == "#" && !inBrace && !inParen:
+			return t.From
 		}
 	}
 	return -1
