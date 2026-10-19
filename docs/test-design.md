@@ -27,7 +27,7 @@
 | BIN-15 | `--write-baseline` は全診断を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の診断を出さない。新しい診断だけで終了コードを決める。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
 | BIN-16 | 探索は `.runnlint-runn.yaml` / `.yml` を従来の名前より先に選ぶ。従来の名前で runnlint の形でない（トップレベルの未知のキー、型、version、YAML の破損）ファイルは `warning:` を出して読み飛ばす。下の階層の未知のキーは警告して読む。固有の名前は形が違えば 2。`--config` は未知のキーを警告して読む | `internal/config/contract_test.go`、`internal/app/contract_test.go` |
 
-BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。
+BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。記法定義の差を取り込んで PR にする処理は `.github/workflows/runn-follow.yml` と `cmd/runnfollow` です。差の有無は `internal/runnspec.Changed` が決めます。
 
 ## 組み込みルールと独自ルール
 

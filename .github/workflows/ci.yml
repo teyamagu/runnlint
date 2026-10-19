@@ -5,7 +5,8 @@ on:
     branches: [main, master]
   pull_request:
   schedule:
-    # 新しい Go の安定版と、runn の記法定義の更新を、コードの変更が無くても週次で確認する。
+    # 新しい Go の安定版を、コードの変更が無くても週次で確認する。
+    # runn の記法定義が変わると、このテストが失敗する。取り込みと修正 PR は runn-follow.yml が行う。
     - cron: "17 0 * * 1"
 
 permissions:
