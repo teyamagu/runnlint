@@ -14,6 +14,10 @@ codeToTestRatio:
   badge:
     path: docs/ratio.svg
 testExecutionTime:
+  # steps の名前は .github/workflows/ci.yml の name: テスト と一致している必要があります。
+  # 一致しないと、coverage.out の時刻からステップを推測して測れず、docs/time.svg が作られません。
+  steps:
+    - テスト
   badge:
     path: docs/time.svg
 push:
