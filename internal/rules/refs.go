@@ -1,6 +1,10 @@
 package rules
 
-import "github.com/teyamagu/runnlint/internal/runbook"
+import (
+	"strings"
+
+	"github.com/teyamagu/runnlint/internal/runbook"
+)
 
 func init() {
 	register("expr-syntax", exprSyntax)
@@ -36,7 +40,7 @@ func lintStepRefs(c *Context) {
 		}
 		info := inspect(s.tree)
 		for _, ref := range info.steps {
-			if !ref.ok {
+			if !ref.ok || strings.Contains(ref.name, envPlaceholder) {
 				continue
 			}
 			checkOneStepRef(c, s, ref)
@@ -117,7 +121,7 @@ func varRef(c *Context) {
 		info := inspect(s.tree)
 		names := s.book.VarNames()
 		for _, name := range info.vars {
-			if _, ok := ignore[name]; ok {
+			if _, ok := ignore[name]; ok || strings.Contains(name, envPlaceholder) {
 				continue
 			}
 			if _, ok := names[name]; !ok {

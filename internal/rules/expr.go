@@ -79,7 +79,7 @@ func walkIncludeStrings(v runbook.Value, b *runbook.Book, step *runbook.Step, si
 func walkStrings(v runbook.Value, b *runbook.Book, step *runbook.Step, sites *[]site) {
 	switch v.Kind {
 	case runbook.KindString:
-		inners, err := extractTemplates(v.String)
+		inners, err := extractTemplates(expandEnvPlaceholders(v.String))
 		if err != nil {
 			*sites = append(*sites, site{book: b, step: step, node: v.Node, src: v.String, field: "template", kind: siteTemplate, err: err})
 			return
@@ -154,16 +154,58 @@ func addExpr(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value
 	if v.Kind != runbook.KindString {
 		return
 	}
-	braced := strings.Contains(v.String, "{{")
+	src := expandEnvPlaceholders(v.String)
+	braced := strings.Contains(src, "{{")
 	*sites = append(*sites, site{
 		book:   b,
 		step:   step,
 		node:   v.Node,
-		src:    v.String,
+		src:    src,
 		field:  field,
 		kind:   siteExpr,
 		braced: braced,
 	})
+}
+
+// envPlaceholder は ${...} の代わりに式へ入れる識別子。
+const envPlaceholder = "__runnlint_env__"
+
+// expandEnvPlaceholders は、runn が YAML を読む前に値の ${...} を環境変数で展開するのに合わせる。
+// 値は実行環境で変わるので読まず、識別子に置き換える。未設定の変数でも構文検査は誤検知しない。
+// ${A:-${B}} のような入れ子は外側ごと1つに置き換える。閉じていない ${ はそのまま残す。
+func expandEnvPlaceholders(s string) string {
+	if !strings.Contains(s, "${") {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] == '$' && i+1 < len(s) && s[i+1] == '{' {
+			if end := envEnd(s, i+2); end > 0 {
+				b.WriteString(envPlaceholder)
+				i = end
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
+}
+
+func envEnd(s string, start int) int {
+	depth := 1
+	for j := start; j < len(s); j++ {
+		switch s[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return j + 1
+			}
+		}
+	}
+	return -1
 }
 
 func extractTemplates(s string) ([]string, error) {

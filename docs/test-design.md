@@ -44,5 +44,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-09 | 各検査関数の分岐。HTTP の media type、gRPC の `message` / `messages`、DB、exec、SSH、CDP の引数、agent、include、runner 設定、book の型、step 参照の可視性、`parent.vars`、`i` と `previous` | `internal/rules/branch_test.go` |
 | RULE-10 | yamllint が無いとき、`missing` の深刻度で診断する。`off` と無効化では診断しない | `internal/yamllint/yamllint_test.go` |
 | RULE-11 | `examples/bad/<ルール id>.yml` は、その既定ルールの診断を出す。`examples/valid` は診断を出さない | `internal/rules/examples_test.go` |
+| RULE-12 | 式は、runn と同じく値の `${...}` を展開してから解析する。未設定の環境変数でも `expr-syntax`、`var-ref`、`step-ref` を出さない | `internal/rules/falsepositive_test.go` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。
