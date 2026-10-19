@@ -29,6 +29,8 @@ type IncludeRef struct {
 	// Vars は include.vars で渡す変数名。KnownVars が false なら、展開しないと分からない。
 	Vars      map[string]struct{}
 	KnownVars bool
+	// Dynamic は、パスに {{ }} や ${...} を含み、このファイルを include するかもしれないだけの参照。
+	Dynamic bool
 }
 
 type dynamicRef struct {
@@ -113,6 +115,7 @@ func (r *Refs) addRef(b *runbook.Book, from string, path, vars runbook.Value) {
 		return
 	}
 	if re := dynamicPattern(path.String); re != nil {
+		ref.Dynamic = true
 		r.dynamic = append(r.dynamic, dynamicRef{re: re, ref: ref})
 	}
 }

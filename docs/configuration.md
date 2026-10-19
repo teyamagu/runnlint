@@ -4,12 +4,18 @@ runnlint が runbook を検査するときの設定です。YAML で書き、同
 
 ## 探索
 
-`-c` / `--config` が無いとき、カレントディレクトリから親へ次の順で最初の1件を使います。
+`-c` / `--config` が無いとき、カレントディレクトリから親へ、各ディレクトリで次の順に探して最初の1件を使います。
 
-1. `.runnlint.yaml`
-2. `.runnlint.yml`
-3. `runnlint.yaml`
-4. `runnlint.yml`
+1. `.runnlint-runn.yaml`
+2. `.runnlint-runn.yml`
+3. `.runnlint.yaml`
+4. `.runnlint.yml`
+5. `runnlint.yaml`
+6. `runnlint.yml`
+
+1 と 2 は runnlint だけが使う名前で、新しく置くときはこちらを使います。3 から 6 は従来の名前で、同じ名前の別のツールの設定ファイルと重なることがあります。そのため従来の名前のファイルは、runnlint のルールファイルの形のときだけ使います。トップレベルや `rules` などに未知のキーがある、型が違う、`version` が 1 でない、YAML として読めない、のどれかなら、標準エラーに `warning:` を出して読み飛ばし、次の候補（同じディレクトリの残りの名前、親ディレクトリ）を探します。従来の名前で書いた runnlint の設定は、これまでどおり読まれます。
+
+1 と 2 の固有の名前と、`--config` で渡したファイルは読み飛ばしません。固有の名前は形が違えば終了コード `2` で失敗します。`--config` のファイルは後方互換のため、未知のキーがあっても `warning:` を出して読み込みます。
 
 見つからなければ、バイナリに埋め込んだデフォルトを使います。中身は次で確認できます。
 
@@ -192,6 +198,7 @@ rules:
 include 元から渡す変数は、`ignore` に書かなくても数えます。lint の前に、走査したディレクトリと `--include-root`、引数のファイルから include を集めます（`included-unreferenced` と同じ範囲です）。
 
 - include 元が見つかったときは、どれかの include 元が `include.vars` で渡す変数を定義済みとします。`include.vars` が mapping でなく中身が分からないときは、そのファイルの `vars` を調べません。`parent.vars` も、include 元ごとに違うので調べません。
+- パスに `{{ }}` や `${...}` を含む include は、参照先になりうるファイルに、渡しうる変数として `include.vars` を足すだけです。include 元が見つかったとは扱いません。
 - include 元が見つからず、トップレベルの `if` が `included` の runbook は、include されて動く前提なので `vars` を調べません。ファイルを1つだけ渡したときに誤検知しないためです。
 - それ以外の runbook は、これまでどおり、その runbook の `vars` だけを見ます。
 

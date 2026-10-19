@@ -138,8 +138,8 @@ func varRef(c *Context) {
 			c.Add(s.node, "vars.%s は vars にありません", name)
 		}
 		if root {
-			if outer.included {
-				// 親の vars は include 元ごとに違うので、include 元があるときは調べない。
+			if outer.included || outer.maybe {
+				// 親の vars は include 元ごとに違うので、include 元がありうるときは調べない。
 				continue
 			}
 			for _, name := range info.parent {
@@ -167,6 +167,8 @@ type outerVars struct {
 	included bool
 	// unknown は、渡される変数が分からないか。分からなければ var-ref を出さない。
 	unknown bool
+	// maybe は、動的な include の参照先になりうるか。
+	maybe bool
 }
 
 // includeVars は、このファイルを include する runbook が渡す変数を集める。
@@ -178,9 +180,14 @@ func includeVars(c *Context) outerVars {
 	}
 	b := c.Doc.Book
 	for _, ref := range c.Refs.Callers(b.File) {
-		out.included = true
-		if !ref.KnownVars {
-			out.unknown = true
+		// 動的な参照は include するかもしれないだけなので、渡しうる変数だけを足す。
+		if !ref.Dynamic {
+			out.included = true
+			if !ref.KnownVars {
+				out.unknown = true
+			}
+		} else {
+			out.maybe = true
 		}
 		for name := range ref.Vars {
 			out.names[name] = struct{}{}

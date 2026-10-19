@@ -190,3 +190,26 @@ func TestVarRefWithoutCallers(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+// 動的な include の参照先になりうるだけのファイルは、include 元が見つかったとは扱わないことを確認する。
+// if: included の runbook は vars を調べず、そうでない runbook は動的な include が渡しうる変数だけを定義済みとする。
+func TestVarRefWithDynamicCallers(t *testing.T) {
+	dir := t.TempDir()
+	writeFile := func(name, body string) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	writeFile("parent.yml", "desc: p\nvars:\n  n: a\nsteps:\n  - include:\n      path: \"{{ vars.n }}.yml\"\n      vars:\n        passed: 1\n")
+	solo := writeFile("solo.yml", "desc: s\nif: included\nsteps:\n  - dump: vars.anything\n")
+	top := writeFile("top.yml", "desc: t\nsteps:\n  - dump: vars.passed + vars.missing\n  - dump: parent.vars.x\n")
+	refs := refsFor(t, []string{dir}, dir)
+	if got := varRefMessages(t, solo, refs); len(got) != 0 {
+		t.Fatalf("%v", got)
+	}
+	if got := varRefMessages(t, top, refs); len(got) != 1 || !strings.Contains(got[0], "vars.missing") {
+		t.Fatalf("%v", got)
+	}
+}
