@@ -49,5 +49,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-13 | `test` や `if` などの式は、括弧の外の `#` から行末をコメントとして取り除いてから解析する。文字列リテラルとクロージャの `#` は残す。`{{ }}` の中は取り除かない | 同 |
 | RULE-14 | `{{ }}` は式の `( )` `[ ]` `{ }` の中の `}}` を終わりにしない。括弧が釣り合わないときは引用符の外で最初の `}}` で切る | 同 |
 | RULE-15 | `bind` の値は mapping、配列、数値も受ける。中の文字列は式として検査する | 同 |
+| RULE-16 | `included-unreferenced` は、走査範囲か `--include-root` の中にある `if: included`（`included == true`、`included && ...` を含む）の runbook が、どこからも include されていないときだけ出す。`||`、`!`、`if` 無し、動的な参照で照合しうるもの、直接渡しただけのファイルは出さない。ignore したファイルも参照元に数える | `internal/rules/includes_test.go`（`testdata/included`）、`internal/app/contract_test.go` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。

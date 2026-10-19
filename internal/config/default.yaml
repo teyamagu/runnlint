@@ -96,6 +96,12 @@ rules:
     uses: local-path
     severity: warning
 
+  # if: included の runbook が、走査した範囲のどこからも include されていないこと。
+  # ディレクトリを走査したときと、--include-root の中のファイルだけを判定する。
+  - id: included-unreferenced
+    uses: included-unreferenced
+    severity: warning
+
   # --- 式と参照 ---
   - id: expr-syntax
     uses: expr-syntax

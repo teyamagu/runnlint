@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/teyamagu/runnlint/internal/app"
 	"github.com/teyamagu/runnlint/internal/config"
@@ -25,6 +26,7 @@ func run(args []string) int {
 		noYamllint    bool
 		baselinePath  string
 		writeBaseline string
+		includeRoots  stringList
 		printConfig   bool
 		printYamllint bool
 		listRules     bool
@@ -36,6 +38,7 @@ func run(args []string) int {
 	fs.StringVar(&format, "f", "text", "出力形式 (text, json, github)")
 	fs.BoolVar(&noYamllint, "no-yamllint", false, "yamllint を実行しない")
 	fs.StringVar(&baselinePath, "baseline", "", "既存の診断を記録したファイル。一致する診断を出さない")
+	fs.Var(&includeRoots, "include-root", "include の参照元を探す追加のディレクトリ。繰り返し指定できる")
 	fs.StringVar(&writeBaseline, "write-baseline", "", "今回の診断を baseline として書き出して終了する")
 	fs.BoolVar(&printConfig, "print-config", false, "デフォルトのルールファイルを出力して終了する")
 	fs.BoolVar(&printYamllint, "print-yamllint-config", false, "組み込みの yamllint 設定を出力して終了する")
@@ -100,6 +103,7 @@ func run(args []string) int {
 		NoYamllint:    noYamllint,
 		Baseline:      baselinePath,
 		WriteBaseline: writeBaseline,
+		IncludeRoots:  includeRoots,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -109,4 +113,14 @@ func run(args []string) int {
 		return code
 	}
 	return code
+}
+
+// stringList は繰り返し指定できる文字列のフラグ。
+type stringList []string
+
+func (s *stringList) String() string { return strings.Join(*s, ",") }
+
+func (s *stringList) Set(v string) error {
+	*s = append(*s, v)
+	return nil
 }

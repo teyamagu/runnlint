@@ -31,12 +31,15 @@ runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
 runnlint --baseline runnlint-baseline.json .
+runnlint --include-root . books/payments
 runnlint --list-rules
 runnlint --print-config > .runnlint.yaml
 runnlint --version
 ```
 
 終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。
+
+`included-unreferenced` は、ほかのファイルからの include を見るので、判定する範囲が決まっています。ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけを判定し、参照元はその範囲の YAML をすべて読みます。ファイルを1つだけ渡したときは判定しません。include 元が走査範囲の外にあるときは `--include-root` で足します。詳しくは [docs/configuration.md](docs/configuration.md#included-unreferenced-の判定範囲) です。
 
 ### baseline
 
@@ -140,6 +143,7 @@ rules:
 | `loop-index` | `i` は `loop` の中だけ |
 | `previous-step` | 先頭 step の `previous` |
 | `defer-experimental` | `defer` は実験的機能 |
+| `included-unreferenced` | `if: included` の runbook が、走査した範囲のどこからも include されていない |
 
 `require-desc`、`no-debug`、`loop-until-with-test` はデフォルトの宣言的ルールです。
 

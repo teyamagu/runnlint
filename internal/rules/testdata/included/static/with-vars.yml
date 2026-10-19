@@ -1,0 +1,5 @@
+# parent.yml から include.path で include される。
+desc: included with vars
+if: included
+steps:
+  - test: "true"

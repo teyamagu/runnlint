@@ -1,0 +1,3 @@
+desc: 環境変数を含む include
+steps:
+  - include: ${DIR:-sub}/child.yml

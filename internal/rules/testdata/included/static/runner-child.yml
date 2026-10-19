@@ -1,0 +1,5 @@
+# parent.yml の include runner から参照される。
+desc: included by runner
+if: included
+steps:
+  - test: "true"

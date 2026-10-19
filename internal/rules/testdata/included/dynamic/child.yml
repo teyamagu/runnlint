@@ -1,0 +1,5 @@
+# 参照元が動的で解決できないので、指摘しない側に倒す。
+desc: dynamic child
+if: included
+steps:
+  - test: "true"

@@ -173,6 +173,7 @@ rules:
 | `loop-index` | warning | `i` は `loop` の中だけ |
 | `previous-step` | warning | 先頭 step と book 直下では `previous` を使えない |
 | `defer-experimental` | info | `defer` は実験的機能 |
+| `included-unreferenced` | warning | トップレベルの `if` が `included`（`included == true` や `included && ...` を含む）の runbook が、走査した範囲のどこかから include されていること |
 
 `options` を読む組み込みルールは `var-ref` だけです。
 
@@ -186,6 +187,22 @@ rules:
 ```
 
 `ignore` は文字列の配列です。ここに書いた名前は、`vars` にも `parent.vars` にも無くて警告しません。CLI や include 元から渡す変数向けです。
+
+### included-unreferenced の判定範囲
+
+`if: included` は「include されたときだけ動く」という意味です。どこからも include されていない runbook は実行されず、置き去りになっています。このルールは、ほかのファイルからの参照を見る唯一のルールです。参照元が lint の対象に入っていないと誤検知になるので、判定する範囲を次のように決めています。
+
+- 判定するのは、ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけです。ファイルを直接渡したときは、そのファイルが `--include-root` の中に無ければ判定しません。
+- 参照元として、走査したディレクトリと `--include-root` の中の YAML をすべて読みます。`ignore` で検査から外したファイルも参照元として読みます。直接渡したファイルも参照元になります。
+- include のパスは `include-path` と同じく、include する側のファイルのあるディレクトリから解決します。`include: path`、`include.path`、include runner の `path` を参照として数えます。
+- `{{ }}` や `${...}` を含むパスは値が分からないので、最後の動的な部分より後ろの文字列で終わるファイルをすべて「参照されている」とみなします。`{{ vars.name }}.yml` なら、すべての `.yml` が該当します。指摘しない側に倒すためです。
+- `if` が `included || ...` や `!included` のように単体でも真になりうる式は対象外です。`included && ...` は、include されたときにしか動かないので対象にします。
+
+include 元が走査範囲の外にあるときは、親ディレクトリを `--include-root` に足してください。
+
+```console
+runnlint --include-root . books/payments
+```
 
 デフォルトには、宣言的ルールの `require-desc`、`no-debug`、`loop-until-with-test` も入っています。これらに `uses` はありません。
 

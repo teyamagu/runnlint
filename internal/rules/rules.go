@@ -47,6 +47,11 @@ func CheckConfig(cfg *config.Config) error {
 
 // Lint は src を検査する。2つ目の戻り値は runbook とみなしたか。
 func Lint(filename string, src []byte, cfg *config.Config) ([]finding.Finding, bool) {
+	return LintWith(filename, src, cfg, nil)
+}
+
+// LintWith は、他のファイルからの include の参照 refs も使って src を検査する。refs は nil でもよい。
+func LintWith(filename string, src []byte, cfg *config.Config, refs *Refs) ([]finding.Finding, bool) {
 	doc, err := runbook.Parse(src)
 	if err != nil {
 		return []finding.Finding{{
@@ -79,10 +84,10 @@ func Lint(filename string, src []byte, cfg *config.Config) ([]finding.Finding, b
 		}}, false
 	}
 	doc.Book.SetLocation(filename, filepath.Dir(filename))
-	return lintDocument(doc, cfg), doc.IsRunbook()
+	return lintDocument(doc, cfg, refs), doc.IsRunbook()
 }
 
-func lintDocument(doc *runbook.Document, cfg *config.Config) []finding.Finding {
+func lintDocument(doc *runbook.Document, cfg *config.Config, refs *Refs) []finding.Finding {
 	var out []finding.Finding
 	doc.Book.Walk(func(b *runbook.Book) {
 		for _, p := range b.Problems {
@@ -98,7 +103,7 @@ func lintDocument(doc *runbook.Document, cfg *config.Config) []finding.Finding {
 		}
 	})
 	sites := analyze(doc.Book)
-	ctx := &Context{Doc: doc, Sites: sites}
+	ctx := &Context{Doc: doc, Sites: sites, Refs: refs}
 	for _, rule := range cfg.Rules {
 		if rule.Severity == finding.Off {
 			continue
@@ -122,7 +127,9 @@ type Context struct {
 	Doc   *runbook.Document
 	Rule  config.Rule
 	Sites []site
-	out   []finding.Finding
+	// Refs は他のファイルからの include。単体で検査するときは nil。
+	Refs *Refs
+	out  []finding.Finding
 }
 
 func (c *Context) Add(node *yaml.Node, format string, args ...any) {

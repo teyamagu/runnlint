@@ -1,0 +1,5 @@
+desc: 動的な include
+vars:
+  name: child
+steps:
+  - include: "{{ vars.name }}.yml"

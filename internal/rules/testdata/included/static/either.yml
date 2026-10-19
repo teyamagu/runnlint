@@ -1,0 +1,5 @@
+# included || ... は単体でも動くので対象外。
+desc: either
+if: included || true
+steps:
+  - test: "true"

@@ -1,0 +1,5 @@
+# !included は単体で動かすための書き方なので対象外。
+desc: negated
+if: "!included"
+steps:
+  - test: "true"

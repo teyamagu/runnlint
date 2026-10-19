@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -217,6 +218,96 @@ func TestMissingBaselineFails(t *testing.T) {
 	t.Chdir(t.TempDir())
 	code, err := Run(context.Background(), Options{Paths: []string{"."}, NoYamllint: true, Baseline: "missing.json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}})
 	if err == nil || code != 2 {
+		t.Fatalf("code = %d err = %v", code, err)
+	}
+}
+
+func writeFiles(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for name, body := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func runText(t *testing.T, opt Options) (int, string) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	opt.NoYamllint = true
+	opt.Stdout = &stdout
+	opt.Stderr = &stderr
+	code, err := Run(context.Background(), opt)
+	if err != nil {
+		t.Fatalf("%v\n%s", err, stderr.String())
+	}
+	return code, stdout.String()
+}
+
+// ディレクトリを走査したとき、include されていない if: included の runbook だけに included-unreferenced が出ることを確認する。
+// ignore で検査から外したファイルも参照元として読む。ファイルを直接渡したときは判定しない。--include-root で範囲を足すと判定する。
+func TestIncludedUnreferencedScope(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	child := "desc: child\nif: included\nsteps:\n  - test: \"true\"\n"
+	writeFiles(t, dir, map[string]string{
+		".runnlint.yaml":         "ignore:\n  - books/ignored.yml\n",
+		"books/parent.yml":       "desc: parent\nsteps:\n  - include: child.yml\n",
+		"books/ignored.yml":      "desc: ignored\nsteps:\n  - include: from-ignored.yml\n",
+		"books/child.yml":        child,
+		"books/from-ignored.yml": child,
+		"books/orphan.yml":       child,
+		"books/sub/inner.yml":    child,
+		"other/parent.yml":       "desc: other\nsteps:\n  - include: ../books/sub/inner.yml\n",
+	})
+
+	_, out := runText(t, Options{Paths: []string{"books"}})
+	if strings.Count(out, "[included-unreferenced]") != 2 || !strings.Contains(out, "orphan.yml:2:") || !strings.Contains(out, "inner.yml:2:") {
+		t.Fatalf("%s", out)
+	}
+
+	_, out = runText(t, Options{Paths: []string{"books/orphan.yml"}})
+	if strings.Contains(out, "[included-unreferenced]") {
+		t.Fatalf("直接渡したファイルを判定しています:\n%s", out)
+	}
+
+	_, out = runText(t, Options{Paths: []string{"books/orphan.yml"}, IncludeRoots: []string{"books"}})
+	if !strings.Contains(out, "orphan.yml:2:") {
+		t.Fatalf("--include-root の中のファイルを判定していません:\n%s", out)
+	}
+
+	_, out = runText(t, Options{Paths: []string{"books"}, IncludeRoots: []string{"other"}})
+	if strings.Count(out, "[included-unreferenced]") != 1 || strings.Contains(out, "inner.yml") {
+		t.Fatalf("%s", out)
+	}
+}
+
+// included-unreferenced は severity: off で止まり、baseline でも既存の診断として除けることを確認する。存在しない --include-root は 2 で失敗する。
+func TestIncludedUnreferencedConfigAndBaseline(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"books/orphan.yml": "desc: child\nif: included\nsteps:\n  - test: \"true\"\n",
+	})
+	_, out := runText(t, Options{Paths: []string{"books"}, WriteBaseline: "baseline.json"})
+	if out != "" {
+		t.Fatalf("%s", out)
+	}
+	code, out := runText(t, Options{Paths: []string{"books"}, Baseline: "baseline.json"})
+	if code != 0 || out != "" {
+		t.Fatalf("code = %d\n%s", code, out)
+	}
+	writeFiles(t, dir, map[string]string{".runnlint.yaml": "rules:\n  - id: included-unreferenced\n    severity: off\n"})
+	_, out = runText(t, Options{Paths: []string{"books"}})
+	if strings.Contains(out, "included-unreferenced") {
+		t.Fatalf("%s", out)
+	}
+	code, err := Run(context.Background(), Options{Paths: []string{"books"}, NoYamllint: true, IncludeRoots: []string{"missing"}, Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}})
+	if code != 2 || err == nil {
 		t.Fatalf("code = %d err = %v", code, err)
 	}
 }

@@ -1,0 +1,5 @@
+# included && ... も include されたときしか動かない。
+desc: compound orphan
+if: included && env.CI != ""
+steps:
+  - test: "true"

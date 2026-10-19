@@ -1,0 +1,5 @@
+# ${...} を含むパスはワイルドカードとして照合する。
+desc: env child
+if: included
+steps:
+  - test: "true"

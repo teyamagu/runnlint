@@ -1,0 +1,4 @@
+# if が無い runbook は対象外。
+desc: no if
+steps:
+  - test: "true"
