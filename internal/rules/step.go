@@ -85,11 +85,7 @@ func checkBind(c *Context, v runbook.Value) {
 	if len(v.Map) == 0 {
 		c.Add(v.Node, "bind が空です")
 	}
-	for _, e := range v.Map {
-		if e.Value.Kind != runbook.KindString {
-			c.Add(e.Value.Node, "bind.%s は式です", e.Key)
-		}
-	}
+	// 値は文字列の式に限らない。runn は mapping と配列を再帰的に評価し、それ以外はそのまま束縛する。
 }
 
 func checkStepRunners(c *Context, b *runbook.Book, step runbook.Step) {

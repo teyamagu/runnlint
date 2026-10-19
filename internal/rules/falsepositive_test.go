@@ -233,3 +233,32 @@ func TestExtractTemplatesNested(t *testing.T) {
 		}
 	}
 }
+
+// runn は bind の値を再帰的に評価し、mapping と配列の中の文字列を式として読む。数値などはそのまま束縛する。step-shape を出さないことを確認する。
+func TestBindAcceptsNestedValues(t *testing.T) {
+	checkNoFalsePositive(t, []fpCase{
+		{"mapping と配列と数値", "step-shape", `
+desc: d
+steps:
+  - dump: "1"
+    bind:
+      user:
+        id: current
+        tags:
+          - '"a"'
+      retry: 3
+`},
+	})
+}
+
+// bind の mapping の中の文字列も式として expr-syntax で検査することを確認する。
+func TestBindNestedStringsAreExpressions(t *testing.T) {
+	requireMessage(t, `
+desc: d
+steps:
+  - dump: "1"
+    bind:
+      user:
+        id: current ==
+`, "expr-syntax", "unexpected")
+}

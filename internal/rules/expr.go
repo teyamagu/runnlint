@@ -137,7 +137,7 @@ func collectStepExprs(b *runbook.Book, step *runbook.Step, sites *[]site) {
 	}
 	if v, ok := step.Value.Get("bind"); ok && v.Kind == runbook.KindMap {
 		for _, e := range v.Map {
-			addExpr(sites, b, step, e.Value, "bind")
+			addBindExprs(sites, b, step, e.Value)
 		}
 	}
 	if loop, ok := step.Value.Get("loop"); ok && loop.Kind == runbook.KindMap {
@@ -146,6 +146,22 @@ func collectStepExprs(b *runbook.Book, step *runbook.Step, sites *[]site) {
 		}
 		if v, ok := loop.Get("count"); ok {
 			addCountExpr(sites, b, step, v)
+		}
+	}
+}
+
+// addBindExprs は runn の EvalAny と同じく、mapping と配列の中の文字列を式として集める。
+func addBindExprs(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value) {
+	switch v.Kind {
+	case runbook.KindString:
+		addExpr(sites, b, step, v, "bind")
+	case runbook.KindSeq:
+		for _, el := range v.Seq {
+			addBindExprs(sites, b, step, el)
+		}
+	case runbook.KindMap:
+		for _, e := range v.Map {
+			addBindExprs(sites, b, step, e.Value)
 		}
 	}
 }
