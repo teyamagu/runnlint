@@ -148,37 +148,41 @@ rules:
 
 ### 組み込みルール
 
-| id | 内容 |
-| --- | --- |
-| `duplicate-key` | 同一 mapping 内のキー重複 |
-| `unknown-key` | runbook に無いトップレベルキー |
-| `book-shape` | `desc` や `loop`、`concurrency` などの型 |
-| `require-steps` | `steps` が空でないこと |
-| `label-format` | label に使えない文字 |
-| `runner-reserved` | `exec` や `test` などの予約名 |
-| `runner-config` | runner 種別の判定と設定キー |
-| `runner-defined` | step から未定義 runner を呼んでいないこと |
-| `step-shape` | main runner は 1 つ、`runner:` は単独 |
-| `http-request` | path、メソッド、`body` の media type |
-| `grpc-request` | `package.Service/Method`、`message` |
-| `db-request` | 空でない `query` と、任意の `trace` |
-| `exec-request` | `command` と `shell` |
-| `ssh-request` | `command` |
-| `cdp-request` | `actions` とアクション名 |
-| `agent-request` | `prompt` |
-| `include-request` | `path` と `steps` の排他 |
-| `include-path` / `needs-path` / `local-path` | 参照先ファイルの存在 |
-| `expr-syntax` | `{{ }}` と `test` / `if` / `until` / `bind` の式。式の前に `${...}` を展開し、括弧の外の `#` から行末をコメントとして除く。`test` と `bind` の中の `{{` はテンプレートにしない。`bind` は文字列のほか、mapping、配列、数値も受ける |
-| `expr-braces` | 式フィールドを `{{ }}` で囲んでいないこと。`test` と `bind` は値全体を包んだときだけ |
-| `step-ref` | list は `steps[n]`、map は `steps.name`。未来の step は不可 |
-| `var-ref` | `vars.name` が `vars` か、include 元の `include.vars` にあること |
-| `loop-index` | `i` は `loop` の中だけ |
-| `previous-step` | 先頭 step の `previous` |
-| `defer-experimental` | `defer` は実験的機能 |
-| `included-unreferenced` | `if: included` の runbook が、走査した範囲のどこからも include されていない |
-| `unused-suppression` | 存在しないルール、何も抑制しなかった抑制、複数行スカラーの中に書いた抑制、`disable-line` 以外の指示 |
+診断に出た id が、どの失敗を指すかの一覧です。初期の深刻度、`uses`、オプション、式の検査範囲は [docs/configuration.md](docs/configuration.md#組み込みルール) に書いてあります。
 
-`require-desc`、`no-debug`、`loop-until-with-test` はデフォルトの宣言的ルールです。
+| id | 知らせること |
+| --- | --- |
+| `duplicate-key` | 同じ mapping に、同じキーが2回書いてある |
+| `unknown-key` | トップレベルに、runbook のフィールドでも `x-` 始まりでも `<<` でもないキーがある |
+| `book-shape` | runbook 直下のフィールドの値が、runn の形になっていない |
+| `require-steps` | 実行する step が無い |
+| `label-format` | label が空であるか、runn が受け付けない文字を含んでいる |
+| `runner-reserved` | runner の名前に、`test` や `exec` などの予約語を使っている |
+| `runner-config` | runner の種別が分からない、またはその種別の設定が runn の形になっていない |
+| `runner-defined` | step が、定義されていない runner を呼んでいる |
+| `step-shape` | 1つの step で、実行する処理が1つに決まっていない |
+| `http-request` | HTTP の呼び出しが runn の形になっていない |
+| `grpc-request` | gRPC の呼び出しが runn の形になっていない |
+| `db-request` | DB の step に、実行する SQL が無い |
+| `exec-request` | exec に、実行するコマンドが無い、または付随する項目の形が違う |
+| `ssh-request` | SSH の step に `command` 以外が書いてある、または `command` が無い |
+| `cdp-request` | ブラウザ操作の `actions` が、runn の操作として成り立っていない |
+| `agent-request` | agent への依頼文が無い、または形が違う |
+| `include-request` | include が、取り込む runbook を1つに決めていない |
+| `include-path` | include の参照先ファイルが無い |
+| `needs-path` | `needs` の参照先ファイルが無い |
+| `local-path` | runner が参照する証明書や proto などのファイルが無い |
+| `expr-syntax` | `{{ }}` や `test` などの式が、式として読めない |
+| `expr-braces` | 式として読む欄を `{{ }}` で包んでいる |
+| `step-ref` | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
+| `var-ref` | `vars` に無い変数を参照している |
+| `loop-index` | `loop` の外で添字 `i` を使っている |
+| `previous-step` | 直前の step が無い場所で `previous` を使っている |
+| `defer-experimental` | `defer` は実験的機能だという知らせ |
+| `included-unreferenced` | include されたときだけ動く runbook が、どこからも include されていない |
+| `unused-suppression` | 抑制のコメントが、診断を抑制できていない |
+
+デフォルトには宣言的ルールも入っています。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることを知らせます。`test` は繰り返す前に評価されるので、リトライが始まる前に失敗します。
 
 ## 開発
 
