@@ -4,6 +4,8 @@ runnlint が runbook を検査するときの設定です。YAML で書き、同
 
 ## 探索
 
+どの名前のファイルを設定として読むかです。
+
 `-c` / `--config` が無いとき、カレントディレクトリから親へ、各ディレクトリで次の順に探して最初の1件を使います。
 
 1. `.runnlint-runn.yaml`
@@ -27,6 +29,8 @@ runnlint --list-rules
 `--list-rules` は、読み込んだ結果の `id`、`severity`、種別（`builtin:名前` または `check`）を出します。
 
 ## 全体
+
+トップレベルに書くフィールドです。
 
 ```yaml
 version: 1
@@ -52,13 +56,11 @@ rules:
 
 | フィールド | 意味 |
 | --- | --- |
-| `version` | いまは `1` だけを受けます。省略すると、継承後にデフォルトの `1` が残ります。`1` 以外のとき、固有の名前は終了コード `2` で失敗し、従来の名前は `warning:` を出して読み飛ばします。`--config` で渡したファイルは `warning:` を出して読み込みます。 |
+| `version` | ルールファイルの版。いま受け付けるのは `1` だけです。省略すると、継承後に `1` が残ります。`1` でないときの扱いは「探索」のとおりです。 |
 | `extends` | `default` または省略でデフォルトを継承します。`none`（大文字小文字を問わない）で継承しません。それ以外の文字列も、いまは継承と同じです。 |
 | `ignore` | ディレクトリ走査で読み飛ばすパス。指定するとデフォルトの一覧の後ろに足します。キーを省略するとデフォルトのままです。 |
 | `yamllint` | 一般的な YAML 検査の委譲先。書いた項目だけを上書きします。 |
 | `rules` | ルールの一覧。同じ `id` はマージされ、未知の `id` は末尾に足されます。 |
-
-`extends: none` でも、`yamllint.bin` と `yamllint.missing` を空のままにすると、それぞれ `yamllint` と `warning` になります。yamllint を止めるには `yamllint.enabled: false` を書きます。
 
 ## 継承
 
@@ -95,7 +97,7 @@ rules:
 
 ## ignore
 
-ディレクトリを渡したときだけ使います。ファイルパスを引数に書いた場合は、`ignore` に一致しても検査します。
+検査しないパスです。ディレクトリを渡したときだけ使います。ファイルパスを引数に書いた場合は、`ignore` に一致しても検査します。
 
 パターンは、走査で得たパス（スラッシュ区切り）と、そのベース名の両方に当てます。
 
@@ -110,6 +112,8 @@ rules:
 
 ## yamllint
 
+一般的な YAML の検査を、外部コマンドの yamllint に渡す設定です。
+
 | フィールド | 意味 |
 | --- | --- |
 | `enabled` | `true` / `false`。省略時は有効です。 |
@@ -117,11 +121,13 @@ rules:
 | `config` | yamllint 自身の設定ファイル。相対パスは、ルールファイルがあるディレクトリから探します。 |
 | `missing` | コマンドが無いときの深刻度。`error`、`warning`、`info`、`off`。省略時は `warning`。 |
 
-`config` を書かないときは、runbook 向けに緩めた組み込み設定を渡します。内容は `runnlint --print-yamllint-config` で見られます。
+`config` を書かないときは、runbook 向けに緩めた組み込み設定を渡します。内容は `runnlint --print-yamllint-config` で見られます。`extends: none` でも、`bin` と `missing` を空のままにすると、それぞれ `yamllint` と `warning` になります。yamllint を止めるには `enabled: false` を書きます。
 
 診断のルール ID は `yamllint/trailing-spaces` のように、yamllint のルール名に接頭辞を付けたものです。yamllint は GPL-3.0 の外部コマンドで、このモジュールには含めません。実行時に外すには `--no-yamllint` を使います。
 
 ## ルールの共通項目
+
+ルールを1件書くときのフィールドです。組み込みの深刻度を変えるときも、YAML だけでルールを足すときも、ここを書きます。
 
 ```yaml
 rules:
@@ -136,7 +142,7 @@ rules:
 | フィールド | 意味 |
 | --- | --- |
 | `id` | 診断に出る名前。設定内で一意です。 |
-| `uses` | 組み込み実装の名前。`id` と同じにする必要はありません。 |
+| `uses` | 組み込み実装の名前。`id` と別の名前にもできます。 |
 | `severity` | `error`、`warning`、`info`、`off`。省略すると `error`。 |
 | `message` | 宣言的ルールの診断文。 |
 | `check` | 宣言的ルールの条件。`uses` と同時には書けません。 |
@@ -148,39 +154,39 @@ rules:
 
 ## 組み込みルール
 
-`uses` に書ける名前と、デフォルトの深刻度です。
+`uses` に書ける名前、初期の深刻度、その名前が知らせる失敗です。`id` を同じ名前にして `severity` だけ変えるのが通常です。
 
-| uses | デフォルト | 見ているもの |
+| uses | デフォルト | 知らせる失敗 |
 | --- | --- | --- |
-| `duplicate-key` | error | 同一 mapping の明示的なキー重複 |
-| `unknown-key` | error | トップレベルのうち、runbook のフィールドでも `x-` 始まりでも `<<` でもないキー |
-| `book-shape` | error | `desc`、`labels`、`needs`、`runners`、`vars`、`secrets`、`hostRules`、`debug`、`interval`、`if`、`skipTest`、`loop`、`concurrency`、`force`、`trace` の型 |
-| `require-steps` | error | `steps` が1件以上あること |
-| `label-format` | error | label が `^[^ \n\r!+=|.*%^?><]+$` に合うこと |
-| `runner-reserved` | error | `test` `dump` `bind` `include` `exec` `runner` `if` `desc` `loop` `defer` `force` を runner 名に使っていないこと |
-| `runner-config` | error | runner の種別判定と、種別ごとの設定キー |
-| `runner-defined` | error | step の runner が `runners` か、それより前の `runner:` で定義されていること |
-| `step-shape` | error | step の main runner は1つ。`runner:` は他の runner と同じ step に書けない |
-| `http-request` | error | path、メソッド、`headers` / `body` / `useCookie` / `trace`。`/` で始まらない path は既定では見ない（下の `options`） |
-| `grpc-request` | error | `package.Service/Method`、`message` と `messages` の排他 |
-| `db-request` | error | 空でない `query` と、任意の `trace` |
-| `exec-request` | error | `command`、`shell`、`stdin`、`background`、`liveOutput`、`env` |
-| `ssh-request` | error | `command` だけ |
-| `cdp-request` | error | `actions` とアクション名、引数 |
-| `agent-request` | error | `prompt`、`clearContext` |
-| `include-request` | error | `path` と `steps` はどちらか一方 |
-| `include-path` | warning | include の path と、include runner の path がファイルとして存在すること |
-| `needs-path` | warning | `needs` の値がファイルとして存在すること |
-| `local-path` | warning | HTTP / gRPC / SSH runner の証明書や proto などのローカルパスが存在すること |
-| `expr-syntax` | error | `{{ }}` の中と、`test` / `if` / `until` / `bind` の式。式の前に値の `${...}` を展開し、括弧の外の `#` から行末をコメントとして除く。`test` と `bind` の式の中にある `{{` はテンプレートにしない。`bind` は文字列のほか、mapping、配列、数値も受け、中の文字列を式として検査する |
-| `expr-braces` | warning | 式として読むフィールドを `{{ }}` で包んでいないこと。`test` と `bind` は、値全体が `{{ }}` のときだけ。文字列の中の `{{` は対象外 |
-| `step-ref` | error | list は `steps[n]`、map は `steps.name`。まだ実行されていない step は参照できない。自分自身は参照できる |
-| `var-ref` | warning | `vars.name` が、その runbook の `vars` か、include 元の `include.vars` にあること。`parent.vars` は include の内側だけで、親の `vars` を見る |
-| `loop-index` | warning | `i` は `loop` の中だけ |
-| `previous-step` | warning | 先頭 step と book 直下では `previous` を使えない |
-| `defer-experimental` | info | `defer` は実験的機能 |
-| `included-unreferenced` | warning | トップレベルの `if` が `included`（`included == true` や `included && ...` を含む）の runbook が、走査した範囲のどこかから include されていること |
-| `unused-suppression` | warning | `# runnlint disable-line` のうち、存在しないルールを書いたもの、何も抑制しなかったもの、複数行スカラーの中に書いたもの、`disable-line` 以外の指示。書き方は README の「インライン抑制」 |
+| `duplicate-key` | error | 同じ mapping に、同じキーが2回書いてある |
+| `unknown-key` | error | トップレベルに、runbook のフィールドでも `x-` 始まりでも `<<` でもないキーがある |
+| `book-shape` | error | runbook 直下のフィールドの値が、runn の形になっていない |
+| `require-steps` | error | 実行する step が無い |
+| `label-format` | error | label が空であるか、空白や `!+=|.*%^?><` を含んでいる。文字列でないときもこの id です |
+| `runner-reserved` | error | runner の名前に、`test` や `exec` などの予約語を使っている |
+| `runner-config` | error | runner の種別が分からない、またはその種別の設定が runn の形になっていない |
+| `runner-defined` | error | step が、定義されていない runner を呼んでいる |
+| `step-shape` | error | 1つの step で、実行する処理が1つに決まっていない。`if` や `dump` など、step に添える値の形が違うときもこの id です |
+| `http-request` | error | HTTP の呼び出しが runn の形になっていない |
+| `grpc-request` | error | gRPC の呼び出しが runn の形になっていない |
+| `db-request` | error | DB の step に、実行する SQL が無い。`trace` の形が違うときもこの id です |
+| `exec-request` | error | exec に、実行するコマンドが無い、または付随する項目の形が違う |
+| `ssh-request` | error | SSH の step に `command` 以外が書いてある、または `command` が無い |
+| `cdp-request` | error | ブラウザ操作の `actions` が、runn の操作として成り立っていない |
+| `agent-request` | error | agent への依頼文が無い、または形が違う |
+| `include-request` | error | include が、取り込む runbook を1つに決めていない |
+| `include-path` | warning | include の参照先ファイルが無い |
+| `needs-path` | warning | `needs` の参照先ファイルが無い |
+| `local-path` | warning | runner が参照する証明書や proto などのファイルが無い |
+| `expr-syntax` | error | `{{ }}` や `test` などの式が、式として読めない |
+| `expr-braces` | warning | 式として読む欄を `{{ }}` で包んでいる |
+| `step-ref` | error | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
+| `var-ref` | warning | `vars` に無い変数を参照している |
+| `loop-index` | warning | `loop` の外で添字 `i` を使っている |
+| `previous-step` | warning | 直前の step が無い場所で `previous` を使っている |
+| `defer-experimental` | info | `defer` は実験的機能だという知らせ |
+| `included-unreferenced` | warning | include されたときだけ動く runbook が、どこからも include されていない |
+| `unused-suppression` | warning | 抑制のコメントが、診断を抑制できていない |
 
 `options` を読む組み込みルールは `var-ref` と `http-request` です。
 
@@ -199,10 +205,10 @@ include 元から渡す変数は、`ignore` に書かなくても数えます。
 
 - include 元が見つかったときは、どれかの include 元が `include.vars` で渡す変数を定義済みとします。`include.vars` が mapping でなく中身が分からないときは、そのファイルの `vars` を調べません。`parent.vars` も、include 元ごとに違うので調べません。
 - パスに `{{ }}` や `${...}` を含む include は、参照先になりうるファイルに、渡しうる変数として `include.vars` を足すだけです。include 元が見つかったとは扱いません。
-- include 元が見つからず、トップレベルの `if` が `included` の runbook は、include されて動く前提なので `vars` を調べません。ファイルを1つだけ渡したときに誤検知しないためです。
+- include 元が見つからず、トップレベルの `if` が `included` の runbook は、ファイルを1つだけ渡したときも `vars` を調べません。include されて動く前提です。
 - それ以外の runbook は、これまでどおり、その runbook の `vars` だけを見ます。
 
-`http-request` は `options.require-leading-slash` を読みます。`true` にすると、`/` でも `://` でも始まらない path（`graphql` など）を warning にします。runn は endpoint と path をつないで動かすので、既定では見ません。
+`http-request` は `options.require-leading-slash` を読みます。`true` にすると、`/` でも `://` でも始まらない path（`graphql` など）を、この id の warning にします。runn は endpoint と path をつないで動かすので、既定ではこの path を失敗にしません。
 
 ```yaml
 rules:
@@ -212,14 +218,22 @@ rules:
       require-leading-slash: true
 ```
 
+### 式と step の参照
+
+`expr-syntax` が見るのは、`{{ }}` の中と、`test`、`if`、`until`、`bind` です。検査の前に、値の `${...}` を展開し、括弧の外の `#` から行末をコメントとして除きます。`test` と `bind` の式の中にある `{{` はテンプレートにしません。`bind` は文字列のほか、mapping、配列、数値も受け、中の文字列を式として検査します。
+
+`expr-braces` の `test` と `bind` は、値全体が `{{ }}` のときだけ出します。文字列の中の `{{` は見ません。
+
+`step-ref` では、自分自身の step は参照できます。
+
 ### included-unreferenced の判定範囲
 
-`if: included` は「include されたときだけ動く」という意味です。どこからも include されていない runbook は実行されず、置き去りになっています。このルールは、ほかのファイルからの参照を見る唯一のルールです。参照元が lint の対象に入っていないと誤検知になるので、判定する範囲を次のように決めています。
+`if: included` は「include されたときだけ動く」という意味です。どこからも include されていない runbook は実行されず、置き去りになっています。このルールは、ほかのファイルからの参照を見ます。見る範囲は次のとおりです。
 
 - 判定するのは、ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけです。ファイルを直接渡したときは、そのファイルが `--include-root` の中に無ければ判定しません。
 - 参照元として、走査したディレクトリと `--include-root` の中の YAML をすべて読みます。`ignore` で検査から外したファイルも参照元として読みます。直接渡したファイルも参照元になります。
 - include のパスは `include-path` と同じく、include する側のファイルのあるディレクトリから解決します。`include: path`、`include.path`、include runner の `path` を参照として数えます。
-- `{{ }}` や `${...}` を含むパスは値が分からないので、最後の動的な部分より後ろの文字列で終わるファイルをすべて「参照されている」とみなします。`{{ vars.name }}.yml` なら、すべての `.yml` が該当します。指摘しない側に倒すためです。
+- `{{ }}` や `${...}` を含むパスは値が分からないので、最後の動的な部分より後ろの文字列で終わるファイルをすべて参照されていると数えます。`{{ vars.name }}.yml` なら、すべての `.yml` が該当します。
 - `if` が `included || ...` や `!included` のように単体でも真になりうる式は対象外です。`included && ...` は、include されたときにしか動かないので対象にします。
 
 include 元が走査範囲の外にあるときは、親ディレクトリを `--include-root` に足してください。
@@ -228,7 +242,7 @@ include 元が走査範囲の外にあるときは、親ディレクトリを `-
 runnlint --include-root . books/payments
 ```
 
-デフォルトには、宣言的ルールの `require-desc`、`no-debug`、`loop-until-with-test` も入っています。これらに `uses` はありません。
+デフォルトには、宣言的ルールも入っています。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることを知らせます。`test` は繰り返す前に評価されるので、リトライが始まる前に失敗します。これらに `uses` はありません。
 
 ## 宣言的ルール
 
@@ -246,7 +260,7 @@ rules:
 
 ### select
 
-ドット区切りです。`*` は mapping の各値、または sequence の各要素です。`steps` が list でも map でも `steps.*` で各 step を指します。
+どの値に条件を当てるかです。ドット区切りです。`*` は mapping の各値、または sequence の各要素です。`steps` が list でも map でも `steps.*` で各 step を指します。
 
 | select | 指すもの |
 | --- | --- |
@@ -259,7 +273,7 @@ list の要素を選んだときの `key` は `0` から始まる番号、map �
 
 ### 判定
 
-選んだ各値に、書いた条件をすべて当てます。1つでも外れると診断です。
+選んだ値が、どんなときに診断になるかです。書いた条件をすべて当て、1つでも外れると診断です。
 
 | 条件 | 診断になるとき |
 | --- | --- |
@@ -317,7 +331,7 @@ where:
 
 ### message
 
-空なら、条件に応じた文を出します。書いた場合は [Go の text/template](https://pkg.go.dev/text/template) です。使えるデータは次の4つです。未知の名前は空文字になります。
+診断に出す文です。空なら、条件に応じた文を出します。書いた場合は [Go の text/template](https://pkg.go.dev/text/template) です。使えるデータは次の4つです。未知の名前は空文字になります。
 
 | 名前 | 中身 |
 | --- | --- |
