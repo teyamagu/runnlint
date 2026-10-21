@@ -365,7 +365,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Ignored は path が ignore に含まれるか。
+// Ignored は、走査で得た path（スラッシュ区切り）か、そのベース名が ignore に当たるか。
+// ** を含むパターンは path だけを見る。引数のファイルを外すかは、呼び出し側が決める。
 func (c *Config) Ignored(path string) bool {
 	slash := filepath.ToSlash(path)
 	base := filepath.Base(path)

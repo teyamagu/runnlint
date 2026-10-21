@@ -123,7 +123,7 @@ rules:
       matches: '^\$\{.+\}$'
 ```
 
-`extends: none` にすると継承しません。`severity` は `error`、`warning`、`info`、`off` です。`ignore` はディレクトリ走査のときだけ適用され、パスを直接指定したファイルは検査します。
+`extends: none` にすると継承しません。`severity` は `error`、`warning`、`info`、`off` です。`ignore` はディレクトリ走査で集めたファイルにだけ適用します。パターンにファイルのパスを書いても、そのファイルを引数に渡したときは検査します。
 
 ### 宣言的ルール
 
@@ -203,7 +203,7 @@ go run ./cmd/runnlint --no-yamllint --include-root examples examples/bad/include
 
 新しい安定版が出ると、`.go-version` と `go.mod` を上げるまでこのテストが失敗します。CI は先にその Go でテスト一式を実行するので、宣言を上げる前に互換性を確認できます。
 
-`examples/valid` は通る runbook です。HTTP と DB は `examples/valid/http.yml` です。`examples/bad` は既定ルールごとに1ファイルの検出例で、ファイル名がルール id です。ディレクトリ走査では `examples/bad` を無視します。ファイルを直接指定すると検査します。`included-unreferenced` だけは、ファイルを直接渡しただけでは判定しません。上の `--include-root examples` を付けたコマンドで出します。
+`examples/valid` は通る runbook です。HTTP と DB は `examples/valid/http.yml` です。`examples/bad` は既定ルールごとに1ファイルの検出例で、ファイル名がルール id です。ディレクトリ走査では `examples/bad` を無視します。引数にファイルを書くと検査します。`included-unreferenced` だけは、ファイルを引数に書いただけでは判定しません。上の `--include-root examples` を付けたコマンドで出します。
 
 ## ライセンス
 
