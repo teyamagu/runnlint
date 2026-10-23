@@ -4,11 +4,18 @@
 
 ## [Unreleased]
 
+## [0.1.4]
+
+### 追加
+
+- README に、ビルド結果、カバレッジ、コードとテストの比率、テスト時間のバッジを出す。
+- runn のスキーマと CDP アクション定義が変わったとき、取り込みを更新してルールと examples を確認し、修正 PR を作る。
+
+### 変更
+
 - 設定ファイルの探索は `.runnlint-runn.yaml` と `.runnlint-runn.yml` だけにする。`.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` は読まない。
 - 組み込みルールの説明を、診断が知らせる失敗に合わせる。
 - テスト時間のバッジは、CI の `テスト` ステップの実行時間から作る。
-- README に、ビルド結果、カバレッジ、コードとテストの比率、テスト時間のバッジを出す。
-- runn のスキーマと CDP アクション定義が変わったとき、取り込みを更新してルールと examples を確認し、修正 PR を作る。
 - 設定の `version`、`{{ .rule }}`、`db-request` の `trace`、式の `${...}` と行コメント、`bind` の値の形を文書に書く。`included-unreferenced` の検出例を再現するコマンドを書く。
 
 ## [0.1.3]
