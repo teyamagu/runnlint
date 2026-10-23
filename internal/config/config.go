@@ -32,15 +32,11 @@ type Config struct {
 	Warnings []string `yaml:"-"`
 }
 
-// UniqueName は runnlint だけが使う設定ファイル名。探索では最初に探す。
+// UniqueName は探索で最初に探す設定ファイル名。
 const UniqueName = ".runnlint-runn.yaml"
 
-// 探索するファイル名。固有の名前を先に、従来の名前を後に探す。
-// 従来の名前は同名の別ツールと重なるので、runnlint のルールファイルの形でなければ読み飛ばす。
-var (
-	uniqueNames = []string{UniqueName, ".runnlint-runn.yml"}
-	legacyNames = []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"}
-)
+// configNames は探索する設定ファイル名。.yaml を先に探す。
+var configNames = []string{UniqueName, ".runnlint-runn.yml"}
 
 // Yamllint は汎用 YAML lint の委譲先。
 type Yamllint struct {
@@ -148,7 +144,7 @@ func Load(path string) (*Config, error) {
 	var warnings []string
 	explicit := path != ""
 	if !explicit {
-		path, warnings = discover()
+		path = discover()
 	}
 	if path == "" {
 		base.Warnings = warnings
@@ -428,38 +424,21 @@ func globMatch(pattern, path string) bool {
 }
 
 // discover はカレントディレクトリから親へルールファイルを探す。
-// 従来の名前で runnlint の形でないファイルは、警告を残して読み飛ばす。
-func discover() (string, []string) {
+func discover() string {
 	dir, err := os.Getwd()
 	if err != nil {
-		return "", nil
+		return ""
 	}
-	var warnings []string
 	for {
-		for _, name := range uniqueNames {
+		for _, name := range configNames {
 			candidate := filepath.Join(dir, name)
 			if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
-				return candidate, warnings
+				return candidate
 			}
-		}
-		for _, name := range legacyNames {
-			candidate := filepath.Join(dir, name)
-			st, err := os.Stat(candidate)
-			if err != nil || st.IsDir() {
-				continue
-			}
-			raw, err := os.ReadFile(candidate)
-			if err == nil {
-				err, _ = checkShape(raw)
-			}
-			if err == nil {
-				return candidate, warnings
-			}
-			warnings = append(warnings, fmt.Sprintf("%s を読み飛ばします。別のツールの設定ファイルかもしれません (%v)。runnlint の設定は %s に置くか、--config で指定します", candidate, err, UniqueName))
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", warnings
+			return ""
 		}
 		dir = parent
 	}

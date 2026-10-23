@@ -125,7 +125,7 @@ func TestCommandExitCodes(t *testing.T) {
 	}
 
 	cfg := []byte("version: 1\nrules:\n  - id: broken\n    severity: fatal\n    uses: duplicate-key\n")
-	if err := os.WriteFile(filepath.Join(dir, ".runnlint.yaml"), cfg, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".runnlint-runn.yaml"), cfg, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	code, _, stderr = capture(t, []string{"--no-yamllint", "bad.yml"})
