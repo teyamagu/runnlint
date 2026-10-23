@@ -53,7 +53,7 @@ func TestIgnoreAppliesOnlyToDirectoryWalk(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 	cfg := []byte("extends: default\nignore:\n  - bad.yml\n")
-	if err := os.WriteFile(filepath.Join(dir, ".runnlint.yaml"), cfg, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".runnlint-runn.yaml"), cfg, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bad := []byte("desc: bad\nsteps:\n  - nope:\n      query: SELECT 1\n")
@@ -255,7 +255,7 @@ func TestIncludedUnreferencedScope(t *testing.T) {
 	t.Chdir(dir)
 	child := "desc: child\nif: included\nsteps:\n  - test: \"true\"\n"
 	writeFiles(t, dir, map[string]string{
-		".runnlint.yaml":         "ignore:\n  - books/ignored.yml\n",
+		".runnlint-runn.yaml":    "ignore:\n  - books/ignored.yml\n",
 		"books/parent.yml":       "desc: parent\nsteps:\n  - include: child.yml\n",
 		"books/ignored.yml":      "desc: ignored\nsteps:\n  - include: from-ignored.yml\n",
 		"books/child.yml":        child,
@@ -301,7 +301,7 @@ func TestIncludedUnreferencedConfigAndBaseline(t *testing.T) {
 	if code != 0 || out != "" {
 		t.Fatalf("code = %d\n%s", code, out)
 	}
-	writeFiles(t, dir, map[string]string{".runnlint.yaml": "rules:\n  - id: included-unreferenced\n    severity: off\n"})
+	writeFiles(t, dir, map[string]string{".runnlint-runn.yaml": "rules:\n  - id: included-unreferenced\n    severity: off\n"})
 	_, out = runText(t, Options{Paths: []string{"books"}})
 	if strings.Contains(out, "included-unreferenced") {
 		t.Fatalf("%s", out)
@@ -373,8 +373,8 @@ func moduleRoot(t *testing.T) string {
 	}
 }
 
-// 別のツールの .runnlint.yaml があっても終了コード 2 で止まらず、警告を出してデフォルトで検査することを確認する。
-func TestForeignConfigIsSkipped(t *testing.T) {
+// .runnlint.yaml は探索しない。別のツールの設定があっても警告せず、デフォルトで検査することを確認する。
+func TestLegacyConfigNameIsIgnored(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 	writeFiles(t, dir, map[string]string{
@@ -383,7 +383,7 @@ func TestForeignConfigIsSkipped(t *testing.T) {
 	})
 	var stdout, stderr bytes.Buffer
 	code, err := Run(context.Background(), Options{Paths: []string{"."}, NoYamllint: true, Stdout: &stdout, Stderr: &stderr})
-	if err != nil || code != 0 || !strings.Contains(stderr.String(), "warning: ") || !strings.Contains(stderr.String(), ".runnlint-runn.yaml") {
-		t.Fatalf("code = %d err = %v\n%s", code, err, stderr.String())
+	if err != nil || code != 0 || stderr.Len() != 0 {
+		t.Fatalf("code = %d err = %v\n%s\n%s", code, err, stdout.String(), stderr.String())
 	}
 }

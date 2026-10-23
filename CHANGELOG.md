@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- 設定ファイルの探索は `.runnlint-runn.yaml` と `.runnlint-runn.yml` だけにする。`.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` は読まない。
 - 組み込みルールの説明を、診断が知らせる失敗に合わせる。
 - テスト時間のバッジは、CI の `テスト` ステップの実行時間から作る。
 - README に、ビルド結果、カバレッジ、コードとテストの比率、テスト時間のバッジを出す。

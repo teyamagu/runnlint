@@ -292,21 +292,28 @@ rules:
 	}
 }
 
-// 子ディレクトリで設定パスを空にして読み込んだとき、親の .runnlint.yaml が選ばれ runnlint.yml のルールは読み込まれないことを確認する。
-func TestDiscoverWalksToParentAndPrefersDotYAML(t *testing.T) {
+// 子ディレクトリで設定パスを空にして読み込んだとき、親の .runnlint-runn.yaml が選ばれ、同じディレクトリの .runnlint-runn.yml と .runnlint.yaml は読まれないことを確認する。
+func TestDiscoverWalksToParentAndPrefersYAML(t *testing.T) {
 	root := t.TempDir()
-	writeConfig(t, root, ".runnlint.yaml", `
+	writeConfig(t, root, ".runnlint-runn.yaml", `
 version: 1
 extends: none
 rules:
   - id: from-dot
     severity: off
 `)
-	writeConfig(t, root, "runnlint.yml", `
+	writeConfig(t, root, ".runnlint-runn.yml", `
 version: 1
 extends: none
 rules:
-  - id: from-plain
+  - id: from-yml
+    severity: off
+`)
+	writeConfig(t, root, ".runnlint.yaml", `
+version: 1
+extends: none
+rules:
+  - id: from-legacy
     severity: off
 `)
 	sub := filepath.Join(root, "nested")
@@ -318,8 +325,31 @@ rules:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "from-dot" {
-		t.Fatalf("%+v", cfg.Rules)
+	if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "from-dot" || len(cfg.Warnings) != 0 {
+		t.Fatalf("%+v warnings=%v", cfg.Rules, cfg.Warnings)
+	}
+}
+
+// .runnlint.yaml などの従来の名前だけがあるときは、中身が runnlint の設定でも読まず、警告も出さずデフォルトを使うことを確認する。
+func TestDiscoverIgnoresLegacyNames(t *testing.T) {
+	for _, name := range []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			writeConfig(t, root, name, "extends: none\nrules:\n  - id: from-legacy\n    severity: off\n")
+			t.Chdir(root)
+			cfg, err := Load("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.SourceDir != "" || len(cfg.Warnings) != 0 {
+				t.Fatalf("dir=%s warnings=%v", cfg.SourceDir, cfg.Warnings)
+			}
+			for _, rule := range cfg.Rules {
+				if rule.ID == "from-legacy" {
+					t.Fatal("従来の名前を読んでいます")
+				}
+			}
+		})
 	}
 }
 
@@ -342,9 +372,8 @@ func TestLoadJSONConfig(t *testing.T) {
 	}
 }
 
-// 探索で見つけた .runnlint.yaml が runnlint のルールファイルの形でない（未知のキー、型の違い、未知の version）とき、
-// 警告を残して読み飛ばし、同じディレクトリの次の候補や親ディレクトリ、無ければデフォルトを使うことを確認する。
-func TestDiscoverSkipsForeignConfig(t *testing.T) {
+// 探索で見つけた .runnlint-runn.yaml の形が違うとき、読み飛ばさず失敗することを確認する。
+func TestDiscoverRejectsForeignUniqueName(t *testing.T) {
 	foreign := map[string]string{
 		"未知のキー":         "linters:\n  - runbook\n",
 		"rules の型":      "rules:\n  no-debug: true\n",
@@ -354,47 +383,13 @@ func TestDiscoverSkipsForeignConfig(t *testing.T) {
 	for name, body := range foreign {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
-			writeConfig(t, root, ".runnlint.yaml", body)
+			writeConfig(t, root, ".runnlint-runn.yaml", body)
 			t.Chdir(root)
-			cfg, err := Load("")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0], ".runnlint.yaml") || !strings.Contains(cfg.Warnings[0], ".runnlint-runn.yaml") {
-				t.Fatalf("%v", cfg.Warnings)
-			}
-			if len(cfg.Rules) == 0 || cfg.SourceDir != "" {
-				t.Fatalf("デフォルトになっていません: %+v", cfg)
-			}
-
-			writeConfig(t, root, "runnlint.yml", "extends: none\nrules:\n  - id: from-plain\n    severity: off\n")
-			cfg, err = Load("")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "from-plain" || len(cfg.Warnings) != 1 {
-				t.Fatalf("%+v", cfg)
+			_, err := Load("")
+			if err == nil {
+				t.Fatal("形の違う設定を読んでいます")
 			}
 		})
-	}
-}
-
-// .runnlint-runn.yaml は従来の名前より先に選ばれることを確認する。固有の名前なので、形が違えば読み飛ばさず失敗する。
-func TestDiscoverPrefersUniqueName(t *testing.T) {
-	root := t.TempDir()
-	writeConfig(t, root, ".runnlint.yaml", "extends: none\nrules:\n  - id: from-legacy\n    severity: off\n")
-	writeConfig(t, root, ".runnlint-runn.yaml", "extends: none\nrules:\n  - id: from-unique\n    severity: off\n")
-	t.Chdir(root)
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "from-unique" {
-		t.Fatalf("%+v", cfg.Rules)
-	}
-	writeConfig(t, root, ".runnlint-runn.yaml", "linters: []\n")
-	if _, err := Load(""); err == nil || !strings.Contains(err.Error(), "linters") {
-		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -411,14 +406,14 @@ func TestExplicitConfigWarnsUnknownKeys(t *testing.T) {
 	}
 }
 
-// --print-config の出力を従来の名前で置いたとき、読み飛ばさず警告も出さないことを確認する。
+// --print-config の出力を .runnlint-runn.yaml に置いたとき、警告なく読むことを確認する。
 func TestPrintedDefaultPassesShapeCheck(t *testing.T) {
 	root := t.TempDir()
 	raw, err := DefaultYAML()
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, root, ".runnlint.yaml", string(raw))
+	writeConfig(t, root, ".runnlint-runn.yaml", string(raw))
 	t.Chdir(root)
 	cfg, err := Load("")
 	if err != nil {
@@ -429,10 +424,10 @@ func TestPrintedDefaultPassesShapeCheck(t *testing.T) {
 	}
 }
 
-// 従来の名前の runnlint の設定で、rules の中に未知のキーがあるだけなら、読み飛ばさず警告を出して読み込むことを確認する。
-func TestLegacyConfigWithNestedTypoIsLoaded(t *testing.T) {
+// 探索で見つけた設定の rules の中に未知のキーがあるだけなら、警告を出して読み込むことを確認する。
+func TestNestedUnknownKeyWarnsAndLoads(t *testing.T) {
 	root := t.TempDir()
-	writeConfig(t, root, ".runnlint.yaml", "extends: none\nrules:\n  - id: mine\n    severity: off\n    sevrity: error\n")
+	writeConfig(t, root, ".runnlint-runn.yaml", "extends: none\nrules:\n  - id: mine\n    severity: off\n    sevrity: error\n")
 	t.Chdir(root)
 	cfg, err := Load("")
 	if err != nil {

@@ -13,7 +13,7 @@ func TestLoadOverride(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 	body := []byte("version: 1\nrules:\n  - id: var-ref\n    severity: off\n  - id: ban-debug\n    severity: error\n    message: debug は禁止です\n    check:\n      select: debug\n      exists: false\n")
-	if err := os.WriteFile(filepath.Join(dir, ".runnlint.yaml"), body, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".runnlint-runn.yaml"), body, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load("")
