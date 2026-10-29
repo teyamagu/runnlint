@@ -6,13 +6,17 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Added
 
 - A display language. Config `language` is `ja` or `en`, and omitting it means Japanese. `--lang` overrides the config. text, github, the JSON `message`, and usage print only the selected language.
+- English copies of the README, the rules file, versioning, test design, following runn, and the changelog.
 
 ### Changed
 
 - Baseline matching for built-in diagnostics uses the English sentence regardless of the display language. A declarative rule's `message` is stored as written. The baseline file format is now version 2. Version 1 cannot be loaded, so rewrite it with `--write-baseline`.
+- Code comments are in English.
 
 ## [0.1.4]
 
