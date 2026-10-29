@@ -5,7 +5,7 @@ package version
 import "regexp"
 
 // Version is the version that is released. Git tags add a leading v.
-const Version = "0.1.4"
+const Version = "0.2.0"
 
 // semver matches MAJOR.MINOR.PATCH plus an optional prerelease. A leading v is not included.
 var semver = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
