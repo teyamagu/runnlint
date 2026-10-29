@@ -6,6 +6,8 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+- Japanese documents live in `docs/ja/`.
+
 ## [0.2.0]
 
 ### Added

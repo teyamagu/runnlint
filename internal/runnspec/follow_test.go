@@ -39,7 +39,7 @@ func TestFollowsRunnNotation(t *testing.T) {
 	if len(changed) == 0 {
 		return
 	}
-	t.Fatalf("runn %s で記法の定義が変わっています（%s）。いまの追従対象は %s です。internal/runnspec の VERSION、runbook.schema.yaml、cdpfn.src を %s の内容に替え、docs/runn-follow.md のパーサ上書きを見直してから go test ./... を再実行してください", latest, strings.Join(changed, ", "), pin, latest)
+	t.Fatalf("runn %s で記法の定義が変わっています（%s）。いまの追従対象は %s です。internal/runnspec の VERSION、runbook.schema.yaml、cdpfn.src を %s の内容に替え、docs/ja/runn-follow.md のパーサ上書きを見直してから go test ./... を再実行してください", latest, strings.Join(changed, ", "), pin, latest)
 }
 
 func rawURL(tag, name string) string {

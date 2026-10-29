@@ -1,6 +1,6 @@
 # Test design
 
-[日本語](../test-design.md)
+[日本語](../ja/test-design.md)
 
 The checking contracts split into the [rules file](configuration.md), [following runn](runn-follow.md), and the execution flow (command, file collection, rules, yamllint, output, exit code). Tests split on those same boundaries.
 

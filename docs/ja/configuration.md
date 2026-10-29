@@ -1,6 +1,6 @@
 # ルールファイル
 
-[English](en/configuration.md)
+[English](../en/configuration.md)
 
 runnlint が runbook を検査するときの設定です。YAML で書き、同じ内容を JSON で渡すこともできます。JSON は探索対象にならないので、`-c` でパスを指定します。
 

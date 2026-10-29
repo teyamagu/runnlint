@@ -1,6 +1,6 @@
 # Rules file
 
-[日本語](../configuration.md)
+[日本語](../ja/configuration.md)
 
 The settings runnlint uses when it checks a runbook. Write them in YAML. The same content can be passed as JSON. JSON is not discovered, so pass the path with `-c`.
 
