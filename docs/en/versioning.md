@@ -1,6 +1,6 @@
 # Versions and releases
 
-[日本語](../versioning.md)
+[日本語](../ja/versioning.md)
 
 The runnlint product version is [Semantic Versioning 2.0.0](https://semver.org/). The value lives in `Version` in `internal/version/version.go`, and the Git tag adds a leading `v`. The tag for `0.1.0` is `v0.1.0`.
 

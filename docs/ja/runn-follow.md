@@ -1,6 +1,6 @@
 # runn の更新への追従
 
-[English](en/runn-follow.md)
+[English](../en/runn-follow.md)
 
 runnlint が合わせる runn は [v1.11.1](https://github.com/k1LoW/runn/releases/tag/v1.11.1) です。タグは `internal/runnspec/VERSION` にあります。
 
@@ -55,7 +55,7 @@ runn の公式 JSON Schema（`runbook.schema.yaml`）は、上の 1 のとおり
 
 タグだけが進み、この2ファイルが同じなら失敗しません。依存関係だけのリリースで CI を赤くしないためです。
 
-毎週の [runn follow](../.github/workflows/runn-follow.yml) は、その差があるときだけ次を行います。
+毎週の [runn follow](../../.github/workflows/runn-follow.yml) は、その差があるときだけ次を行います。
 
 1. 新しいタグの `runbook.schema.yaml` と `cdpfn.go` を、`internal/runnspec/runbook.schema.yaml` と `internal/runnspec/cdpfn.src` に置き換える。`internal/runnspec/VERSION` をそのタグにする。
 2. `go test ./...` で、ルールと examples がまだ通るかを確認する。

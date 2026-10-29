@@ -1,6 +1,6 @@
 # バージョンとリリース
 
-[English](en/versioning.md)
+[English](../en/versioning.md)
 
 runnlint の製品バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) です。値は `internal/version/version.go` の `Version` に置き、Git のタグは先頭に `v` を付けます。`0.1.0` のタグは `v0.1.0` です。
 

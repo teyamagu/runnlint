@@ -48,7 +48,7 @@ runnlint --version
 
 表示は日本語が既定です。設定の `language: en`、または `--lang en` で英語にします。`--lang` は設定より優先します。`ja` と `en` 以外を渡すと終了コード `2` です。text、github、JSON の `message`、`-h` の使い方は、選んだ言語の文だけを出します。
 
-`included-unreferenced` は、ほかのファイルからの include を見るので、判定する範囲が決まっています。ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけを判定し、参照元はその範囲の YAML をすべて読みます。ファイルを1つだけ渡したときは判定しません。include 元が走査範囲の外にあるときは `--include-root` で足します。詳しくは [docs/configuration.md](docs/configuration.md#included-unreferenced-の判定範囲) です。
+`included-unreferenced` は、ほかのファイルからの include を見るので、判定する範囲が決まっています。ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけを判定し、参照元はその範囲の YAML をすべて読みます。ファイルを1つだけ渡したときは判定しません。include 元が走査範囲の外にあるときは `--include-root` で足します。詳しくは [docs/ja/configuration.md](docs/ja/configuration.md#included-unreferenced-の判定範囲) です。
 
 ### インライン抑制
 
@@ -88,11 +88,11 @@ runnlint --baseline runnlint-baseline.json .
 
 組み込み診断のメッセージは、表示が日本語でも英語の文で記録し、英語の文で照合します。宣言的ルールに書いた `message` は、書いた文のままです。baseline ファイルの形式は version 2 です。version 1 は読み込めません。`--write-baseline` で書き直してください。
 
-製品の版は Semantic Versioning です。ルールファイルの `version: 1` とは別です。番号の上げ方と、タグからのリリースは [docs/versioning.md](docs/versioning.md) に書いてあります。
+製品の版は Semantic Versioning です。ルールファイルの `version: 1` とは別です。番号の上げ方と、タグからのリリースは [docs/ja/versioning.md](docs/ja/versioning.md) に書いてあります。
 
 ## ルールファイル
 
-フィールドの意味、継承、宣言的ルールの書き方は [docs/configuration.md](docs/configuration.md) にまとめています。runn の更新への追従は [docs/runn-follow.md](docs/runn-follow.md) です。
+フィールドの意味、継承、宣言的ルールの書き方は [docs/ja/configuration.md](docs/ja/configuration.md) にまとめています。runn の更新への追従は [docs/ja/runn-follow.md](docs/ja/runn-follow.md) です。
 
 カレントディレクトリから親へ `.runnlint-runn.yaml`、`.runnlint-runn.yml` の順に探します。ファイルが無ければ組み込みのデフォルトを使います。`--config` でパスを直接指定することもできます。
 
@@ -154,7 +154,7 @@ rules:
 
 ### 組み込みルール
 
-診断に出た id が、どの失敗を指すかの一覧です。初期の深刻度、`uses`、オプション、式の検査範囲は [docs/configuration.md](docs/configuration.md#組み込みルール) に書いてあります。
+診断に出た id が、どの失敗を指すかの一覧です。初期の深刻度、`uses`、オプション、式の検査範囲は [docs/ja/configuration.md](docs/ja/configuration.md#組み込みルール) に書いてあります。
 
 | id | 知らせること |
 | --- | --- |
@@ -192,7 +192,7 @@ rules:
 
 ## 開発
 
-実装は、失敗するテストを先に追加してから行う。契約とテストの対応は [docs/test-design.md](docs/test-design.md) に書いてある。
+実装は、失敗するテストを先に追加してから行う。契約とテストの対応は [docs/ja/test-design.md](docs/ja/test-design.md) に書いてある。
 
 ```console
 go test ./...

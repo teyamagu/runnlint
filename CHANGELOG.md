@@ -2,9 +2,11 @@
 
 [English](CHANGELOG.en.md)
 
-バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) です。上げ方は [docs/versioning.md](docs/versioning.md) に書いてあります。
+バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) です。上げ方は [docs/ja/versioning.md](docs/ja/versioning.md) に書いてあります。
 
 ## [Unreleased]
+
+- 日本語の文書を `docs/ja/` に置く。
 
 ## [0.2.0]
 

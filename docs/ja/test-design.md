@@ -1,6 +1,6 @@
 # テスト設計
 
-[English](en/test-design.md)
+[English](../en/test-design.md)
 
 検査の契約は [ルールファイル](configuration.md) と [runn への追従](runn-follow.md)、実行の流れ（コマンド、ファイル収集、ルール、yamllint、出力、終了コード）に分かれる。テストもその境界で分ける。
 

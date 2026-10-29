@@ -1,6 +1,6 @@
 # Following runn updates
 
-[日本語](../runn-follow.md)
+[日本語](../ja/runn-follow.md)
 
 The runn that runnlint follows is [v1.11.1](https://github.com/k1LoW/runn/releases/tag/v1.11.1). The tag is in `internal/runnspec/VERSION`.
 
