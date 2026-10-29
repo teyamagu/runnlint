@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"github.com/teyamagu/runnlint/internal/runnspec"
 )
@@ -32,7 +33,7 @@ func runnerReserved(c *Context) {
 	for _, b := range c.Books() {
 		for _, r := range b.Runners {
 			if reservedRunner(r.Name) {
-				c.Add(r.NameNode, "runner 名 %s は runn の予約語です", r.Name)
+				c.Add(r.NameNode, message.RunnerReserved, r.Name)
 			}
 		}
 		for _, step := range b.Steps {
@@ -42,7 +43,7 @@ func runnerReserved(c *Context) {
 			}
 			for _, e := range def.Map {
 				if reservedRunner(e.Key) {
-					c.Add(e.KeyNode, "runner 名 %s は runn の予約語です", e.Key)
+					c.Add(e.KeyNode, message.RunnerReserved, e.Key)
 				}
 			}
 		}
@@ -60,7 +61,7 @@ func runnerDefined(c *Context) {
 				if _, ok := known[e.Key]; ok {
 					continue
 				}
-				c.Add(e.KeyNode, "runner %s は runners にも先行する runner: にもありません", e.Key)
+				c.Add(e.KeyNode, message.RunnerMissing, e.Key)
 			}
 		}
 	}
@@ -108,17 +109,17 @@ func checkRunner(c *Context, r runbook.Runner) {
 			checkHTTPURL(c, r.Name, r.Value)
 		case runbook.KindUnknown:
 			if !runbook.ContainsTemplate(r.Value.String) {
-				c.Add(r.Value.Node, "runner %s の値は http(s)、grpc、ssh、cdp、chrome、または DB の DSN ではありません", r.Name)
+				c.Add(r.Value.Node, message.RunnerEndpoint, r.Name)
 			}
 		}
 	case runbook.KindMap:
 		if r.Kind == runbook.KindUnknown {
-			c.Add(r.Value.Node, "runner %s の種別を判定できません", r.Name)
+			c.Add(r.Value.Node, message.RunnerKind, r.Name)
 			return
 		}
 		checkRunnerMap(c, r)
 	default:
-		c.Add(r.Value.Node, "runner %s の値は文字列または mapping です", r.Name)
+		c.Add(r.Value.Node, message.RunnerType, r.Name)
 	}
 }
 
@@ -128,14 +129,14 @@ func checkHTTPURL(c *Context, name string, v runbook.Value) {
 	}
 	u, err := url.Parse(v.String)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		c.Add(v.Node, "runner %s の endpoint は http(s) の URL です", name)
+		c.Add(v.Node, message.RunnerURL, name)
 	}
 }
 
 func checkDBString(c *Context, r runbook.Runner) {
 	s := strings.TrimSpace(r.Value.String)
 	if s == "" {
-		c.Add(r.Value.Node, "runner %s の DSN が空です", r.Name)
+		c.Add(r.Value.Node, message.RunnerDSNEmpty, r.Name)
 		return
 	}
 	if runbook.ContainsTemplate(s) || strings.Contains(s, "@tcp(") || strings.Contains(s, "@") && !strings.Contains(s, "://") {
@@ -147,7 +148,7 @@ func checkDBString(c *Context, r runbook.Runner) {
 			return
 		}
 	}
-	c.Add(r.Value.Node, "runner %s の値は既知の runner スキームでも DB の DSN でもありません", r.Name)
+	c.Add(r.Value.Node, message.RunnerScheme, r.Name)
 }
 
 func checkRunnerMap(c *Context, r runbook.Runner) {
@@ -161,7 +162,7 @@ func checkRunnerMap(c *Context, r runbook.Runner) {
 			if ep.Kind == runbook.KindString {
 				checkHTTPURL(c, r.Name, ep)
 			} else {
-				c.Add(ep.Node, "runner %s の endpoint は文字列です", r.Name)
+				c.Add(ep.Node, message.RunnerEpString, r.Name)
 			}
 		}
 		checkOptionalDuration(c, r.Value, "timeout")
@@ -177,11 +178,11 @@ func checkRunnerMap(c *Context, r runbook.Runner) {
 		_, host := r.Value.Get("host")
 		_, hostname := r.Value.Get("hostname")
 		if !host && !hostname {
-			c.Add(r.Value.Node, "runner %s には host または hostname が必要です", r.Name)
+			c.Add(r.Value.Node, message.RunnerHost, r.Name)
 		}
 		if file, ok := r.Value.Get("identityFile"); ok && nonEmptyString(file) {
 			if key, ok := r.Value.Get("identityKey"); ok && nonEmptyString(key) {
-				c.Add(key.Node, "runner %s では identityFile と identityKey を同時に指定できません", r.Name)
+				c.Add(key.Node, message.RunnerIdentity, r.Name)
 			}
 		}
 		if port, ok := r.Value.Get("port"); ok {
@@ -192,19 +193,19 @@ func checkRunnerMap(c *Context, r runbook.Runner) {
 	case runbook.KindCDP:
 		checkOptionalDuration(c, r.Value, "timeout")
 		if flags, ok := r.Value.Get("flags"); ok && flags.Kind != runbook.KindMap {
-			c.Add(flags.Node, "runner %s の flags は mapping です", r.Name)
+			c.Add(flags.Node, message.RunnerFlags, r.Name)
 		}
 	case runbook.KindInclude:
 		if params, ok := r.Value.Get("params"); ok && params.Kind != runbook.KindMap {
-			c.Add(params.Node, "runner %s の params は mapping です", r.Name)
+			c.Add(params.Node, message.RunnerParams, r.Name)
 		}
 	case runbook.KindAgent:
-		// スキーマは agent を任意の文字列にしている。受け付ける値は runn の実装に合わせる。
+		// The schema allows agent to be any string. Accepted values follow the runn implementation.
 		if agent, ok := r.Value.Get("agent"); ok && agent.Kind == runbook.KindString && !runbook.ContainsTemplate(agent.String) {
 			switch agent.String {
 			case "claude", "copilot", "codex":
 			default:
-				c.Add(agent.Node, "agent は claude、copilot、codex のいずれかです")
+				c.Add(agent.Node, message.AgentName)
 			}
 		}
 		checkStringList(c, r.Value, "tools", "permissions")
@@ -244,7 +245,7 @@ func allowKeys(c *Context, v runbook.Value, what string, allowed map[string]stru
 		if _, ok := allowed[e.Key]; ok || e.Key == "<<" {
 			continue
 		}
-		c.Add(e.KeyNode, "%s にキー %s はありません", what, e.Key)
+		c.Add(e.KeyNode, message.NoKey, what, e.Key)
 	}
 }
 
@@ -255,7 +256,7 @@ func checkRequiredString(c *Context, v runbook.Value, key, what string) {
 		if ok {
 			node = child.Node
 		}
-		c.Add(node, "%s には %s が必要です", what, key)
+		c.Add(node, message.NeedKey, what, key)
 	}
 }
 
@@ -265,7 +266,7 @@ func checkOptionalDuration(c *Context, v runbook.Value, key string) {
 		return
 	}
 	if !validDuration(child) {
-		c.Add(child.Node, "%s は時間です", key)
+		c.Add(child.Node, message.IsDuration, key)
 	}
 }
 
@@ -276,7 +277,7 @@ func checkBoolish(c *Context, v runbook.Value, keys ...string) {
 			continue
 		}
 		if !boolOrString(child) {
-			c.Add(child.Node, "%s は bool または文字列です", key)
+			c.Add(child.Node, message.FieldBoolOrStr, key)
 		}
 	}
 }
@@ -292,13 +293,13 @@ func checkTrace(c *Context, v runbook.Value) {
 	case runbook.KindMap:
 		allowKeys(c, child, "trace", runnspec.DefKeys(runnspec.DefTrace))
 		if enable, ok := child.Get("enable"); ok && !boolOrString(enable) {
-			c.Add(enable.Node, "trace.enable は bool または文字列です")
+			c.Add(enable.Node, message.TraceEnable)
 		}
 		if name, ok := child.Get("headerName"); ok && name.Kind != runbook.KindString {
-			c.Add(name.Node, "trace.headerName は文字列です")
+			c.Add(name.Node, message.TraceHeader)
 		}
 	default:
-		c.Add(child.Node, "trace は bool、文字列、または mapping です")
+		c.Add(child.Node, message.TraceType)
 	}
 }
 
@@ -309,12 +310,12 @@ func checkStringList(c *Context, v runbook.Value, keys ...string) {
 			continue
 		}
 		if child.Kind != runbook.KindSeq {
-			c.Add(child.Node, "%s は文字列の配列です", key)
+			c.Add(child.Node, message.FieldStrings, key)
 			continue
 		}
 		for _, el := range child.Seq {
 			if el.Kind != runbook.KindString {
-				c.Add(el.Node, "%s の要素は文字列です", key)
+				c.Add(el.Node, message.FieldElem, key)
 			}
 		}
 	}
@@ -324,15 +325,15 @@ func checkPort(c *Context, v runbook.Value) {
 	switch v.Kind {
 	case runbook.KindNumber:
 		if strings.HasPrefix(v.Number, "-") {
-			c.Add(v.Node, "port は正の数です")
+			c.Add(v.Node, message.PortPositive)
 		}
 	case runbook.KindString:
 		if runbook.ContainsTemplate(v.String) || numOnlyRe.MatchString(strings.TrimSpace(v.String)) {
 			return
 		}
-		c.Add(v.Node, "port は数値です")
+		c.Add(v.Node, message.PortNumber)
 	default:
-		c.Add(v.Node, "port は数値です")
+		c.Add(v.Node, message.PortNumber)
 	}
 }
 
@@ -342,12 +343,12 @@ func checkKeyboard(c *Context, v runbook.Value) {
 		return
 	}
 	if child.Kind != runbook.KindSeq {
-		c.Add(child.Node, "keyboardInteractive は配列です")
+		c.Add(child.Node, message.KbdArray)
 		return
 	}
 	for _, el := range child.Seq {
 		if el.Kind != runbook.KindMap {
-			c.Add(el.Node, "keyboardInteractive の要素は mapping です")
+			c.Add(el.Node, message.KbdElem)
 			continue
 		}
 		allowKeys(c, el, "keyboardInteractive", map[string]struct{}{"match": {}, "answer": {}})
@@ -358,7 +359,7 @@ func checkKeyboard(c *Context, v runbook.Value) {
 				if ok {
 					node = field.Node
 				}
-				c.Add(node, "keyboardInteractive.%s は文字列です", key)
+				c.Add(node, message.KbdString, key)
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-// Package gotoolchain は、このリポジトリが Go の最新安定版を使っているかを確認する。
+// Package gotoolchain checks that this repository uses the latest stable Go.
 package gotoolchain
 
 import (
@@ -12,21 +12,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
 const releaseURL = "https://go.dev/dl/?mode=json"
 
-// Release は go.dev のリリース一覧の1件。
+// Release is one entry in the go.dev release list.
 type Release struct {
 	Version string `json:"version"`
 	Stable  bool   `json:"stable"`
 }
 
-// LatestStable はリリース一覧から最も新しい安定版を返す。戻り値は 1.27.2 の形。
+// LatestStable returns the newest stable release from a release list. The result has the form 1.27.2.
 func LatestStable(data []byte) (string, error) {
 	var releases []Release
 	if err := json.Unmarshal(data, &releases); err != nil {
-		return "", fmt.Errorf("Go のリリース一覧を解釈できません: %w", err)
+		return "", message.Wrap(message.GoListParse, err)
 	}
 	best := ""
 	for _, release := range releases {
@@ -42,12 +44,12 @@ func LatestStable(data []byte) (string, error) {
 		}
 	}
 	if best == "" {
-		return "", fmt.Errorf("安定版がリリース一覧にありません")
+		return "", message.New(message.GoNoStable)
 	}
 	return best, nil
 }
 
-// FetchLatestStable は go.dev から最新安定版を取得する。
+// FetchLatestStable fetches the latest stable release from go.dev.
 func FetchLatestStable(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, releaseURL, nil)
 	if err != nil {
@@ -57,7 +59,7 @@ func FetchLatestStable(ctx context.Context) (string, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("Go のリリース一覧を取得できません: %w", err)
+		return "", message.Wrap(message.GoListFetch, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
@@ -65,24 +67,24 @@ func FetchLatestStable(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Go のリリース一覧が HTTP %d を返しました", resp.StatusCode)
+		return "", message.New(message.GoListStatus, resp.StatusCode)
 	}
 	return LatestStable(body)
 }
 
-// Declared は .go-version と go.mod の go 行を返す。
+// Declared returns the .go-version value and the go line of go.mod.
 func Declared(root string) (fileVersion, modVersion string, err error) {
 	raw, err := os.ReadFile(filepath.Join(root, ".go-version"))
 	if err != nil {
-		return "", "", fmt.Errorf(".go-version を読めません: %w", err)
+		return "", "", message.Wrap(message.GoVersionRead, err)
 	}
 	fileVersion, err = Normalize(string(raw))
 	if err != nil {
-		return "", "", fmt.Errorf(".go-version: %w", err)
+		return "", "", message.Prefix(".go-version", err)
 	}
 	modRaw, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
-		return "", "", fmt.Errorf("go.mod を読めません: %w", err)
+		return "", "", message.Wrap(message.GoModRead, err)
 	}
 	modVersion, err = GoModVersion(string(modRaw))
 	if err != nil {
@@ -91,7 +93,7 @@ func Declared(root string) (fileVersion, modVersion string, err error) {
 	return fileVersion, modVersion, nil
 }
 
-// GoModVersion は go.mod の go 行からバージョンを取り出す。
+// GoModVersion extracts the version from the go line of go.mod.
 func GoModVersion(src string) (string, error) {
 	for _, line := range strings.Split(src, "\n") {
 		fields := strings.Fields(strings.TrimSpace(line))
@@ -99,10 +101,10 @@ func GoModVersion(src string) (string, error) {
 			return Normalize(fields[1])
 		}
 	}
-	return "", fmt.Errorf("go.mod に go 行がありません")
+	return "", message.New(message.GoModLine)
 }
 
-// Normalize は go1.27.2 や 1.27.2 を 1.27.2 に揃える。
+// Normalize canonicalizes go1.27.2 and 1.27.2 to 1.27.2.
 func Normalize(version string) (string, error) {
 	version = strings.TrimSpace(version)
 	version = strings.TrimPrefix(version, "go")
@@ -110,17 +112,17 @@ func Normalize(version string) (string, error) {
 		version = version[:i]
 	}
 	if strings.Contains(version, "devel") || version == "" {
-		return "", fmt.Errorf("バージョン %q は安定版の番号ではありません", version)
+		return "", message.New(message.VerNotStable, version)
 	}
 	parts := strings.Split(version, ".")
 	if len(parts) < 2 || len(parts) > 3 {
-		return "", fmt.Errorf("バージョン %q は major.minor.patch ではありません", version)
+		return "", message.New(message.VerNotTriple, version)
 	}
 	nums := make([]int, len(parts))
 	for i, part := range parts {
 		n, err := strconv.Atoi(part)
 		if err != nil || n < 0 {
-			return "", fmt.Errorf("バージョン %q を数値として読めません", version)
+			return "", message.New(message.VerNotNumber, version)
 		}
 		nums[i] = n
 	}
@@ -131,7 +133,7 @@ func Normalize(version string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d", nums[0], nums[1], patch), nil
 }
 
-// Compare は a が新しければ正、同じなら 0、古ければ負を返す。
+// Compare returns a positive value if a is newer, 0 if a and b are equal, and a negative value if a is older.
 func Compare(a, b string) int {
 	as := strings.Split(a, ".")
 	bs := strings.Split(b, ".")

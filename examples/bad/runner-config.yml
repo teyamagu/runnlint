@@ -1,4 +1,4 @@
-# runner の URL スキームが、runn の知っているものではない例。
+# Example of a runner URL scheme that runn does not know.
 desc: bad scheme
 runners:
   req: htts://example.com

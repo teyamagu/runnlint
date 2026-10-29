@@ -1,4 +1,4 @@
-# CDP の actions に、存在しないアクション名を書いた例。
+# Example of a nonexistent action name in CDP actions.
 desc: unknown cdp action
 runners:
   br: cdp://127.0.0.1:9222

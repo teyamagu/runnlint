@@ -1,4 +1,4 @@
-# !included は単体で動かすための書き方なので対象外。
+# !included is a way to run the book on its own, so it is out of scope.
 desc: negated
 if: "!included"
 steps:

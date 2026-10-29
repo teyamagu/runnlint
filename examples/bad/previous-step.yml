@@ -1,4 +1,4 @@
-# 直前の step が無い先頭で、previous を使っている例。
+# Example of using previous at the first step, where there is no previous step.
 desc: previous on first step
 steps:
   - test: previous.res.status == 200

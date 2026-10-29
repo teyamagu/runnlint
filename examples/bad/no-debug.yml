@@ -1,4 +1,4 @@
-# debug を有効にした例。
+# Example with debug enabled.
 desc: debug enabled
 debug: true
 steps:

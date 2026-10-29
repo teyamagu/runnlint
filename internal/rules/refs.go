@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 )
 
@@ -20,7 +21,7 @@ func exprSyntax(c *Context) {
 		if s.err == nil {
 			continue
 		}
-		c.Add(s.node, "%s", s.err.Error())
+		c.AddError(s.node, s.err)
 	}
 }
 
@@ -29,7 +30,7 @@ func exprBraces(c *Context) {
 		if s.kind != siteExpr || !s.braced {
 			continue
 		}
-		c.Add(s.node, "%s は式なので {{ }} で囲みません", s.field)
+		c.Add(s.node, message.ExprNotBrace, s.field)
 	}
 }
 
@@ -52,37 +53,37 @@ func checkOneStepRef(c *Context, s site, ref stepRef) {
 	b := s.book
 	if ref.index != nil {
 		if b.Style == runbook.StyleMap {
-			c.Add(s.node, "steps は map なので steps.%s の形で参照します", indexHint(b, *ref.index))
+			c.Add(s.node, message.StepsMapRef, indexHint(b, *ref.index))
 			return
 		}
 		if *ref.index < 0 || *ref.index >= len(b.Steps) {
-			c.Add(s.node, "steps[%d] はこの runbook にありません", *ref.index)
+			c.Add(s.node, message.StepsIndexMiss, *ref.index)
 			return
 		}
 		if s.step == nil && s.field != "until" {
-			c.Add(s.node, "steps は step の実行中に参照します")
+			c.Add(s.node, message.StepsDuring)
 			return
 		}
 		if s.step != nil && !stepVisible(b, s.step, *ref.index) {
-			c.Add(s.node, "steps[%d] はまだ実行されていません", *ref.index)
+			c.Add(s.node, message.StepsIndexEarly, *ref.index)
 		}
 		return
 	}
 	if b.Style == runbook.StyleList {
-		c.Add(s.node, "steps は配列なので steps[n] の形で参照します")
+		c.Add(s.node, message.StepsArrayRef)
 		return
 	}
 	target, ok := b.StepByName(ref.name)
 	if !ok {
-		c.Add(s.node, "steps.%s はこの runbook にありません", ref.name)
+		c.Add(s.node, message.StepsNameMiss, ref.name)
 		return
 	}
 	if s.step == nil && s.field != "until" {
-		c.Add(s.node, "steps は step の実行中に参照します")
+		c.Add(s.node, message.StepsDuring)
 		return
 	}
 	if s.step != nil && !stepVisible(b, s.step, target.Index) {
-		c.Add(s.node, "steps.%s はまだ実行されていません", ref.name)
+		c.Add(s.node, message.StepsNameEarly, ref.name)
 	}
 }
 
@@ -93,8 +94,8 @@ func indexHint(b *runbook.Book, index int) string {
 	return "名前"
 }
 
-// stepVisible は current から target の結果を参照できるか。
-// defer step は通常 step のあと、ファイルでは後ろにあるものから先に実行される。
+// stepVisible reports whether current can refer to the result of target.
+// A defer step runs after ordinary steps, and later ones in the file run first.
 func stepVisible(b *runbook.Book, current *runbook.Step, target int) bool {
 	if target == current.Index {
 		return true
@@ -135,15 +136,15 @@ func varRef(c *Context) {
 			if _, ok := outer.names[name]; ok && root {
 				continue
 			}
-			c.Add(s.node, "vars.%s は vars にありません", name)
+			c.Add(s.node, message.VarMissing, name)
 		}
 		if root {
 			if outer.included || outer.maybe {
-				// 親の vars は include 元ごとに違うので、include 元がありうるときは調べない。
+				// Parent vars differ per caller, so they are not checked when a caller may exist.
 				continue
 			}
 			for _, name := range info.parent {
-				c.Add(s.node, "parent.vars.%s は include された runbook の中で参照します", name)
+				c.Add(s.node, message.ParentVarsInside, name)
 			}
 			continue
 		}
@@ -153,26 +154,26 @@ func varRef(c *Context) {
 				continue
 			}
 			if _, ok := parentVars[name]; !ok {
-				c.Add(s.node, "parent.vars.%s は親の vars にありません", name)
+				c.Add(s.node, message.ParentVarsMiss, name)
 			}
 		}
 	}
 }
 
-// outerVars は、ファイルの外の include 元から渡される変数。
+// outerVars are variables passed by include callers outside this file.
 type outerVars struct {
-	// names は、どれかの include 元が include.vars で渡す変数。
+	// names are variables that some caller passes in include.vars.
 	names map[string]struct{}
-	// included は include 元が見つかったか。
+	// included reports whether a caller was found.
 	included bool
-	// unknown は、渡される変数が分からないか。分からなければ var-ref を出さない。
+	// unknown reports whether the passed variables are unknown. When they are, var-ref is not reported.
 	unknown bool
-	// maybe は、動的な include の参照先になりうるか。
+	// maybe reports whether this file may be the target of a dynamic include.
 	maybe bool
 }
 
-// includeVars は、このファイルを include する runbook が渡す変数を集める。
-// include 元が見つからなくても、if: included の runbook は include されて動く前提なので、渡される変数が分からないとする。
+// includeVars collects variables that runbooks including this file pass in.
+// Even when no caller is found, a runbook with if: included is assumed to run via include, so the passed variables are treated as unknown.
 func includeVars(c *Context) outerVars {
 	out := outerVars{names: map[string]struct{}{}}
 	if c.Doc == nil || c.Doc.Book == nil {
@@ -180,7 +181,7 @@ func includeVars(c *Context) outerVars {
 	}
 	b := c.Doc.Book
 	for _, ref := range c.Refs.Callers(b.File) {
-		// 動的な参照は include するかもしれないだけなので、渡しうる変数だけを足す。
+		// A dynamic reference may only possibly include this file, so only variables it might pass are added.
 		if !ref.Dynamic {
 			out.included = true
 			if !ref.KnownVars {
@@ -210,7 +211,7 @@ func loopIndex(c *Context) {
 		info := inspect(s.tree)
 		for _, id := range info.idents {
 			if id == "i" {
-				c.Add(s.node, "i は loop の中で使える添字です")
+				c.Add(s.node, message.LoopIndex)
 				break
 			}
 		}
@@ -228,7 +229,7 @@ func previousStep(c *Context) {
 		info := inspect(s.tree)
 		for _, id := range info.idents {
 			if id == "previous" {
-				c.Add(s.node, "先頭の step には previous がありません")
+				c.Add(s.node, message.NoPrevious)
 				break
 			}
 		}

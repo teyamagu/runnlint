@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// steps も runners も無い YAML を含むディレクトリを走査したとき、そのファイル名が結果に出ず終了コードが 0 になることを確認する。
+// TestRunSkipsNonRunbook checks that walking a directory that contains YAML with neither steps nor runners omits that file name and exits 0.
 func TestRunSkipsNonRunbook(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "ok.yml"), []byte("desc: ok\nsteps:\n  - test: 'true'\n"), 0o644); err != nil {
@@ -36,7 +36,7 @@ func TestRunSkipsNonRunbook(t *testing.T) {
 	}
 }
 
-// 未定義 runner のファイルを JSON 形式で検査したとき、出力に runner-defined が含まれ終了コードが 1 になることを確認する。
+// TestRunBadRunbook checks that linting a file with an undefined runner as JSON includes runner-defined and exits 1.
 func TestRunBadRunbook(t *testing.T) {
 	dir := t.TempDir()
 	body := []byte("desc: bad\nsteps:\n  - nope:\n      /:\n        get:\n          body: null\n")

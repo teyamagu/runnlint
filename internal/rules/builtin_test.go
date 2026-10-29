@@ -9,7 +9,7 @@ import (
 	"github.com/teyamagu/runnlint/internal/finding"
 )
 
-// 次の各 runbook を既定ルールで lint したとき、指定したルールが指定した深刻度で出ることを確認する。
+// Linting each of the following runbooks with the default rules reports the named rule at the named severity.
 func TestRemainingBuiltins(t *testing.T) {
 	cases := []struct {
 		name string
@@ -18,7 +18,7 @@ func TestRemainingBuiltins(t *testing.T) {
 		sev  finding.Severity
 	}{
 		{
-			// トップレベルに owner を書いたとき、unknown-key が error で出ることを確認する。
+			// Writing owner at the top level reports unknown-key as error.
 			name: "unknown key",
 			src: `
 desc: x
@@ -30,7 +30,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// desc が数値のとき、book-shape が error で出ることを確認する。
+			// A numeric desc reports book-shape as error.
 			name: "book shape",
 			src: `
 desc: 1
@@ -41,7 +41,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// steps が空配列のとき、require-steps が error で出ることを確認する。
+			// An empty steps array reports require-steps as error.
 			name: "require steps",
 			src: `
 desc: x
@@ -51,7 +51,7 @@ steps: []
 			sev:  finding.Error,
 		},
 		{
-			// defer: true の step があるとき、defer-experimental が info で出ることを確認する。
+			// A step with defer: true reports defer-experimental as info.
 			name: "defer",
 			src: `
 desc: x
@@ -63,7 +63,7 @@ steps:
 			sev:  finding.Info,
 		},
 		{
-			// SSH step に extra を書いたとき、ssh-request が error で出ることを確認する。
+			// Writing extra on an SSH step reports ssh-request as error.
 			name: "ssh",
 			src: `
 desc: x
@@ -78,7 +78,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// CDP の actions に nope を書いたとき、cdp-request が error で出ることを確認する。
+			// Writing nope in CDP actions reports cdp-request as error.
 			name: "cdp",
 			src: `
 desc: x
@@ -93,7 +93,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// agent の prompt が数値のとき、agent-request が error で出ることを確認する。
+			// A numeric agent prompt reports agent-request as error.
 			name: "agent",
 			src: `
 desc: x
@@ -109,7 +109,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// include に path と steps を両方書いたとき、include-request が error で出ることを確認する。
+			// Writing both path and steps on include reports include-request as error.
 			name: "include exclusive",
 			src: `
 desc: x
@@ -123,7 +123,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 実在しない needs のパスを書いたとき、needs-path が warning で出ることを確認する。
+			// A needs path that does not exist reports needs-path as warning.
 			name: "needs path",
 			src: `
 desc: x
@@ -136,7 +136,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// 実在しない openapi3 を書いたとき、local-path が warning で出ることを確認する。
+			// An openapi3 path that does not exist reports local-path as warning.
 			name: "local path",
 			src: `
 desc: x
@@ -167,7 +167,7 @@ steps:
 	}
 }
 
-// x-team と、先頭 step から自分自身の steps[0] を参照する runbook を lint したとき、unknown-key も step-ref も error も出ないことを確認する。
+// Linting a runbook that has x-team and refers to its own steps[0] from the first step reports neither unknown-key nor step-ref, and no error.
 func TestExtensionKeyAndSelfStepRef(t *testing.T) {
 	got := lint(t, `
 desc: x
@@ -183,7 +183,7 @@ steps:
 	}
 }
 
-// desc が無い runbook を lint したとき require-desc が出ることを確認する。debug: true の runbook では no-debug が出ることを確認する。
+// Linting a runbook without desc reports require-desc. A runbook with debug: true reports no-debug.
 func TestDefaultDeclarativeRules(t *testing.T) {
 	missing := lint(t, `
 steps:
@@ -203,7 +203,7 @@ steps:
 	}
 }
 
-// var-ref の ignore に password を入れたとき、未定義の vars.password でも var-ref が出ないことを確認する。severity を off にしたときも出ないことを確認する。
+// With password in var-ref's ignore, an undefined vars.password does not report var-ref. Setting severity to off also reports nothing.
 func TestVarRefIgnoreAndOff(t *testing.T) {
 	src := `
 desc: x
@@ -234,7 +234,7 @@ steps:
 	}
 }
 
-// include の外の step で parent.vars.token を参照したとき、var-ref が出ることを確認する。
+// Referring to parent.vars.token from a step outside include reports var-ref.
 func TestParentVarsOutsideInclude(t *testing.T) {
 	got := lint(t, `
 desc: x
@@ -246,7 +246,7 @@ steps:
 	}
 }
 
-// 実在する need.yml と openapi.yml を参照する runbook を lint したとき、needs-path も local-path も出ないことを確認する。
+// Linting a runbook that refers to an existing need.yml and openapi.yml reports neither needs-path nor local-path.
 func TestExistingLocalAndNeedsPaths(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "need.yml"), []byte("desc: n\nsteps:\n  - test: \"true\"\n"), 0o644); err != nil {

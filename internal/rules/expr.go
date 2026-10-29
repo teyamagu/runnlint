@@ -1,13 +1,13 @@
 package rules
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/expr-lang/expr/ast"
 	"github.com/expr-lang/expr/file"
 	"github.com/expr-lang/expr/parser"
 	"github.com/expr-lang/expr/parser/lexer"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"gopkg.in/yaml.v3"
 )
@@ -27,7 +27,7 @@ type site struct {
 	field  string
 	kind   siteKind
 	braced bool
-	// skipParse は式として解析しない。{{ }} で包んだ if などの式は、テンプレート側が中を見る。
+	// skipParse means do not parse this as an expression. An expression such as if wrapped in {{ }} is inspected by the template side.
 	skipParse bool
 	tree      *parser.Tree
 	err       error
@@ -50,7 +50,7 @@ func analyze(root *runbook.Book) []site {
 				case "include":
 					walkIncludeStrings(e.Value, b, step, &sites)
 				case "test", "bind":
-					// 式として collectStepExprs が読む。中の {{ はテンプレートにしない。
+					// collectStepExprs reads this as an expression. {{ inside it is not a template.
 				default:
 					walkStrings(e.Value, b, step, &sites)
 				}
@@ -64,7 +64,7 @@ func analyze(root *runbook.Book) []site {
 		}
 		src := sites[i].src
 		if sites[i].kind == siteExpr {
-			// runn は test や if などの式だけ # コメントを取り除いてから評価する。{{ }} の中は取り除かない。
+			// runn strips # comments before evaluating only expressions such as test and if. It does not strip them inside {{ }}.
 			src = trimSharpComment(src)
 		}
 		tree, err := parser.Parse(strings.TrimSpace(src))
@@ -155,7 +155,7 @@ func collectStepExprs(b *runbook.Book, step *runbook.Step, sites *[]site) {
 	}
 }
 
-// addBindExprs は runn の EvalAny と同じく、mapping と配列の中の文字列を式として集める。
+// addBindExprs collects strings inside mappings and arrays as expressions, the same way as runn's EvalAny.
 func addBindExprs(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value) {
 	switch v.Kind {
 	case runbook.KindString:
@@ -186,7 +186,7 @@ func addExpr(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value
 	braced := false
 	skipParse := false
 	if field == "test" || field == "bind" {
-		// 中の {{ はテンプレートではない。値全体を包んだときだけ expr-braces の対象にする。
+		// {{ inside the value is not a template. It is an expr-braces subject only when the whole value is wrapped.
 		src, braced, skipParse = classifyExprBraces(src)
 	} else if strings.Contains(src, "{{") {
 		braced = true
@@ -204,10 +204,10 @@ func addExpr(sites *[]site, b *runbook.Book, step *runbook.Step, v runbook.Value
 	})
 }
 
-// classifyExprBraces は test と bind の {{ の扱いを決める。
-// 値全体が1つの {{ }} なら、包みを外した中身を式として解析し、expr-braces の対象にする。
-// {{ で始まるが1つのテンプレートに収まらないときは、式としては解析せず expr-braces だけ出す。
-// それ以外の {{ は文字列の中なので、値全体を式として解析する。
+// classifyExprBraces decides how {{ is treated in test and bind.
+// When the whole value is one {{ }}, the unwrapped inside is parsed as an expression and is an expr-braces subject.
+// When the value starts with {{ but is not a single template, it is not parsed as an expression and only expr-braces is reported.
+// Any other {{ is inside a string, so the whole value is parsed as an expression.
 func classifyExprBraces(src string) (parseSrc string, braced, skipParse bool) {
 	s := strings.TrimSpace(src)
 	if !strings.HasPrefix(s, "{{") {
@@ -219,7 +219,7 @@ func classifyExprBraces(src string) (parseSrc string, braced, skipParse bool) {
 	return src, true, true
 }
 
-// soleTemplate は、s 全体が1つの {{ }} であるとき中身を返す。s は {{ で始まっている。
+// soleTemplate returns the inside when all of s is one {{ }}. s starts with {{.
 func soleTemplate(s string) (string, bool) {
 	inner, end, ok := scanTemplate(s, len("{{"))
 	if !ok {
@@ -231,12 +231,12 @@ func soleTemplate(s string) (string, bool) {
 	return inner, true
 }
 
-// envPlaceholder は ${...} の代わりに式へ入れる識別子。
+// envPlaceholder is the identifier substituted into an expression in place of ${...}.
 const envPlaceholder = "__runnlint_env__"
 
-// expandEnvPlaceholders は、runn が YAML を読む前に値の ${...} を環境変数で展開するのに合わせる。
-// 値は実行環境で変わるので読まず、識別子に置き換える。未設定の変数でも構文検査は誤検知しない。
-// ${A:-${B}} のような入れ子は外側ごと1つに置き換える。閉じていない ${ はそのまま残す。
+// expandEnvPlaceholders matches runn expanding ${...} in values to environment variables before it reads YAML.
+// The value depends on the runtime environment, so it is not read and is replaced with an identifier. An unset variable does not cause a false syntax finding.
+// A nest such as ${A:-${B}} is replaced as one placeholder, outer and all. An unclosed ${ is left as-is.
 func expandEnvPlaceholders(s string) string {
 	if !strings.Contains(s, "${") {
 		return s
@@ -272,9 +272,9 @@ func envEnd(s string, start int) int {
 	return -1
 }
 
-// trimSharpComment は runn の trimDeprecatedComment と同じく、括弧の外の # から行末までを取り除く。
-// 文字列リテラルの中の # は字句解析で文字列になるので残る。( ) や { } の中の # はクロージャの引数として残す。
-// runn は字句の位置を文字数で数えたままバイト列を切るが、ここでは文字単位で切る。
+// trimSharpComment, like runn's trimDeprecatedComment, removes from a # outside brackets through the end of the line.
+// A # inside a string literal stays, because lexing makes it part of the string. A # inside ( ) or { } stays as a closure argument.
+// runn slices the byte string using a column counted in characters. Here the cut is made in characters.
 func trimSharpComment(cond string) string {
 	if !strings.Contains(cond, "#") || commentCol(cond) < 0 {
 		return cond
@@ -293,7 +293,7 @@ func trimSharpComment(cond string) string {
 	return strings.TrimRight(strings.Join(kept, "\n"), "\n")
 }
 
-// commentCol はコメントとして扱う # の文字位置。無いか字句解析できなければ -1。
+// commentCol is the character offset of a # treated as a comment. It is -1 when there is none or lexing fails.
 func commentCol(s string) int {
 	tokens, err := lexer.Lex(file.NewSource(s))
 	if err != nil {
@@ -325,7 +325,7 @@ func extractTemplates(s string) ([]string, error) {
 		}
 		inner, end, ok := scanTemplate(s, i+2)
 		if !ok {
-			return nil, fmt.Errorf("{{ が閉じられていません")
+			return nil, message.New(message.ExprUnclosed)
 		}
 		out = append(out, inner)
 		i = end - 1
@@ -333,8 +333,8 @@ func extractTemplates(s string) ([]string, error) {
 	return out, nil
 }
 
-// scanTemplate は start から閉じる }} を探す。引用符の中と、式の ( ) [ ] { } の中の }} は終わりにしない。
-// 括弧が釣り合わず見つからなければ、runn と同じく引用符の外で最初の }} を終わりとする。
+// scanTemplate looks for the closing }} from start. A }} inside quotes or inside the expression's ( ) [ ] { } is not the end.
+// When brackets are unbalanced and no close is found, the first }} outside quotes is the end, as in runn.
 func scanTemplate(s string, start int) (string, int, bool) {
 	if inner, end, ok := scanTemplateDepth(s, start, true); ok {
 		return inner, end, true

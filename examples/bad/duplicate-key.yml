@@ -1,4 +1,4 @@
-# steps に同じ名前が2回書いてある例。
+# Example of the same name written twice in steps.
 desc: duplicate step name
 steps:
   login:

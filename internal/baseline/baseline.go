@@ -1,22 +1,23 @@
-// Package baseline は既存の診断を記録し、新しく増えた診断だけを残す。
+// Package baseline records existing diagnostics and keeps only those that are new.
 //
-// 診断はファイル、ルール ID、メッセージの組で照合する。行と列は使わないので、
-// 違反の前に行を足したり消したりしても既存の診断は既存のままになる。
-// 同じ組が複数あるときは件数で照合し、記録より増えた分を新しい診断とする。
+// A diagnostic is matched by file, rule ID, and message. Line and column are not used, so
+// adding or removing lines before a violation leaves an existing diagnostic still matched.
+// When the same triple occurs more than once, matching is by count, and any excess over the record is a new diagnostic.
+// Built-in diagnostics are stored as the English sentence. A declarative message is stored as written.
 package baseline
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
-// Version は baseline ファイルの形式の版。
-const Version = 1
+// Version is the baseline file format version.
+const Version = 2
 
 type file struct {
 	Version  int     `json:"version"`
@@ -36,34 +37,34 @@ type key struct {
 	message string
 }
 
-// Baseline は読み込んだ既存の診断。
+// Baseline is the loaded set of existing diagnostics.
 type Baseline struct {
 	dir    string
 	counts map[key]int
 }
 
-// Result は Filter の結果。
+// Result is the result of Filter.
 type Result struct {
-	// Findings は baseline に無い診断。
+	// Findings are the diagnostics that are not in the baseline.
 	Findings []finding.Finding
-	// Suppressed は baseline と一致して除いた件数。
+	// Suppressed is how many diagnostics were removed because they matched the baseline.
 	Suppressed int
-	// Stale は baseline にあるが今回は出なかった件数。
+	// Stale is how many baseline entries did not appear this run.
 	Stale int
 }
 
-// Load は path の baseline を読む。
+// Load reads the baseline at path.
 func Load(path string) (*Baseline, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("baseline を読めません: %w", err)
+		return nil, message.Wrap(message.BaselineRead, err)
 	}
 	var f file
 	if err := json.Unmarshal(raw, &f); err != nil {
-		return nil, fmt.Errorf("%s: baseline の JSON が不正です: %w", path, err)
+		return nil, message.Wrap(message.BaselineJSON, err, path)
 	}
 	if f.Version != Version {
-		return nil, fmt.Errorf("%s: baseline の version %d は読めません (対応は %d)", path, f.Version, Version)
+		return nil, message.New(message.BaselineVersion, path, f.Version, Version)
 	}
 	dir, err := absDir(path)
 	if err != nil {
@@ -80,7 +81,7 @@ func Load(path string) (*Baseline, error) {
 	return b, nil
 }
 
-// Filter は baseline に記録された診断を除く。
+// Filter removes diagnostics recorded in the baseline.
 func (b *Baseline) Filter(findings []finding.Finding) Result {
 	left := make(map[key]int, len(b.counts))
 	for k, n := range b.counts {
@@ -102,7 +103,7 @@ func (b *Baseline) Filter(findings []finding.Finding) Result {
 	return res
 }
 
-// Write は findings を path に baseline として書く。
+// Write writes findings to path as a baseline.
 func Write(path string, findings []finding.Finding) error {
 	dir, err := absDir(path)
 	if err != nil {
@@ -132,7 +133,7 @@ func Write(path string, findings []finding.Finding) error {
 	}
 	raw = append(raw, '\n')
 	if err := os.WriteFile(path, raw, 0o644); err != nil {
-		return fmt.Errorf("baseline を書けません: %w", err)
+		return message.Wrap(message.BaselineWrite, err)
 	}
 	return nil
 }
@@ -145,8 +146,8 @@ func absDir(path string) (string, error) {
 	return filepath.Dir(abs), nil
 }
 
-// keyOf は診断のファイルを baseline のあるディレクトリからの相対パスにする。
-// 実行するディレクトリや、引数に ./ を付けるかどうかで照合が変わらないようにする。
+// keyOf makes a diagnostic's file path relative to the directory that contains the baseline.
+// Matching then does not change with the working directory or a leading ./ on an argument.
 func keyOf(dir string, f finding.Finding) key {
 	name := f.File
 	if abs, err := filepath.Abs(name); err == nil {
@@ -154,5 +155,5 @@ func keyOf(dir string, f finding.Finding) key {
 			name = rel
 		}
 	}
-	return key{file: filepath.ToSlash(name), rule: f.Rule, message: f.Message}
+	return key{file: filepath.ToSlash(name), rule: f.Rule, message: f.BaselineMessage()}
 }

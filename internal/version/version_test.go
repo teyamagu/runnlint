@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Version が v 無しの MAJOR.MINOR.PATCH であることを確認する。先頭 v、桁不足、0 埋めは拒否することを確認する。
+// TestVersionIsSemver checks that Version is MAJOR.MINOR.PATCH with no leading v. A leading v, too few components, and zero-padding are rejected.
 func TestVersionIsSemver(t *testing.T) {
 	if !Valid(Version) {
 		t.Fatalf("Version = %s", Version)
@@ -22,15 +22,36 @@ func TestVersionIsSemver(t *testing.T) {
 	}
 }
 
-// CHANGELOG.md に、いまの Version の節があることを確認する。
+// TestChangelogHasCurrentVersion checks that both changelogs have the same version headings, including the current Version.
 func TestChangelogHasCurrentVersion(t *testing.T) {
-	body, err := os.ReadFile(filepath.Join(moduleRoot(t), "CHANGELOG.md"))
+	root := moduleRoot(t)
+	ja := changelogHeadings(t, filepath.Join(root, "CHANGELOG.md"))
+	en := changelogHeadings(t, filepath.Join(root, "CHANGELOG.en.md"))
+	if strings.Join(ja, "\n") != strings.Join(en, "\n") {
+		t.Fatalf("見出しが違います\nja:\n%s\nen:\n%s", strings.Join(ja, "\n"), strings.Join(en, "\n"))
+	}
+	want := "## [" + Version + "]"
+	for _, heading := range ja {
+		if heading == want {
+			return
+		}
+	}
+	t.Fatalf("CHANGELOG に %s がありません", want)
+}
+
+func changelogHeadings(t *testing.T, path string) []string {
+	t.Helper()
+	body, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(body), "## ["+Version+"]") {
-		t.Fatalf("CHANGELOG に ## [%s] がありません", Version)
+	var headings []string
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "## [") {
+			headings = append(headings, line)
+		}
 	}
+	return headings
 }
 
 func moduleRoot(t *testing.T) string {

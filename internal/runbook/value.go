@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Kind は YAML ノードの種別。
+// Kind is the kind of a YAML node.
 type Kind int
 
 const (
@@ -20,7 +20,7 @@ const (
 	KindMap
 )
 
-// Value は位置情報を残した YAML 値。
+// Value is a YAML value that keeps its source position.
 type Value struct {
 	Kind   Kind
 	Node   *yaml.Node
@@ -31,20 +31,20 @@ type Value struct {
 	Map    []Entry
 }
 
-// Entry は mapping の1要素。順序はファイルの出現順。
+// Entry is one element of a mapping. Order is the order of appearance in the file.
 type Entry struct {
 	Key     string
 	KeyNode *yaml.Node
 	Value   Value
 }
 
-// Dup は同一 mapping 内の明示的なキー重複。
+// Dup is an explicit duplicate key inside one mapping.
 type Dup struct {
 	Key  string
 	Node *yaml.Node
 }
 
-// Get はキーに対応する値を返す。
+// Get returns the value for key.
 func (v Value) Get(key string) (Value, bool) {
 	for _, e := range v.Map {
 		if e.Key == key {
@@ -54,7 +54,7 @@ func (v Value) Get(key string) (Value, bool) {
 	return Value{}, false
 }
 
-// Lookup はワイルドカードを含まない相対パスを辿る。
+// Lookup follows a relative path that contains no wildcard.
 func (v Value) Lookup(path string) (Value, bool) {
 	cur := v
 	if path == "" {
@@ -73,7 +73,7 @@ func (v Value) Lookup(path string) (Value, bool) {
 	return cur, true
 }
 
-// Len は文字列、sequence、mapping の長さ。
+// Len is the length of a string, sequence, or mapping.
 func (v Value) Len() int {
 	switch v.Kind {
 	case KindString:
@@ -87,7 +87,7 @@ func (v Value) Len() int {
 	}
 }
 
-// Display は診断メッセージ用の短い表現。
+// Display is a short form for diagnostic messages.
 func (v Value) Display() string {
 	switch v.Kind {
 	case KindNull:
@@ -111,7 +111,7 @@ func (v Value) Display() string {
 	}
 }
 
-// Pos は 1 始まりの行と列。ノードが無ければ 1,1。
+// Pos returns the 1-based line and column. A nil node, or a node whose line is 0, is 1,1.
 func Pos(n *yaml.Node) (int, int) {
 	if n == nil || n.Line == 0 {
 		return 1, 1

@@ -1,4 +1,4 @@
-# outside/parent.yml からだけ include される。static だけを走査すると参照元が見えない。
+# Included only from outside/parent.yml. Scanning static alone cannot see the referrer.
 desc: included from outside
 if: included
 steps:

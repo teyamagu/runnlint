@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 )
 
@@ -82,6 +83,6 @@ func checkExists(c *Context, b *runbook.Book, v runbook.Value) {
 		return
 	}
 	if _, err := os.Stat(path); err != nil {
-		c.Add(v.Node, "ファイル %s が見つかりません", strings.TrimSpace(v.String))
+		c.Add(v.Node, message.FileMissing, strings.TrimSpace(v.String))
 	}
 }

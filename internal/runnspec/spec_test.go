@@ -2,7 +2,7 @@ package runnspec
 
 import "testing"
 
-// 取り込んだスキーマを読んだとき、版が v1.11.1 で、トップレベル、x-、ラベル、HTTP と exec と loop と step のキー、各 required が期待どおりであることを確認する。loop の required に count が無いことも確認する。
+// TestSchemaSuppliesNotationKeys checks that the imported schema is version v1.11.1 and that the top-level keys, x-, labels, the HTTP, exec, loop, and step keys, and each required list match. loop's required list does not include count.
 func TestSchemaSuppliesNotationKeys(t *testing.T) {
 	if Version() != "v1.11.1" {
 		t.Fatalf("version = %s", Version())
@@ -59,7 +59,7 @@ func TestSchemaSuppliesNotationKeys(t *testing.T) {
 	}
 }
 
-// cdpfn を解析したとき、navigate と scrollIntoView と sendKeys の引数、html という別名、tabTo などの名前が期待どおりであることを確認する。latestTab は含まれないことを確認する。
+// TestCDPArgsFollowCdpfn checks that parsing cdpfn yields the expected arguments of navigate, scrollIntoView, and sendKeys, the alias html, and names such as tabTo. latestTab is absent.
 func TestCDPArgsFollowCdpfn(t *testing.T) {
 	args := CDPArgs()
 	if got := args["navigate"]; len(got) != 1 || got[0] != "url" {

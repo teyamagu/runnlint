@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// 実運用の runbook で誤検知だった書き方を、ルールごとに固定する。
-// 各ケースの src を既定ルールで lint したとき、rule の診断が出ないことを確認する。
+// Pin, per rule, forms from production runbooks that were false positives.
+// Linting each case's src with the default rules must not report the rule.
 type fpCase struct {
 	name string
 	rule string
@@ -26,7 +26,7 @@ func checkNoFalsePositive(t *testing.T, cases []fpCase) {
 	}
 }
 
-// runn は式を評価する前に YAML の値の ${...} を環境変数で展開する。未設定の変数でも expr-syntax を出さないことを確認する。
+// runn expands ${...} in YAML values to environment variables before evaluating an expression. An unset variable must not report expr-syntax.
 func TestEnvPlaceholdersAreExpandedBeforeParse(t *testing.T) {
 	t.Setenv("RUNNLINT_TEST_UNSET", "")
 	checkNoFalsePositive(t, []fpCase{
@@ -94,7 +94,7 @@ steps:
 	})
 }
 
-// ${...} を展開したあとも、式そのものの誤りは expr-syntax で検出することを確認する。
+// After expanding ${...}, an error in the expression itself is still reported as expr-syntax.
 func TestEnvPlaceholderKeepsRealSyntaxErrors(t *testing.T) {
 	requireMessage(t, `
 desc: d
@@ -123,7 +123,7 @@ func TestExpandEnvPlaceholders(t *testing.T) {
 	}
 }
 
-// runn は式を評価する前に # の行コメントを取り除く。文字列リテラルとクロージャの中の # は残す。
+// runn strips # line comments before evaluating an expression. A # inside a string literal or a closure stays.
 func TestSharpCommentsInExpressions(t *testing.T) {
 	checkNoFalsePositive(t, []fpCase{
 		{"行頭と行末のコメント", "expr-syntax", `
@@ -155,7 +155,7 @@ steps:
 	})
 }
 
-// コメントを取り除いたあとに残る式の誤りは expr-syntax で検出することを確認する。
+// An error that remains in the expression after comments are stripped is reported as expr-syntax.
 func TestSharpCommentKeepsRealSyntaxErrors(t *testing.T) {
 	requireMessage(t, `
 desc: d
@@ -186,7 +186,7 @@ func TestTrimSharpComment(t *testing.T) {
 	}
 }
 
-// {{ }} の中の入れ子の括弧と波括弧で、式の終わりを読み違えないことを確認する。
+// Nested parentheses and braces inside {{ }} must not be misread as the end of the expression.
 func TestNestedBracketsInTemplates(t *testing.T) {
 	checkNoFalsePositive(t, []fpCase{
 		{"入れ子の関数呼び出し", "expr-syntax", `
@@ -234,7 +234,7 @@ func TestExtractTemplatesNested(t *testing.T) {
 	}
 }
 
-// runn は bind の値を再帰的に評価し、mapping と配列の中の文字列を式として読む。数値などはそのまま束縛する。step-shape を出さないことを確認する。
+// runn evaluates bind values recursively and reads strings inside mappings and arrays as expressions. Numbers and similar values are bound as-is. step-shape must not be reported.
 func TestBindAcceptsNestedValues(t *testing.T) {
 	checkNoFalsePositive(t, []fpCase{
 		{"mapping と配列と数値", "step-shape", `
@@ -251,7 +251,7 @@ steps:
 	})
 }
 
-// bind の mapping の中の文字列も式として expr-syntax で検査することを確認する。
+// A string inside a bind mapping is also checked as an expression and reported as expr-syntax.
 func TestBindNestedStringsAreExpressions(t *testing.T) {
 	requireMessage(t, `
 desc: d
@@ -263,7 +263,7 @@ steps:
 `, "expr-syntax", "unexpected")
 }
 
-// 空の headers（{} と null）は runn で通るので、http-request と grpc-request を出さないことを確認する。
+// Empty headers ({} and null) are accepted by runn, so http-request and grpc-request must not be reported.
 func TestEmptyHeaders(t *testing.T) {
 	checkNoFalsePositive(t, []fpCase{
 		{"HTTP の {}", "http-request", `
@@ -312,7 +312,7 @@ steps:
 `, "http-request", "headers は mapping です")
 }
 
-// test と bind の式の中にある {{ はテンプレートにしない。文字列の中なら expr-syntax も expr-braces も出さない。
+// A {{ inside a test or bind expression is not a template. Inside a string, neither expr-syntax nor expr-braces is reported.
 func TestBracesInsideTestAndBindAreNotTemplates(t *testing.T) {
 	checkNoFalsePositive(t, []fpCase{
 		{"test の文字列", "expr-syntax", `
@@ -356,8 +356,8 @@ steps:
 	})
 }
 
-// 値全体を {{ }} で包んだ test と bind は expr-braces を出し、中身は式として解析する。
-// {{ で始まるが1つに収まらないときは、式の解析エラーを出さず expr-braces だけ出す。
+// A test or bind whose whole value is wrapped in {{ }} reports expr-braces, and the inside is parsed as an expression.
+// When the value starts with {{ but is not a single template, only expr-braces is reported, not an expression parse error.
 func TestWrappedTestAndBindStillWarn(t *testing.T) {
 	requireMessage(t, `
 desc: d
@@ -385,8 +385,8 @@ steps:
 	rejectMessage(t, src, "expr-syntax", "")
 }
 
-// / で始まらない HTTP の path は runn が endpoint とつないで動くので、既定では http-request を出さないことを確認する。
-// options.require-leading-slash: true のときだけ warning を出す。
+// An HTTP path that does not start with / still works because runn joins it to the endpoint, so http-request is not reported by default.
+// A warning is reported only when options.require-leading-slash is true.
 func TestHTTPPathWithoutLeadingSlash(t *testing.T) {
 	src := `
 desc: d

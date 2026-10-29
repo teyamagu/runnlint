@@ -1,4 +1,4 @@
-# runners に定義していない名前を、step から呼び出している例。
+# Example of a step calling a name that is not defined in runners.
 desc: undefined runner
 steps:
   - nope:

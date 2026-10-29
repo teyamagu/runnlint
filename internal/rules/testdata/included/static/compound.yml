@@ -1,4 +1,4 @@
-# included && ... も include されたときしか動かない。
+# included && ... also runs only when included.
 desc: compound orphan
 if: included && env.CI != ""
 steps:

@@ -1,4 +1,4 @@
-# gRPC のメソッドを package.Service/Method の形で書いていない例。
+# Example of a gRPC method not written as package.Service/Method.
 desc: bad grpc method
 runners:
   greq: grpc://localhost:8080

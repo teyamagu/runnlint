@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"github.com/teyamagu/runnlint/internal/runnspec"
 )
@@ -37,16 +38,16 @@ func stepShape(c *Context) {
 func checkStepFields(c *Context, step runbook.Step) {
 	checkStringField(c, step.Value, "desc")
 	if v, ok := step.Value.Get("if"); ok && !boolOrString(v) {
-		c.Add(v.Node, "if は式または bool です")
+		c.Add(v.Node, message.IfExpr)
 	}
 	if v, ok := step.Value.Get("defer"); ok && !boolOrString(v) {
-		c.Add(v.Node, "defer は bool または文字列です")
+		c.Add(v.Node, message.DeferType)
 	}
 	if v, ok := step.Value.Get("force"); ok && !boolOrString(v) {
-		c.Add(v.Node, "force は bool または文字列です")
+		c.Add(v.Node, message.ForceType)
 	}
 	if v, ok := step.Value.Get("test"); ok && !boolOrString(v) {
-		c.Add(v.Node, "test は式または bool です")
+		c.Add(v.Node, message.TestExpr)
 	}
 	if v, ok := step.Value.Get("loop"); ok {
 		checkLoop(c, v, true)
@@ -66,26 +67,26 @@ func checkDump(c *Context, v runbook.Value) {
 	case runbook.KindMap:
 		allowKeys(c, v, "dump", runnspec.DefKeys(runnspec.DefDump))
 		if _, ok := v.Get("expr"); !ok {
-			c.Add(v.Node, "dump.expr がありません")
+			c.Add(v.Node, message.DumpExprMiss)
 		}
 		if out, ok := v.Get("out"); ok && out.Kind != runbook.KindString {
-			c.Add(out.Node, "dump.out は文字列です")
+			c.Add(out.Node, message.DumpOutType)
 		}
 		checkBoolish(c, v, "disableTrailingNewline", "disableMaskingSecrets")
 	default:
-		c.Add(v.Node, "dump は式または mapping です")
+		c.Add(v.Node, message.DumpType)
 	}
 }
 
 func checkBind(c *Context, v runbook.Value) {
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "bind は mapping です")
+		c.Add(v.Node, message.BindType)
 		return
 	}
 	if len(v.Map) == 0 {
-		c.Add(v.Node, "bind が空です")
+		c.Add(v.Node, message.BindEmpty)
 	}
-	// 値は文字列の式に限らない。runn は mapping と配列を再帰的に評価し、それ以外はそのまま束縛する。
+	// Values are not limited to string expressions. runn evaluates mappings and arrays recursively and binds anything else as-is.
 }
 
 func checkStepRunners(c *Context, b *runbook.Book, step runbook.Step) {
@@ -111,7 +112,7 @@ func checkStepRunners(c *Context, b *runbook.Book, step runbook.Step) {
 		if v, ok := step.Value.Get("runner"); ok {
 			node = v.Node
 		}
-		c.Add(node, "runner: は他の runner と同じ step に書けません")
+		c.Add(node, message.RunnerColon)
 		return
 	}
 	if hasRunner {
@@ -121,15 +122,15 @@ func checkStepRunners(c *Context, b *runbook.Book, step runbook.Step) {
 			if ok {
 				node = def.Node
 			}
-			c.Add(node, "runner: は runner 名から定義への mapping です")
+			c.Add(node, message.RunnerMap)
 		}
 		return
 	}
 	if mains > 1 {
-		c.Add(step.Value.Node, "step の main runner は1つです")
+		c.Add(step.Value.Node, message.MainOne)
 	}
 	if mains == 0 && companions == 0 {
-		c.Add(step.Value.Node, "step に実行する runner がありません")
+		c.Add(step.Value.Node, message.MainMissing)
 	}
 }
 
@@ -260,28 +261,28 @@ func checkHTTP(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind != runbook.KindMap || len(v.Map) != 1 {
-		c.Add(v.Node, "HTTP リクエストは path を1つだけ持つ mapping です")
+		c.Add(v.Node, message.HTTPOnePath)
 		return
 	}
 	path := v.Map[0]
 	if path.Key == "" {
-		c.Add(path.KeyNode, "HTTP の path が空です")
+		c.Add(path.KeyNode, message.HTTPPathEmpty)
 	} else if optionBool(c.Rule.Options, "require-leading-slash") && !runbook.ContainsTemplate(path.Key) && !strings.HasPrefix(path.Key, "/") && !strings.Contains(path.Key, "://") {
-		// runn は endpoint と path をつなぐので、graphql のような path も動く。揃えたいときだけ options で有効にする。
-		c.AddAt(finding.Warning, path.KeyNode, "HTTP の path %s は / から始めます", path.Key)
+		// runn joins endpoint and path, so a path such as graphql still works. Enable this in options only when paths should be aligned.
+		c.AddAt(finding.Warning, path.KeyNode, message.HTTPPathSlash, path.Key)
 	}
 	methods := path.Value
 	if methods.Kind != runbook.KindMap || len(methods.Map) != 1 {
-		c.Add(methods.Node, "HTTP リクエストのメソッドは1つです")
+		c.Add(methods.Node, message.HTTPOneMethod)
 		return
 	}
 	method := methods.Map[0]
 	name := strings.ToUpper(method.Key)
 	if _, ok := httpMethods[name]; !ok {
-		c.Add(method.KeyNode, "HTTP メソッド %s は使えません", method.Key)
+		c.Add(method.KeyNode, message.HTTPMethodBad, method.Key)
 	}
 	if method.Value.Kind != runbook.KindMap {
-		c.Add(method.Value.Node, "メソッド %s の値は mapping です", method.Key)
+		c.Add(method.Value.Node, message.HTTPMethodMap, method.Key)
 		return
 	}
 	allowKeys(c, method.Value, "HTTP リクエスト", map[string]struct{}{
@@ -291,10 +292,10 @@ func checkHTTP(c *Context, v runbook.Value) {
 		checkHeaders(c, headers)
 	}
 	if cookie, ok := method.Value.Get("useCookie"); ok && !boolOrTemplate(cookie) {
-		c.Add(cookie.Node, "useCookie は bool です")
+		c.Add(cookie.Node, message.UseCookieBool)
 	}
 	if trace, ok := method.Value.Get("trace"); ok && !boolOrTemplate(trace) {
-		c.Add(trace.Node, "trace は bool です")
+		c.Add(trace.Node, message.TraceBool)
 	}
 	checkHTTPBody(c, name, method.Value)
 }
@@ -304,11 +305,11 @@ func checkHeaders(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind == runbook.KindNull {
-		// headers: だけで値を書かないのは、ヘッダーなしと同じ。
+		// headers: with no value is the same as having no headers.
 		return
 	}
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "headers は mapping です")
+		c.Add(v.Node, message.HeadersMap)
 		return
 	}
 	for _, e := range v.Map {
@@ -317,11 +318,11 @@ func checkHeaders(c *Context, v runbook.Value) {
 		case runbook.KindSeq:
 			for _, el := range e.Value.Seq {
 				if el.Kind != runbook.KindString {
-					c.Add(el.Node, "header %s の要素は文字列です", e.Key)
+					c.Add(el.Node, message.HeaderElem, e.Key)
 				}
 			}
 		default:
-			c.Add(e.Value.Node, "header %s の値は文字列または文字列の配列です", e.Key)
+			c.Add(e.Value.Node, message.HeaderValue, e.Key)
 		}
 	}
 }
@@ -335,7 +336,7 @@ func checkHTTPBody(c *Context, method string, req runbook.Value) {
 			if ok {
 				node = body.Node
 			}
-			c.Add(node, "%s には media type 付きの body が必要です", method)
+			c.Add(node, message.BodyRequired, method)
 		}
 		return
 	}
@@ -343,16 +344,16 @@ func checkHTTPBody(c *Context, method string, req runbook.Value) {
 		return
 	}
 	if body.Kind != runbook.KindMap || len(body.Map) != 1 {
-		c.Add(body.Node, "body の media type は1つです")
+		c.Add(body.Node, message.BodyOneType)
 		return
 	}
 	media := body.Map[0]
 	if strings.TrimSpace(media.Key) == "" {
-		c.Add(media.KeyNode, "body の media type が空です")
+		c.Add(media.KeyNode, message.BodyTypeEmpty)
 		return
 	}
 	if needsBody && media.Value.Kind == runbook.KindNull {
-		c.Add(media.Value.Node, "%s の body が null です", method)
+		c.Add(media.Value.Node, message.BodyNull, method)
 	}
 	checkMediaPayload(c, media.Key, media.Value)
 }
@@ -365,22 +366,22 @@ func checkMediaPayload(c *Context, media string, payload runbook.Value) {
 	switch base {
 	case "text/plain":
 		if payload.Kind != runbook.KindString && payload.Kind != runbook.KindNull {
-			c.Add(payload.Node, "text/plain の body は文字列です")
+			c.Add(payload.Node, message.BodyText)
 		}
 	case "application/x-www-form-urlencoded":
 		if payload.Kind != runbook.KindMap {
-			c.Add(payload.Node, "application/x-www-form-urlencoded の body は mapping です")
+			c.Add(payload.Node, message.BodyForm)
 		}
 	case "multipart/form-data":
 		if payload.Kind != runbook.KindMap && payload.Kind != runbook.KindSeq {
-			c.Add(payload.Node, "multipart/form-data の body は mapping または配列です")
+			c.Add(payload.Node, message.BodyMulti)
 		}
 	case "application/json":
 		return
 	default:
 		if payload.Kind == runbook.KindMap {
 			if _, ok := payload.Get("filename"); !ok {
-				c.Add(payload.Node, "media type %s の mapping body には filename が必要です", base)
+				c.Add(payload.Node, message.BodyFilename, base)
 			}
 		}
 	}
@@ -391,15 +392,15 @@ func checkGRPC(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind != runbook.KindMap || len(v.Map) != 1 {
-		c.Add(v.Node, "gRPC リクエストは service/method を1つだけ持つ mapping です")
+		c.Add(v.Node, message.GRPCOne)
 		return
 	}
 	call := v.Map[0]
 	if !strings.Contains(call.Key, "{{") && !validGRPCMethod(call.Key) {
-		c.Add(call.KeyNode, "gRPC のメソッド %s は package.Service/Method の形です", call.Key)
+		c.Add(call.KeyNode, message.GRPCShape, call.Key)
 	}
 	if call.Value.Kind != runbook.KindMap {
-		c.Add(call.Value.Node, "gRPC メソッドの値は mapping です")
+		c.Add(call.Value.Node, message.GRPCMap)
 		return
 	}
 	allowKeys(c, call.Value, "gRPC リクエスト", map[string]struct{}{
@@ -411,23 +412,23 @@ func checkGRPC(c *Context, v runbook.Value) {
 	_, hasMessage := call.Value.Get("message")
 	_, hasMessages := call.Value.Get("messages")
 	if hasMessage && hasMessages {
-		c.Add(call.Value.Node, "message と messages は同時に指定できません")
+		c.Add(call.Value.Node, message.GRPCMsgBoth)
 	}
 	if msg, ok := call.Value.Get("message"); ok {
 		if msg.Kind == runbook.KindString && strings.Contains(msg.String, "{{") {
-			// 展開後に mapping になる
+			// expands to a mapping
 		} else if msg.Kind != runbook.KindMap {
-			c.Add(msg.Node, "message は mapping です")
+			c.Add(msg.Node, message.GRPCMessage)
 		}
 	}
 	if msgs, ok := call.Value.Get("messages"); ok {
 		checkGRPCMessages(c, msgs)
 	}
 	if timeout, ok := call.Value.Get("timeout"); ok && !validDuration(timeout) {
-		c.Add(timeout.Node, "timeout は時間です")
+		c.Add(timeout.Node, message.TimeoutDur)
 	}
 	if trace, ok := call.Value.Get("trace"); ok && !boolOrTemplate(trace) {
-		c.Add(trace.Node, "trace は bool です")
+		c.Add(trace.Node, message.TraceBool)
 	}
 }
 
@@ -448,7 +449,7 @@ func checkGRPCMessages(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind != runbook.KindSeq {
-		c.Add(v.Node, "messages は配列です")
+		c.Add(v.Node, message.MessagesArray)
 		return
 	}
 	for _, el := range v.Seq {
@@ -456,10 +457,10 @@ func checkGRPCMessages(c *Context, v runbook.Value) {
 		case runbook.KindMap:
 		case runbook.KindString:
 			if el.String != "receive" && el.String != "close" && !strings.Contains(el.String, "{{") {
-				c.Add(el.Node, "messages の文字列は receive または close です")
+				c.Add(el.Node, message.MessagesWord)
 			}
 		default:
-			c.Add(el.Node, "messages の要素は mapping、receive、close のいずれかです")
+			c.Add(el.Node, message.MessagesElem)
 		}
 	}
 }
@@ -469,7 +470,7 @@ func checkDB(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "DB リクエストは mapping です")
+		c.Add(v.Node, message.DBMap)
 		return
 	}
 	allowKeys(c, v, "DB リクエスト", map[string]struct{}{"query": {}, "trace": {}})
@@ -479,43 +480,43 @@ func checkDB(c *Context, v runbook.Value) {
 		if ok {
 			node = query.Node
 		}
-		c.Add(node, "query は空でない文字列です")
+		c.Add(node, message.QueryEmpty)
 	}
 	if trace, ok := v.Get("trace"); ok && !boolOrTemplate(trace) {
-		c.Add(trace.Node, "trace は bool です")
+		c.Add(trace.Node, message.TraceBool)
 	}
 }
 
 func checkExec(c *Context, v runbook.Value) {
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "exec は mapping です")
+		c.Add(v.Node, message.ExecMap)
 		return
 	}
 	allowKeys(c, v, "exec", runnspec.DefKeys(runnspec.DefExec))
 	checkCommand(c, v)
 	if stdin, ok := v.Get("stdin"); ok && stdin.Kind != runbook.KindString {
-		c.Add(stdin.Node, "stdin は文字列です")
+		c.Add(stdin.Node, message.StdinString)
 	}
 	if sh, ok := v.Get("shell"); ok {
 		if sh.Kind != runbook.KindString {
-			c.Add(sh.Node, "shell は文字列です")
+			c.Add(sh.Node, message.ShellString)
 		} else if !runbook.ContainsTemplate(sh.String) && sh.String != "bash" && sh.String != "sh" && !strings.Contains(sh.String, "{0}") {
-			c.Add(sh.Node, "shell は bash、sh、または {0} を含むコマンドです")
+			c.Add(sh.Node, message.ShellValue)
 		}
 	}
 	if bg, ok := v.Get("background"); ok && !boolOrTemplate(bg) {
-		c.Add(bg.Node, "background は bool です")
+		c.Add(bg.Node, message.BackgroundBool)
 	}
 	if live, ok := v.Get("liveOutput"); ok && !boolOrTemplate(live) {
-		c.Add(live.Node, "liveOutput は bool です")
+		c.Add(live.Node, message.LiveBool)
 	}
 	if env, ok := v.Get("env"); ok {
 		if env.Kind != runbook.KindMap {
-			c.Add(env.Node, "env は mapping です")
+			c.Add(env.Node, message.EnvMap)
 		} else {
 			for _, e := range env.Map {
 				if e.Value.Kind != runbook.KindString {
-					c.Add(e.Value.Node, "env.%s は文字列です", e.Key)
+					c.Add(e.Value.Node, message.EnvString, e.Key)
 				}
 			}
 		}
@@ -527,7 +528,7 @@ func checkCommandMap(c *Context, v runbook.Value, what string) {
 		return
 	}
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "%s リクエストは mapping です", what)
+		c.Add(v.Node, message.RequestMap, what)
 		return
 	}
 	allowKeys(c, v, what, map[string]struct{}{"command": {}})
@@ -541,7 +542,7 @@ func checkCommand(c *Context, v runbook.Value) {
 		if ok {
 			node = cmd.Node
 		}
-		c.Add(node, "command は空でない文字列です")
+		c.Add(node, message.CommandEmpty)
 	}
 }
 
@@ -550,7 +551,7 @@ func checkCDP(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "CDP リクエストは mapping です")
+		c.Add(v.Node, message.CDPMap)
 		return
 	}
 	allowKeys(c, v, "CDP リクエスト", map[string]struct{}{"actions": {}})
@@ -560,7 +561,7 @@ func checkCDP(c *Context, v runbook.Value) {
 		if ok {
 			node = actions.Node
 		}
-		c.Add(node, "actions は空でない配列です")
+		c.Add(node, message.ActionsEmpty)
 		return
 	}
 	for _, el := range actions.Seq {
@@ -568,29 +569,29 @@ func checkCDP(c *Context, v runbook.Value) {
 		case runbook.KindString:
 			args, known := cdpArgs[el.String]
 			if !known {
-				c.Add(el.Node, "CDP アクション %s はありません", el.String)
+				c.Add(el.Node, message.CDPUnknown, el.String)
 				continue
 			}
 			if len(args) > 0 {
-				c.Add(el.Node, "CDP アクション %s には引数が必要です", el.String)
+				c.Add(el.Node, message.CDPArgsNeed, el.String)
 			}
 		case runbook.KindMap:
 			if len(el.Map) != 1 {
-				c.Add(el.Node, "CDP アクションはキーを1つだけ持つ mapping です")
+				c.Add(el.Node, message.CDPOneKey)
 				continue
 			}
 			act := el.Map[0]
 			args, known := cdpArgs[act.Key]
 			if !known {
-				c.Add(act.KeyNode, "CDP アクション %s はありません", act.Key)
+				c.Add(act.KeyNode, message.CDPUnknown, act.Key)
 				continue
 			}
 			switch act.Value.Kind {
 			case runbook.KindString:
 				if len(args) == 0 {
-					c.Add(act.Value.Node, "CDP アクション %s は引数を取りません", act.Key)
+					c.Add(act.Value.Node, message.CDPNoArgs, act.Key)
 				} else if len(args) > 1 {
-					c.Add(act.Value.Node, "CDP アクション %s は %s を mapping で指定します", act.Key, strings.Join(args, ", "))
+					c.Add(act.Value.Node, message.CDPArgMap, act.Key, strings.Join(args, ", "))
 				}
 			case runbook.KindMap:
 				allowed := map[string]struct{}{}
@@ -598,15 +599,15 @@ func checkCDP(c *Context, v runbook.Value) {
 					allowed[name] = struct{}{}
 				}
 				if len(allowed) == 0 && len(act.Value.Map) > 0 {
-					c.Add(act.Value.Node, "CDP アクション %s は引数を取りません", act.Key)
+					c.Add(act.Value.Node, message.CDPNoArgs, act.Key)
 					continue
 				}
 				allowKeys(c, act.Value, "CDP アクション "+act.Key, allowed)
 			default:
-				c.Add(act.Value.Node, "CDP アクション %s の引数は文字列または mapping です", act.Key)
+				c.Add(act.Value.Node, message.CDPArgType, act.Key)
 			}
 		default:
-			c.Add(el.Node, "CDP アクションは文字列または mapping です")
+			c.Add(el.Node, message.CDPElemType)
 		}
 	}
 }
@@ -616,7 +617,7 @@ func checkAgentStep(c *Context, v runbook.Value) {
 		return
 	}
 	if v.Kind != runbook.KindMap {
-		c.Add(v.Node, "agent リクエストは mapping です")
+		c.Add(v.Node, message.AgentMap)
 		return
 	}
 	allowKeys(c, v, "agent リクエスト", map[string]struct{}{"prompt": {}, "clearContext": {}})
@@ -626,10 +627,10 @@ func checkAgentStep(c *Context, v runbook.Value) {
 		if ok {
 			node = prompt.Node
 		}
-		c.Add(node, "prompt は文字列です")
+		c.Add(node, message.PromptString)
 	}
 	if cc, ok := v.Get("clearContext"); ok && !boolOrTemplate(cc) {
-		c.Add(cc.Node, "clearContext は bool です")
+		c.Add(cc.Node, message.ClearBool)
 	}
 }
 
@@ -637,21 +638,21 @@ func checkInclude(c *Context, v runbook.Value) {
 	switch v.Kind {
 	case runbook.KindString:
 		if strings.TrimSpace(v.String) == "" {
-			c.Add(v.Node, "include の path が空です")
+			c.Add(v.Node, message.IncludeEmpty)
 		}
 	case runbook.KindMap:
 		_, path := v.Get("path")
 		_, steps := v.Get("steps")
 		if path && steps {
-			c.Add(v.Node, "include では path と steps を同時に指定できません")
+			c.Add(v.Node, message.IncludeBoth)
 		}
 		if !path && !steps {
-			c.Add(v.Node, "include には path または steps が必要です")
+			c.Add(v.Node, message.IncludeNeed)
 		}
 		if path {
 			allowKeys(c, v, "include", map[string]struct{}{"path": {}, "vars": {}, "skipTest": {}, "force": {}})
 			if p, ok := v.Get("path"); ok && !nonEmptyString(p) {
-				c.Add(p.Node, "include.path は空でない文字列です")
+				c.Add(p.Node, message.IncludePath)
 			}
 		}
 		if steps && !path {
@@ -660,20 +661,20 @@ func checkInclude(c *Context, v runbook.Value) {
 			})
 		}
 		if vars, ok := v.Get("vars"); ok && vars.Kind != runbook.KindMap {
-			c.Add(vars.Node, "include.vars は mapping です")
+			c.Add(vars.Node, message.IncludeVars)
 		}
 		if runners, ok := v.Get("runners"); ok && steps && runners.Kind != runbook.KindMap {
-			c.Add(runners.Node, "include.runners は mapping です")
+			c.Add(runners.Node, message.IncludeRunners)
 		}
 		if desc, ok := v.Get("desc"); ok && desc.Kind != runbook.KindString {
-			c.Add(desc.Node, "include.desc は文字列です")
+			c.Add(desc.Node, message.IncludeDesc)
 		}
 		for _, key := range []string{"skipTest", "force"} {
 			if field, ok := v.Get(key); ok && !boolOrTemplate(field) {
-				c.Add(field.Node, "include.%s は bool です", key)
+				c.Add(field.Node, message.IncludeBool, key)
 			}
 		}
 	default:
-		c.Add(v.Node, "include は path または mapping です")
+		c.Add(v.Node, message.IncludeType)
 	}
 }

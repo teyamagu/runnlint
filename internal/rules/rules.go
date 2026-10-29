@@ -1,17 +1,17 @@
-// Package rules は runbook に runn 固有のルールを適用する。
+// Package rules applies runn-specific rules to a runbook.
 package rules
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"gopkg.in/yaml.v3"
 )
 
-// Builtin は YAML の uses から呼ばれる検査。
+// Builtin is a check invoked from uses in YAML.
 type Builtin func(*Context)
 
 var registry = map[string]Builtin{}
@@ -20,16 +20,16 @@ func register(name string, fn Builtin) {
 	registry[name] = fn
 }
 
-// KnownBuiltin は uses に書ける名前か。
+// KnownBuiltin reports whether name can be written in uses.
 func KnownBuiltin(name string) bool {
 	_, ok := registry[name]
 	return ok
 }
 
-// CheckConfig は uses が実装済みか確認する。
+// CheckConfig reports whether every uses value is implemented.
 func CheckConfig(cfg *config.Config) error {
 	if cfg == nil {
-		return fmt.Errorf("設定がありません")
+		return message.New(message.ConfigAbsent)
 	}
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -39,49 +39,38 @@ func CheckConfig(cfg *config.Config) error {
 			continue
 		}
 		if !KnownBuiltin(rule.Uses) {
-			return fmt.Errorf("ルール %s の uses %q は未定義です", rule.ID, rule.Uses)
+			return message.New(message.UsesUnknown, rule.ID, rule.Uses)
 		}
 	}
 	return nil
 }
 
-// Lint は src を検査する。2つ目の戻り値は runbook とみなしたか。
+// Lint checks src. The second result reports whether src was treated as a runbook.
 func Lint(filename string, src []byte, cfg *config.Config) ([]finding.Finding, bool) {
 	return LintWith(filename, src, cfg, nil)
 }
 
-// LintWith は、他のファイルからの include の参照 refs も使って src を検査する。refs は nil でもよい。
+// LintWith checks src, also using include references refs from other files. refs may be nil.
 func LintWith(filename string, src []byte, cfg *config.Config, refs *Refs) ([]finding.Finding, bool) {
+	lang := displayLang(cfg)
 	doc, err := runbook.Parse(src)
 	if err != nil {
+		show, match := message.Pair(lang, err)
 		return []finding.Finding{{
 			File:     filename,
 			Line:     1,
 			Column:   1,
 			Severity: finding.Error,
 			Rule:     "parse",
-			Message:  err.Error(),
+			Message:  show,
+			Match:    match,
 		}}, false
 	}
 	if doc.Empty {
-		return []finding.Finding{{
-			File:     filename,
-			Line:     1,
-			Column:   1,
-			Severity: finding.Error,
-			Rule:     "parse",
-			Message:  "空のファイルです",
-		}}, false
+		return []finding.Finding{parseFinding(filename, lang, message.FileEmpty)}, false
 	}
 	if doc.Root.Kind != runbook.KindMap || doc.Book == nil {
-		return []finding.Finding{{
-			File:     filename,
-			Line:     1,
-			Column:   1,
-			Severity: finding.Error,
-			Rule:     "parse",
-			Message:  "runbook は mapping です",
-		}}, false
+		return []finding.Finding{parseFinding(filename, lang, message.BookNotMap)}, false
 	}
 	doc.Book.SetLocation(filename, filepath.Dir(filename))
 	return applySuppressions(filename, src, lintDocument(doc, cfg, refs), cfg), doc.IsRunbook()
@@ -103,7 +92,7 @@ func lintDocument(doc *runbook.Document, cfg *config.Config, refs *Refs) []findi
 		}
 	})
 	sites := analyze(doc.Book)
-	ctx := &Context{Doc: doc, Sites: sites, Refs: refs}
+	ctx := &Context{Doc: doc, Sites: sites, Refs: refs, Lang: displayLang(cfg)}
 	for _, rule := range cfg.Rules {
 		if rule.Severity == finding.Off {
 			continue
@@ -122,21 +111,38 @@ func lintDocument(doc *runbook.Document, cfg *config.Config, refs *Refs) []findi
 	return out
 }
 
-// Context は1ルールの評価中に診断を積む。
+// Context accumulates diagnostics while one rule runs.
 type Context struct {
 	Doc   *runbook.Document
 	Rule  config.Rule
 	Sites []site
-	// Refs は他のファイルからの include。単体で検査するときは nil。
+	// Refs are includes from other files. Nil when a file is linted alone.
 	Refs *Refs
+	// Lang is the display language. The zero value shows Japanese.
+	Lang message.Lang
 	out  []finding.Finding
 }
 
-func (c *Context) Add(node *yaml.Node, format string, args ...any) {
-	c.AddAt(c.Rule.Severity, node, format, args...)
+func (c *Context) Add(node *yaml.Node, id message.ID, args ...any) {
+	c.AddAt(c.Rule.Severity, node, id, args...)
 }
 
-func (c *Context) AddAt(sev finding.Severity, node *yaml.Node, format string, args ...any) {
+func (c *Context) AddAt(sev finding.Severity, node *yaml.Node, id message.ID, args ...any) {
+	c.add(sev, node, message.Text(c.lang(), id, args...), message.English(id, args...))
+}
+
+// AddText records a sentence that is not translated, such as a user-written rule message.
+func (c *Context) AddText(node *yaml.Node, text string) {
+	c.add(c.Rule.Severity, node, text, text)
+}
+
+// AddError records err. A built-in error is shown in the display language and matched in English.
+func (c *Context) AddError(node *yaml.Node, err error) {
+	show, match := message.Pair(c.lang(), err)
+	c.add(c.Rule.Severity, node, show, match)
+}
+
+func (c *Context) add(sev finding.Severity, node *yaml.Node, show, match string) {
 	if sev == finding.Off {
 		return
 	}
@@ -151,8 +157,35 @@ func (c *Context) AddAt(sev finding.Severity, node *yaml.Node, format string, ar
 		Column:   col,
 		Severity: sev,
 		Rule:     c.Rule.ID,
-		Message:  fmt.Sprintf(format, args...),
+		Message:  show,
+		Match:    match,
 	})
+}
+
+func (c *Context) lang() message.Lang {
+	if c.Lang == "" {
+		return message.JA
+	}
+	return c.Lang
+}
+
+func displayLang(cfg *config.Config) message.Lang {
+	if cfg != nil && cfg.Language == string(message.EN) {
+		return message.EN
+	}
+	return message.JA
+}
+
+func parseFinding(filename string, lang message.Lang, id message.ID) finding.Finding {
+	return finding.Finding{
+		File:     filename,
+		Line:     1,
+		Column:   1,
+		Severity: finding.Error,
+		Rule:     "parse",
+		Message:  message.Text(lang, id),
+		Match:    message.English(id),
+	}
 }
 
 func (c *Context) Books() []*runbook.Book {

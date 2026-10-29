@@ -7,6 +7,7 @@ import (
 
 	"github.com/expr-lang/expr/ast"
 	"github.com/expr-lang/expr/parser"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 )
 
@@ -14,22 +15,22 @@ func init() {
 	register("included-unreferenced", includedUnreferenced)
 }
 
-// Refs は、lint の対象と参照元のファイルにある include の参照先。
-// runbook ごとの検査だけでは分からない「誰から include されるか」を、検査の前にまとめて集める。
+// Refs holds include targets found in the files being linted and in their callers.
+// It collects, before checks run, who includes a runbook, which a per-runbook check cannot see.
 type Refs struct {
 	scopes  []string
 	static  map[string][]IncludeRef
 	dynamic []dynamicRef
 }
 
-// IncludeRef は1件の include。
+// IncludeRef is one include.
 type IncludeRef struct {
-	// From は include する側のファイル。
+	// From is the file that includes the target.
 	From string
-	// Vars は include.vars で渡す変数名。KnownVars が false なら、展開しないと分からない。
+	// Vars are variable names passed in include.vars. When KnownVars is false, they are unknown until expansion.
 	Vars      map[string]struct{}
 	KnownVars bool
-	// Dynamic は、パスに {{ }} や ${...} を含み、このファイルを include するかもしれないだけの参照。
+	// Dynamic is a reference whose path contains {{ }} or ${...} and may only possibly include this file.
 	Dynamic bool
 }
 
@@ -38,8 +39,8 @@ type dynamicRef struct {
 	ref IncludeRef
 }
 
-// NewRefs は scopes の中のファイルを判定の対象にする Refs を作る。
-// scopes は、参照元を残らず読んだディレクトリかファイル。
+// NewRefs builds a Refs that judges files inside scopes.
+// scopes are directories or files whose callers were all read.
 func NewRefs(scopes ...string) *Refs {
 	r := &Refs{static: map[string][]IncludeRef{}}
 	for _, s := range scopes {
@@ -50,7 +51,7 @@ func NewRefs(scopes ...string) *Refs {
 	return r
 }
 
-// Add は path の YAML から include の参照を読む。runbook でなければ何もしない。
+// Add reads include references from the YAML at path. It does nothing when the file is not a runbook.
 func (r *Refs) Add(path string, src []byte) {
 	if r == nil {
 		return
@@ -120,7 +121,7 @@ func (r *Refs) addRef(b *runbook.Book, from string, path, vars runbook.Value) {
 	}
 }
 
-// InScope は path の参照元をすべて読んだと言えるか。
+// InScope reports whether every caller of path was read.
 func (r *Refs) InScope(path string) bool {
 	if r == nil {
 		return false
@@ -137,7 +138,7 @@ func (r *Refs) InScope(path string) bool {
 	return false
 }
 
-// Callers は path を include しうる参照。動的な参照は、照合しうるものをすべて含む。
+// Callers returns references that may include path. Dynamic references include every one that can match.
 func (r *Refs) Callers(path string) []IncludeRef {
 	if r == nil {
 		return nil
@@ -161,8 +162,8 @@ func (r *Refs) Callers(path string) []IncludeRef {
 	return out
 }
 
-// resolveLocal は include や needs のパスを、book のあるディレクトリからのファイルパスにする。
-// {{ }} や ${...} を含むもの、URL、空文字は解決できないので false。
+// resolveLocal turns an include or needs path into a file path relative to the directory of book.
+// A path that contains {{ }} or ${...}, a URL, or an empty string cannot be resolved, so it returns false.
 func resolveLocal(b *runbook.Book, raw string) (string, bool) {
 	s := strings.TrimSpace(raw)
 	if s == "" || runbook.ContainsTemplate(s) {
@@ -183,8 +184,8 @@ func resolveLocal(b *runbook.Book, raw string) (string, bool) {
 
 var dynamicPartRe = regexp.MustCompile(`\{\{.*?\}\}|\$\{[^}]*\}+`)
 
-// dynamicPattern は {{ }} や ${...} を含むパスを、最後の動的な部分より後ろの文字列で終わるパスの正規表現にする。
-// 値が分からない部分の前は、相対パスの解決や .. の扱いが決まらないので照合に使わない。指摘しない側に倒す。
+// dynamicPattern turns a path that contains {{ }} or ${...} into a regexp for paths that end with the text after the last dynamic part.
+// Text before an unknown value is not used for matching, because relative resolution and .. are not determined. Err on the side of not reporting.
 func dynamicPattern(raw string) *regexp.Regexp {
 	s := filepath.ToSlash(strings.TrimSpace(raw))
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
@@ -198,8 +199,8 @@ func dynamicPattern(raw string) *regexp.Regexp {
 	return regexp.MustCompile(regexp.QuoteMeta(suffix) + `$`)
 }
 
-// requiresIncluded は、トップレベルの if が include されたときにしか真にならない形か。
-// included、included == true と、それらを && でつないだ式を対象にする。|| や ! を含む形は単体でも動くので対象外。
+// requiresIncluded reports whether a top-level if is true only when the runbook is included.
+// It matches included, included == true, and expressions that join those with &&. Forms that contain || or ! can run on their own, so they are excluded.
 func requiresIncluded(cond string) bool {
 	src := strings.TrimSpace(trimSharpComment(expandEnvPlaceholders(cond)))
 	if src == "" || strings.Contains(src, "{{") {
@@ -244,5 +245,5 @@ func includedUnreferenced(c *Context) {
 	if !c.Refs.InScope(b.File) || len(c.Refs.Callers(b.File)) > 0 {
 		return
 	}
-	c.Add(cond.Node, "if: %s の runbook ですが、走査した範囲のどの runbook からも include されていません", strings.TrimSpace(cond.String))
+	c.Add(cond.Node, message.IncludedNone, strings.TrimSpace(cond.String))
 }

@@ -1,21 +1,24 @@
-# runnlint のデフォルトルール。
-# プロジェクト直下に .runnlint-runn.yaml を置くと、この設定を継承して上書きできる。
-# extends: none にすると継承しない。
+# Default rules for runnlint.
+# Place .runnlint-runn.yaml at the project root to inherit and override this config.
+# Set extends: none to skip inheritance.
 version: 1
 
-# インデントや重複キーなど、一般的な YAML の検査は yamllint に委譲する。
+# language may be ja (default) or en. It selects the display language.
+# Omitting language means Japanese.
+
+# Indentation, duplicate keys, and other general YAML checks are delegated to yamllint.
 yamllint:
   enabled: true
   bin: yamllint
-  # 未導入時の扱い。error にすると yamllint が無いだけで失敗する。
+  # What to do when yamllint is not installed. error fails solely because yamllint is missing.
   missing: warning
-  # 独自の yamllint 設定を使う場合:
+  # To use a custom yamllint config:
   # config: .yamllint.yaml
 
 ignore: []
 
 rules:
-  # --- runn の構造 ---
+  # --- runn structure ---
   - id: duplicate-key
     uses: duplicate-key
     severity: error
@@ -96,13 +99,13 @@ rules:
     uses: local-path
     severity: warning
 
-  # if: included の runbook が、走査した範囲のどこからも include されていないこと。
-  # ディレクトリを走査したときと、--include-root の中のファイルだけを判定する。
+  # A runbook with if: included is not included from anywhere in the scanned scope.
+  # Checked only when scanning a directory, and only for files under --include-root.
   - id: included-unreferenced
     uses: included-unreferenced
     severity: warning
 
-  # --- 式と参照 ---
+  # --- expressions and references ---
   - id: expr-syntax
     uses: expr-syntax
     severity: error
@@ -118,7 +121,7 @@ rules:
   - id: var-ref
     uses: var-ref
     severity: warning
-    # include 元の include.vars で渡す変数は自動で数える。CLI から渡す変数はここに書くと警告しない。
+    # Variables passed via the includer's include.vars are counted automatically. List CLI-passed variables here to suppress the warning.
     # options:
     #   ignore:
     #     - token
@@ -135,16 +138,16 @@ rules:
     uses: defer-experimental
     severity: info
 
-  # --- 抑制コメント ---
-  # "# runnlint disable-line" のうち、存在しないルールを書いたもの、何も抑制しなかったもの、
-  # 複数行スカラーの中に書いたもの、disable-line 以外の指示。
+  # --- suppression comments ---
+  # Among "# runnlint disable-line": an unknown rule, a comment that suppresses nothing,
+  # a comment inside a multiline scalar, and a directive other than disable-line.
   - id: unused-suppression
     uses: unused-suppression
     severity: warning
 
-  # --- YAML だけで書くルール ---
-  # select はドット区切り。* は mapping の各値、または sequence の各要素。
-  # steps が list でも map でも steps.* で各 step を指す。
+  # --- rules written in YAML only ---
+  # select is dot-separated. * is each value of a mapping, or each element of a sequence.
+  # Whether steps is a list or a map, steps.* refers to each step.
   - id: require-desc
     severity: warning
     message: "runbook に desc がありません"

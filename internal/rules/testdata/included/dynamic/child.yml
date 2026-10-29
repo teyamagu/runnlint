@@ -1,4 +1,4 @@
-# 参照元が動的で解決できないので、指摘しない側に倒す。
+# The referrer is dynamic and cannot be resolved, so we err on the side of not reporting.
 desc: dynamic child
 if: included
 steps:

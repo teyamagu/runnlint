@@ -1,6 +1,6 @@
-# include されたときだけ動く runbook なのに、examples のどこからも include されていない例。
-# ディレクトリ走査では examples/bad を無視する。引数にこのファイルを書くと検査するが、このルールは判定しない。
-# 検出するときは --include-root examples を付けて、このファイルを渡す。
+# Example of a runbook that runs only when included, but is not included from anywhere under examples.
+# Directory scans ignore examples/bad. Passing this file as an argument lints it, but this rule does not judge it.
+# To detect it, pass --include-root examples and this file.
 desc: orphan included runbook
 if: included
 steps:

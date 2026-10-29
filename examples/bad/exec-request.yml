@@ -1,4 +1,4 @@
-# exec の step に command が無い例。
+# Example of an exec step with no command.
 desc: exec without command
 steps:
   - exec:

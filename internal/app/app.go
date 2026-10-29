@@ -1,4 +1,4 @@
-// Package app は runnlint の実行手順。
+// Package app is the procedure for running runnlint.
 package app
 
 import (
@@ -12,30 +12,33 @@ import (
 	"github.com/teyamagu/runnlint/internal/baseline"
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/report"
 	"github.com/teyamagu/runnlint/internal/rules"
 	"github.com/teyamagu/runnlint/internal/yamllint"
 )
 
-// Options は CLI から渡す実行条件。
+// Options are the run settings passed in from the CLI.
 type Options struct {
 	Paths      []string
 	Config     string
 	Format     string
 	NoYamllint bool
-	// Baseline は既存の診断を記録したファイル。一致する診断は出さない。
+	// Baseline is a file of existing diagnostics. Matching diagnostics are omitted.
 	Baseline string
-	// WriteBaseline は今回の診断をすべて書き出すファイル。書いたら終了コード 0 で終える。
+	// WriteBaseline is the file that receives every diagnostic from this run. After it is written, the exit code is 0.
 	WriteBaseline string
-	// IncludeRoots は include の参照元を探す追加のディレクトリ。中のファイルは included-unreferenced の判定対象にもなる。
+	// IncludeRoots are extra directories searched for include referrers. Files in them are also subject to included-unreferenced.
 	IncludeRoots []string
-	Stdout       io.Writer
-	Stderr       io.Writer
+	// Lang overrides the config language. Empty keeps the config value, which defaults to ja.
+	Lang   string
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 var rootKeyRe = regexp.MustCompile(`(?m)^(?:steps|runners):`)
 
-// Run は runbook を検査し、終了コードを返す。
+// Run lints runbooks and returns an exit code.
 func Run(ctx context.Context, opt Options) (int, error) {
 	if opt.Stdout == nil {
 		opt.Stdout = os.Stdout
@@ -48,19 +51,31 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	}
 	cfg, err := config.Load(opt.Config)
 	if err != nil {
-		return 2, err
+		return 2, present(opt.Lang, err)
+	}
+	if opt.Lang != "" {
+		cfg.Language = opt.Lang
+	}
+	switch cfg.Language {
+	case "", "ja", "en":
+	default:
+		return 2, present(opt.Lang, message.New(message.LangUnknown, cfg.Language))
+	}
+	lang := message.JA
+	if cfg.Language == "en" {
+		lang = message.EN
 	}
 	for _, w := range cfg.Warnings {
-		fmt.Fprintf(opt.Stderr, "warning: %s\n", w)
+		fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w))
 	}
 	if err := rules.CheckConfig(cfg); err != nil {
-		return 2, err
+		return 2, present(cfg.Language, err)
 	}
 	var base *baseline.Baseline
 	if opt.Baseline != "" && opt.WriteBaseline == "" {
 		base, err = baseline.Load(opt.Baseline)
 		if err != nil {
-			return 2, err
+			return 2, present(cfg.Language, err)
 		}
 	}
 	paths := opt.Paths
@@ -69,12 +84,12 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	}
 	files, err := collect(paths, cfg)
 	if err != nil {
-		return 2, err
+		return 2, present(cfg.Language, err)
 	}
 
 	refs, err := buildRefs(paths, opt.IncludeRoots, files)
 	if err != nil {
-		return 2, err
+		return 2, present(cfg.Language, err)
 	}
 
 	var findings []finding.Finding
@@ -82,7 +97,7 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	for _, file := range files {
 		src, err := os.ReadFile(file.path)
 		if err != nil {
-			return 2, err
+			return 2, present(cfg.Language, err)
 		}
 		got, isRunbook := rules.LintWith(file.path, src, cfg, refs)
 		if !isRunbook && !file.explicit && !rootKeyRe.Match(src) {
@@ -94,30 +109,30 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	if !opt.NoYamllint {
 		extra, err := yamllint.Run(ctx, cfg.Yamllint, cfg.SourceDir, yamlFiles)
 		if err != nil {
-			return 2, err
+			return 2, present(cfg.Language, err)
 		}
 		findings = append(findings, extra...)
 	}
 	if opt.WriteBaseline != "" {
 		if err := baseline.Write(opt.WriteBaseline, findings); err != nil {
-			return 2, err
+			return 2, present(cfg.Language, err)
 		}
-		fmt.Fprintf(opt.Stderr, "baseline %s に %d 件の診断を書きました\n", opt.WriteBaseline, len(findings))
+		fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineWrote, opt.WriteBaseline, len(findings)))
 		return 0, nil
 	}
 	if base != nil {
 		res := base.Filter(findings)
 		findings = res.Findings
 		if res.Suppressed > 0 || res.Stale > 0 {
-			fmt.Fprintf(opt.Stderr, "baseline %s: 既存の %d 件を除きました", opt.Baseline, res.Suppressed)
+			fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineKept, opt.Baseline, res.Suppressed))
 			if res.Stale > 0 {
-				fmt.Fprintf(opt.Stderr, "。%d 件は解消済みです。--write-baseline で更新できます", res.Stale)
+				fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineStale, res.Stale))
 			}
 			fmt.Fprintln(opt.Stderr)
 		}
 	}
 	if err := report.Write(opt.Stdout, opt.Format, findings); err != nil {
-		return 2, err
+		return 2, present(cfg.Language, err)
 	}
 	if report.HasError(findings) {
 		return 1, nil
@@ -167,8 +182,8 @@ func collect(paths []string, cfg *config.Config) ([]input, error) {
 	return out, nil
 }
 
-// buildRefs は include の参照を集める。走査したディレクトリと roots の中は、ignore に関係なくすべての YAML を参照元として読む。
-// その範囲の中のファイルだけを、参照元を残らず読んだものとして判定に使う。引数で直接渡したファイルは、参照元としてだけ読む。
+// buildRefs collects include references. Every YAML file under walked directories and roots is read as a referrer, whether or not ignore applies.
+// Only files in that range are treated as having had every referrer read. A file passed directly as an argument is read only as a referrer.
 func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
 	var scopes []string
 	for _, path := range paths {
@@ -179,10 +194,10 @@ func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
 	for _, root := range roots {
 		info, err := os.Stat(root)
 		if err != nil {
-			return nil, fmt.Errorf("--include-root: %w", err)
+			return nil, message.Wrap(message.IncludeRootStat, err)
 		}
 		if !info.IsDir() {
-			return nil, fmt.Errorf("--include-root %s はディレクトリではありません", root)
+			return nil, message.New(message.IncludeRootDir, root)
 		}
 		scopes = append(scopes, root)
 	}
@@ -230,6 +245,13 @@ func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
 		}
 	}
 	return refs, nil
+}
+
+func present(lang string, err error) error {
+	if err == nil || lang != string(message.EN) {
+		return err
+	}
+	return fmt.Errorf("%s", message.Localize(message.EN, err))
 }
 
 func skipDir(base string) bool {

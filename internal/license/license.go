@@ -1,16 +1,17 @@
-// Package license は、依存ライブラリが MIT ライセンスのプロジェクトから利用できるかを判定する。
+// Package license reports whether a dependency can be used from an MIT-licensed project.
 package license
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
-// Check はライセンス本文が MIT、BSD、ISC、Apache-2.0 のいずれかであるかを確認する。
-// 複数の許可ライセンスが併記されていても受け付ける。GPL などのコピーレフトは拒否する。
+// Check reports whether the license text is MIT, BSD, ISC, or Apache-2.0.
+// A text that lists more than one of those permissive licenses is accepted. Copyleft such as GPL is rejected.
 func Check(text string) error {
 	if strings.TrimSpace(text) == "" {
-		return fmt.Errorf("ライセンス本文が空です")
+		return message.New(message.LicenseEmpty)
 	}
 	upper := strings.ToUpper(text)
 	denied := []string{
@@ -23,7 +24,7 @@ func Check(text string) error {
 	}
 	for _, phrase := range denied {
 		if strings.Contains(upper, phrase) {
-			return fmt.Errorf("MIT ライセンスのプロジェクトからは利用できないライセンスです (%s)", phrase)
+			return message.New(message.LicenseForbid, phrase)
 		}
 	}
 	switch {
@@ -36,6 +37,6 @@ func Check(text string) error {
 	case strings.Contains(text, "ISC License"), strings.Contains(text, "Permission to use, copy, modify, and/or distribute this software"):
 		return nil
 	default:
-		return fmt.Errorf("MIT、BSD、ISC、Apache-2.0 として判定できません")
+		return message.New(message.LicenseUnknown)
 	}
 }

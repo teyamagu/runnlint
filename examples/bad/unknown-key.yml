@@ -1,4 +1,4 @@
-# runbook のトップレベルに、runn が定義していないキーがある例。
+# Example of a key at the runbook top level that runn does not define.
 desc: unknown key
 owner: team
 steps:

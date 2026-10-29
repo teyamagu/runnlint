@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// MIT、Apache-2.0、BSD、ISC、MIT と Apache の併記の各本文を渡したとき、Check が成功することを確認する。
+// TestCheckAllowsCompatibleLicenses checks that Check succeeds for MIT, Apache-2.0, BSD, ISC, and a text that lists both MIT and Apache.
 func TestCheckAllowsCompatibleLicenses(t *testing.T) {
 	samples := []string{
 		"MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy",
@@ -24,7 +24,7 @@ func TestCheckAllowsCompatibleLicenses(t *testing.T) {
 	}
 }
 
-// GPL、MPL、LGPL の本文を渡したとき、Check が失敗することを確認する。
+// TestCheckRejectsCopyleft checks that Check fails for GPL, MPL, and LGPL texts.
 func TestCheckRejectsCopyleft(t *testing.T) {
 	samples := []string{
 		"GNU GENERAL PUBLIC LICENSE\nVersion 3",
@@ -38,7 +38,7 @@ func TestCheckRejectsCopyleft(t *testing.T) {
 	}
 }
 
-// go list -deps で列挙した外部モジュールの LICENSE を読み、いずれも Check が成功することを確認する。
+// TestImportedModulesUseCompatibleLicenses checks that Check succeeds for the LICENSE file of every external module listed by go list -deps.
 func TestImportedModulesUseCompatibleLicenses(t *testing.T) {
 	root := moduleRoot(t)
 	cmd := exec.Command("go", "list", "-deps", "-f", "{{if and .Module (not .Standard)}}{{.Module.Path}}\t{{.Module.Dir}}{{end}}", "./...")

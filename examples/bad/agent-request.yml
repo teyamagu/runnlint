@@ -1,4 +1,4 @@
-# agent の prompt に、文字列以外を書いた例。
+# Example of an agent prompt written as something other than a string.
 desc: prompt type
 runners:
   ai:

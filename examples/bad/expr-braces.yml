@@ -1,4 +1,4 @@
-# test に書く式を、テンプレートの {{ }} で包んでしまった例。
+# Example of a test expression wrapped in template {{ }}.
 desc: braces around expression
 steps:
   - test: "{{ current.res.status == 200 }}"

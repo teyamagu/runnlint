@@ -13,7 +13,7 @@ func f(file string, line int, rule, msg string) finding.Finding {
 	return finding.Finding{File: file, Line: line, Column: 1, Severity: finding.Error, Rule: rule, Message: msg}
 }
 
-// 書き出した baseline を読み直して当てたとき、同じ診断は行がずれても除外され、新しい診断だけが残ることを確認する。
+// TestWriteThenFilterIgnoresLineShift checks that reloading a written baseline and applying it drops the same diagnostic even after its line moves, and leaves only the new diagnostic.
 func TestWriteThenFilterIgnoresLineShift(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -45,7 +45,7 @@ func TestWriteThenFilterIgnoresLineShift(t *testing.T) {
 	}
 }
 
-// baseline のパスはファイルの置き場所からの相対で持ち、別のディレクトリから実行しても一致することを確認する。
+// TestPathsAreRelativeToBaselineFile checks that a baseline stores paths relative to where the file sits, so they still match when the command runs from another directory.
 func TestPathsAreRelativeToBaselineFile(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
@@ -73,7 +73,7 @@ func TestPathsAreRelativeToBaselineFile(t *testing.T) {
 	}
 }
 
-// 書き出しは file、rule、message の順に並べ、同じキーは count にまとめることを確認する。
+// TestWriteIsStable checks that output is ordered by file, rule, and message, and that the same key is folded into count.
 func TestWriteIsStable(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -84,21 +84,54 @@ func TestWriteIsStable(t *testing.T) {
 	}
 	raw, _ := os.ReadFile(path)
 	s := string(raw)
-	if strings.Index(s, `"a.yml"`) > strings.Index(s, `"b.yml"`) || !strings.Contains(s, `"count": 2`) || !strings.Contains(s, `"version": 1`) {
+	if strings.Index(s, `"a.yml"`) > strings.Index(s, `"b.yml"`) || !strings.Contains(s, `"count": 2`) || !strings.Contains(s, `"version": 2`) {
 		t.Fatalf("%s", s)
 	}
 }
 
-// 壊れた JSON、未知の version、存在しないファイルは読み込みに失敗することを確認する。
+// TestLoadErrors checks that broken JSON, an unknown version, and a missing file fail to load.
 func TestLoadErrors(t *testing.T) {
 	dir := t.TempDir()
 	broken := filepath.Join(dir, "broken.json")
 	os.WriteFile(broken, []byte("{"), 0o644)
 	future := filepath.Join(dir, "future.json")
-	os.WriteFile(future, []byte(`{"version": 2, "findings": []}`), 0o644)
-	for _, path := range []string{broken, future, filepath.Join(dir, "missing.json")} {
+	os.WriteFile(future, []byte(`{"version": 99, "findings": []}`), 0o644)
+	old := filepath.Join(dir, "v1.json")
+	os.WriteFile(old, []byte(`{"version": 1, "findings": []}`), 0o644)
+	for _, path := range []string{broken, future, old, filepath.Join(dir, "missing.json")} {
 		if _, err := Load(path); err == nil {
 			t.Fatalf("%s を受けています", path)
 		}
+	}
+	_, err := Load(old)
+	if err == nil || !strings.Contains(err.Error(), "--write-baseline") {
+		t.Fatalf("%v", err)
+	}
+}
+
+// TestBaselineMatchesEnglishSentence checks that, even when the displayed sentence is Japanese, the sentence written to the baseline and used for matching is English.
+func TestBaselineMatchesEnglishSentence(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	path := filepath.Join(dir, "b.json")
+	in := finding.Finding{File: "a.yml", Rule: "require-steps", Message: "steps がありません", Match: "steps is missing"}
+	if err := Write(path, []finding.Finding{in}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "steps がありません") || !strings.Contains(string(raw), "steps is missing") {
+		t.Fatalf("%s", raw)
+	}
+	b, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shown := in
+	shown.Message = "別の表示"
+	if got := b.Filter([]finding.Finding{shown}); len(got.Findings) != 0 || got.Suppressed != 1 {
+		t.Fatalf("%+v", got)
 	}
 }

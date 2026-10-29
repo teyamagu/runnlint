@@ -7,7 +7,7 @@ import (
 	"github.com/teyamagu/runnlint/internal/runbook"
 )
 
-// 引用符の中に }} がある文字列からテンプレートを取り出したとき、2件に分かれ、1件目に closed }} が残り 2件目が vars.name になることを確認する。閉じていない {{ ではエラーになることを確認する。
+// Extracting templates from a string that contains }} inside quotes yields two parts: the first still contains closed }}, and the second is vars.name. An unclosed {{ is an error.
 func TestExtractTemplatesRespectsQuotes(t *testing.T) {
 	got, err := extractTemplates("{{ \"closed }}\" }} {{ vars.name }}")
 	if err != nil {
@@ -21,7 +21,7 @@ func TestExtractTemplatesRespectsQuotes(t *testing.T) {
 	}
 }
 
-// 数値 1、文字列 10sec、テンプレート {{ vars.wait }} では validDuration が true になることを確認する。later と空白では false になることを確認する。
+// validDuration is true for the number 1, the string 10sec, and the template {{ vars.wait }}. It is false for later and for whitespace.
 func TestValidDuration(t *testing.T) {
 	if !validDuration(runbook.Value{Kind: runbook.KindNumber, Number: "1"}) {
 		t.Fatal("数値")

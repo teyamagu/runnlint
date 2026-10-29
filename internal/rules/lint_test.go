@@ -49,10 +49,10 @@ func hasRule(findings []finding.Finding, id string) bool {
 	return false
 }
 
-// 次の4つの runbook を既定ルールで lint したとき、いずれも error が出ないことを確認する。
+// Linting the following four runbooks with the default rules reports no error.
 func TestValidRunbooks(t *testing.T) {
 	books := []string{
-		// 配列 steps で HTTP と DB、テンプレート、先行 step の参照を書いた runbook では error が出ないことを確認する。
+		// A runbook with array steps that uses HTTP and DB, a template, and a reference to an earlier step reports no error.
 		`
 desc: Login and get projects.
 runners:
@@ -83,7 +83,7 @@ steps:
           body: null
     test: len(steps[2].res.body.projects) > 0
 `,
-		// 名前付き steps から steps.login を参照する runbook では error が出ないことを確認する。
+		// A runbook that refers to steps.login from named steps reports no error.
 		`
 desc: map steps
 runners:
@@ -103,7 +103,7 @@ steps:
         get:
           body: null
 `,
-		// 前の step の runner: で定義した SSH runner を次の step から使う runbook では error が出ないことを確認する。
+		// A runbook that uses, from the next step, an SSH runner defined by runner: on the previous step reports no error.
 		`
 desc: dynamic runner
 steps:
@@ -112,7 +112,7 @@ steps:
   - sc:
       command: hostname
 `,
-		// インライン include の子 step から親の HTTP runner を使う runbook では error が出ないことを確認する。
+		// A runbook whose inline-include child step uses the parent's HTTP runner reports no error.
 		`
 desc: inline include
 runners:
@@ -134,7 +134,7 @@ steps:
 	}
 }
 
-// 次の各 runbook を既定ルールで lint したとき、指定したルールがその深刻度で出ることを確認する。
+// Linting each of the following runbooks with the default rules reports the named rule at that severity.
 func TestRunnSpecificRules(t *testing.T) {
 	cases := []struct {
 		name string
@@ -143,7 +143,7 @@ func TestRunnSpecificRules(t *testing.T) {
 		sev  finding.Severity
 	}{
 		{
-			// runners に無い nope を step に書いたとき、runner-defined が error で出ることを確認する。
+			// Writing nope, which is not in runners, on a step reports runner-defined as error.
 			name: "unknown runner",
 			src: `
 desc: x
@@ -155,7 +155,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// runners の名前に exec を使ったとき、runner-reserved が error で出ることを確認する。
+			// Using exec as a runners name reports runner-reserved as error.
 			name: "reserved runner",
 			src: `
 desc: x
@@ -171,7 +171,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// POST に headers だけで body が無いとき、http-request が error で出ることを確認する。
+			// A POST with headers and no body reports http-request as error.
 			name: "post without body",
 			src: `
 desc: x
@@ -188,7 +188,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// get の値が null のとき、http-request が error で出ることを確認する。
+			// A null get value reports http-request as error.
 			name: "get null",
 			src: `
 desc: x
@@ -203,7 +203,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 配列の steps から steps.login を参照したとき、step-ref が error で出ることを確認する。
+			// Referring to steps.login from array steps reports step-ref as error.
 			name: "list step name ref",
 			src: `
 desc: x
@@ -214,7 +214,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 名前付き steps から steps[0] を参照したとき、step-ref が error で出ることを確認する。
+			// Referring to steps[0] from named steps reports step-ref as error.
 			name: "map step index ref",
 			src: `
 desc: x
@@ -232,7 +232,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 先頭 step から steps[1] を参照したとき、step-ref が error で出ることを確認する。
+			// Referring to steps[1] from the first step reports step-ref as error.
 			name: "forward ref",
 			src: `
 desc: x
@@ -245,7 +245,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// vars に無い password を参照したとき、var-ref が warning で出ることを確認する。
+			// Referring to password, which is not in vars, reports var-ref as warning.
 			name: "undefined var",
 			src: `
 desc: x
@@ -259,7 +259,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// 空白を含む label を書いたとき、label-format が error で出ることを確認する。
+			// A label that contains whitespace reports label-format as error.
 			name: "bad label",
 			src: `
 desc: x
@@ -272,7 +272,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 途中で切れた test 式を書いたとき、expr-syntax が error で出ることを確認する。
+			// A test expression cut off in the middle reports expr-syntax as error.
 			name: "expr syntax",
 			src: `
 desc: x
@@ -283,7 +283,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// test 全体を {{ }} で包んだとき、expr-braces が warning で出ることを確認する。
+			// Wrapping a whole test in {{ }} reports expr-braces as warning.
 			name: "expr braces",
 			src: `
 desc: x
@@ -294,7 +294,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// 同じ step に loop.until と test があるとき、loop-until-with-test が warning で出ることを確認する。
+			// loop.until and test on the same step reports loop-until-with-test as warning.
 			name: "loop until with test",
 			src: `
 desc: x
@@ -314,7 +314,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// 名前付き steps に login が2回あるとき、duplicate-key が error で出ることを確認する。
+			// login appearing twice in named steps reports duplicate-key as error.
 			name: "duplicate key",
 			src: `
 desc: x
@@ -328,7 +328,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// exec に stdin だけで command が無いとき、exec-request が error で出ることを確認する。
+			// exec with stdin and no command reports exec-request as error.
 			name: "exec without command",
 			src: `
 desc: x
@@ -340,7 +340,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// gRPC のキーが Hello だけのとき、grpc-request が error で出ることを確認する。
+			// A gRPC key of only Hello reports grpc-request as error.
 			name: "grpc method",
 			src: `
 desc: x
@@ -356,7 +356,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// DB step に trace だけで query が無いとき、db-request が error で出ることを確認する。
+			// A DB step with trace and no query reports db-request as error.
 			name: "db query",
 			src: `
 desc: x
@@ -370,7 +370,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 実在しない include path を書いたとき、include-path が warning で出ることを確認する。
+			// An include path that does not exist reports include-path as warning.
 			name: "include path",
 			src: `
 desc: x
@@ -381,7 +381,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// 先頭 step で previous を参照したとき、previous-step が warning で出ることを確認する。
+			// Referring to previous on the first step reports previous-step as warning.
 			name: "previous",
 			src: `
 desc: x
@@ -392,7 +392,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// loop の無い step で i を参照したとき、loop-index が warning で出ることを確認する。
+			// Referring to i on a step without loop reports loop-index as warning.
 			name: "loop index",
 			src: `
 desc: x
@@ -403,7 +403,7 @@ steps:
 			sev:  finding.Warning,
 		},
 		{
-			// runner が htts:// のとき、runner-config が error で出ることを確認する。
+			// A runner of htts:// reports runner-config as error.
 			name: "bad dsn scheme",
 			src: `
 desc: x
@@ -416,7 +416,7 @@ steps:
 			sev:  finding.Error,
 		},
 		{
-			// 1つの step に HTTP と DB を書いたとき、step-shape が error で出ることを確認する。
+			// Writing HTTP and DB on one step reports step-shape as error.
 			name: "two main runners",
 			src: `
 desc: x
@@ -454,7 +454,7 @@ steps:
 	}
 }
 
-// password が平文の runbook を独自ルールで lint したとき no-plain-password が出ることを確認する。${TEST_PASS} のときは出ないことを確認する。
+// Linting a runbook whose password is plaintext with a custom rule reports no-plain-password. ${TEST_PASS} does not.
 func TestCustomRule(t *testing.T) {
 	cfg := &config.Config{
 		Rules: []config.Rule{
@@ -489,7 +489,7 @@ func TestCustomRule(t *testing.T) {
 	}
 }
 
-// << でヘッダと body を展開した HTTP step を lint したとき、error が出ず << を未知キーとして診断しないことを確認する。
+// Linting an HTTP step that expands headers and body with << reports no error and does not treat << as an unknown key.
 func TestAnchorMerge(t *testing.T) {
 	src := `
 desc: anchored headers

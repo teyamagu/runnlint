@@ -41,7 +41,7 @@ func messagesOf(findings []finding.Finding, id string) []string {
 	return out
 }
 
-// 次の各 check だけを有効にして lint したとき、違反する入力では custom が出て、一致する入力では出ないことを確認する。メッセージに指定した断片が含まれることも確認する。
+// With only the following checks enabled, a violating input reports custom and a matching input does not. The message also contains the given fragment.
 func TestDeclarativeOperators(t *testing.T) {
 	const book = "debug: true\nvars:\n  env: staging\ndesc: ab\nlabels:\n  - one\nsteps:\n  - test: \"true\"\n"
 	cases := []struct {
@@ -52,7 +52,7 @@ func TestDeclarativeOperators(t *testing.T) {
 		part    string
 	}{
 		{
-			// secret が無い runbook に exists: true をかけたとき、custom が出てメッセージに rule=custom が含まれることを確認する。
+			// exists: true on a runbook without secret reports custom, and the message contains rule=custom.
 			name:    "exists missing",
 			check:   "select: secret\n      exists: true\n",
 			src:     "steps:\n  - test: \"true\"\n",
@@ -60,14 +60,14 @@ func TestDeclarativeOperators(t *testing.T) {
 			part:    "rule=custom",
 		},
 		{
-			// debug がある runbook に exists: false をかけたとき、custom が出ることを確認する。
+			// exists: false on a runbook that has debug reports custom.
 			name:    "exists false",
 			check:   "select: debug\n      exists: false\n",
 			src:     book,
 			wantHit: true,
 		},
 		{
-			// debug が true の runbook に equals: false をかけたとき、custom が出てメッセージに value=true が含まれることを確認する。
+			// equals: false on a runbook whose debug is true reports custom, and the message contains value=true.
 			name:    "equals miss",
 			check:   "select: debug\n      equals: false\n",
 			src:     book,
@@ -75,28 +75,28 @@ func TestDeclarativeOperators(t *testing.T) {
 			part:    "value=true",
 		},
 		{
-			// debug が true の runbook に equals: true をかけたとき、custom が出ないことを確認する。
+			// equals: true on a runbook whose debug is true does not report custom.
 			name:    "equals hit",
 			check:   "select: debug\n      equals: true\n",
 			src:     book,
 			wantHit: false,
 		},
 		{
-			// debug が null の runbook に equals: null をかけたとき、custom が出ないことを確認する。
+			// equals: null on a runbook whose debug is null does not report custom.
 			name:    "equals null",
 			check:   "select: debug\n      equals: null\n",
 			src:     "debug: null\nsteps:\n  - test: \"true\"\n",
 			wantHit: false,
 		},
 		{
-			// debug が true の runbook に not_equals: true をかけたとき、custom が出ることを確認する。
+			// not_equals: true on a runbook whose debug is true reports custom.
 			name:    "not equals",
 			check:   "select: debug\n      not_equals: true\n",
 			src:     book,
 			wantHit: true,
 		},
 		{
-			// vars.env が staging の runbook に one_of: [dev, prod] をかけたとき、custom が出てメッセージに path=vars.env が含まれることを確認する。
+			// one_of: [dev, prod] on a runbook whose vars.env is staging reports custom, and the message contains path=vars.env.
 			name:    "one of",
 			check:   "select: vars.env\n      one_of: [dev, prod]\n",
 			src:     book,
@@ -104,35 +104,35 @@ func TestDeclarativeOperators(t *testing.T) {
 			part:    "path=vars.env",
 		},
 		{
-			// vars.env が staging の runbook に one_of: [dev, staging] をかけたとき、custom が出ないことを確認する。
+			// one_of: [dev, staging] on a runbook whose vars.env is staging does not report custom.
 			name:    "one of pass",
 			check:   "select: vars.env\n      one_of: [dev, staging]\n",
 			src:     book,
 			wantHit: false,
 		},
 		{
-			// desc が ab の runbook に min_len: 3 をかけたとき、custom が出ることを確認する。
+			// min_len: 3 on a runbook whose desc is ab reports custom.
 			name:    "min len",
 			check:   "select: desc\n      min_len: 3\n",
 			src:     book,
 			wantHit: true,
 		},
 		{
-			// labels が1件の runbook に max_len: 0 をかけたとき、custom が出ることを確認する。
+			// max_len: 0 on a runbook with one label reports custom.
 			name:    "max len sequence",
 			check:   "select: labels\n      max_len: 0\n",
 			src:     book,
 			wantHit: true,
 		},
 		{
-			// vars.env が staging の runbook に not_matches: staging をかけたとき、custom が出ることを確認する。
+			// not_matches: staging on a runbook whose vars.env is staging reports custom.
 			name:    "not matches",
 			check:   "select: vars.env\n      not_matches: staging\n",
 			src:     book,
 			wantHit: true,
 		},
 		{
-			// vars.env が staging の runbook に matches: ^staging$ をかけたとき、custom が出ないことを確認する。
+			// matches: ^staging$ on a runbook whose vars.env is staging does not report custom.
 			name:    "matches pass",
 			check:   "select: vars.env\n      matches: '^staging$'\n",
 			src:     book,
@@ -162,7 +162,7 @@ func TestDeclarativeOperators(t *testing.T) {
 	}
 }
 
-// test がある step を forbid したとき、配列 steps では key=0 と path=steps[0] の1件だけが出ることを確認する。名前付き steps では key=login と path=steps.login の1件だけが出ることを確認する。
+// Forbidding a step that has test reports only one finding, key=0 and path=steps[0], for array steps. For named steps it reports only one finding, key=login and path=steps.login.
 func TestDeclarativeWhereForbidAndSteps(t *testing.T) {
 	yml := `
 version: 1
@@ -203,8 +203,8 @@ steps:
 	}
 }
 
-// key_matches は map のキー名を見る。合う step 名は出さず、外れた step 名はキーの行に出す。
-// list の steps ではキーが 0 からの番号になる。key_not_matches は一致したキーを出す。
+// key_matches looks at map key names. A matching step name is not reported, and a non-matching step name is reported on the key line.
+// For list steps the key is an index starting at 0. key_not_matches reports keys that match.
 func TestKeyMatches(t *testing.T) {
 	yml := `
 version: 1
@@ -269,7 +269,7 @@ rules:
 	}
 }
 
-// matches に '(' を書いたルールで lint したとき、custom が1件出てメッセージに「正規表現」が含まれることを確認する。
+// Linting with a rule whose matches contains '(' reports one custom finding, and the message contains "matches has an invalid regular expression".
 func TestDeclarativeBadRegexp(t *testing.T) {
 	got := lintConfig(t, `
 version: 1
@@ -286,7 +286,7 @@ rules:
 	}
 }
 
-// desc が無くても、severity が off の exists ルールでは custom が出ないことを確認する。
+// An exists rule with severity off does not report custom even when desc is missing.
 func TestDeclarativeOffDoesNotRun(t *testing.T) {
 	got := lintConfig(t, `
 version: 1

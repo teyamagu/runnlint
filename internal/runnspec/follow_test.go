@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// ピンしたタグの runbook.schema.yaml と cdpfn.go を取得したとき、取り込んだファイルとバイト列が一致することを確認する。最新タグでこの2ファイルが変わっていれば失敗することを確認する。
+// TestFollowsRunnNotation checks that runbook.schema.yaml and cdpfn.go fetched at the pinned tag match the imported bytes. It fails when those two files differ at the latest tag.
 func TestFollowsRunnNotation(t *testing.T) {
 	pin := Version()
 	schemaPin := fetchText(t, rawURL(pin, "runbook.schema.yaml"))
@@ -90,7 +90,7 @@ func fetchText(t *testing.T, url string) []byte {
 	return body
 }
 
-// 中身が同じ定義は差が無く、スキーマか CDP のどちらかが違うときは、そのファイル名だけが返ることを確認する。改行コードの違いは差にしないことを確認する。
+// TestChangedIgnoresNewlineAndSameBytes checks that identical definitions produce no difference, and that a schema or CDP source that differs returns only that file name. A newline difference is not a difference.
 func TestChangedIgnoresNewlineAndSameBytes(t *testing.T) {
 	schema := []byte("a: 1\n")
 	cdp := []byte("var CDPFnMap\n")
@@ -107,7 +107,7 @@ func TestChangedIgnoresNewlineAndSameBytes(t *testing.T) {
 	}
 }
 
-// WriteNotation がタグと2つの定義を、比較に使う形で書くことを確認する。空のタグや空の定義は失敗することを確認する。
+// TestWriteNotation checks that WriteNotation writes the tag and both definitions in the form used for comparison. An empty tag or an empty definition fails.
 func TestWriteNotation(t *testing.T) {
 	dir := t.TempDir()
 	if err := WriteNotation(dir, " v9.9.9\n", []byte("a: 1\r\n"), []byte("cdp\n")); err != nil {

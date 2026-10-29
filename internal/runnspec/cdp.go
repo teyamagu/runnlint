@@ -1,10 +1,11 @@
 package runnspec
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
 var (
@@ -13,12 +14,12 @@ var (
 	cdpNameRe  = regexp.MustCompile(`"([^"]+)"`)
 )
 
-// ParseCDPSource は runn の cdpfn.go から CDPFnMap の名前、別名、入力引数を取る。
+// ParseCDPSource reads CDPFnMap names, aliases, and input arguments from runn's cdpfn.go.
 func ParseCDPSource(src string) (map[string][]string, error) {
 	const marker = "var CDPFnMap = map[string]CDPFn{"
 	at := strings.Index(src, marker)
 	if at < 0 {
-		return nil, fmt.Errorf("CDPFnMap がありません")
+		return nil, message.New(message.CDPMapMissing)
 	}
 	open := at + len(marker) - 1
 	body, err := braceBody(src, open)
@@ -30,7 +31,7 @@ func ParseCDPSource(src string) (map[string][]string, error) {
 		return nil, err
 	}
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("CDPFnMap が空です")
+		return nil, message.New(message.CDPMapEmpty)
 	}
 	out := map[string][]string{}
 	for name, entry := range entries {
@@ -72,7 +73,7 @@ func braceBody(src string, open int) (string, error) {
 func matchingBrace(src string, open int) (int, error) {
 	sc := scanner{src: src, i: open}
 	if sc.peek() != '{' {
-		return 0, fmt.Errorf("CDPFnMap の開始を読めません")
+		return 0, message.New(message.CDPMapStart)
 	}
 	sc.next()
 	depth := 1
@@ -100,10 +101,10 @@ func matchingBrace(src string, open int) (int, error) {
 			sc.next()
 		}
 	}
-	return 0, fmt.Errorf("CDPFnMap が閉じていません")
+	return 0, message.New(message.CDPMapClose)
 }
 
-// topLevelObjects は map リテラルの中身から、深さ 0 の "name": { ... } を返す。
+// topLevelObjects returns depth-0 "name": { ... } entries from the body of a map literal.
 func topLevelObjects(body string) (map[string]string, error) {
 	sc := scanner{src: body}
 	out := map[string]string{}
@@ -195,7 +196,7 @@ func skipRaw(s *scanner) {
 
 func (s *scanner) readString() (string, error) {
 	if s.peek() != '"' {
-		return "", fmt.Errorf("文字列ではありません")
+		return "", message.New(message.NotString)
 	}
 	s.next()
 	start := s.i
@@ -208,12 +209,12 @@ func (s *scanner) readString() (string, error) {
 			value := s.src[start:s.i]
 			s.next()
 			if !utf8.ValidString(value) {
-				return "", fmt.Errorf("不正な文字列です")
+				return "", message.New(message.BadString)
 			}
 			return value, nil
 		default:
 			s.next()
 		}
 	}
-	return "", fmt.Errorf("文字列が閉じていません")
+	return "", message.New(message.StringUnclosed)
 }

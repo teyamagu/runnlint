@@ -1,4 +1,4 @@
-# POST なのに body が無い例。
+# Example of POST with no body.
 desc: post without body
 runners:
   req: https://example.com

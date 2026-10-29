@@ -6,7 +6,7 @@ import (
 	"github.com/teyamagu/runnlint/internal/config"
 )
 
-// 既定設定を読み込んだとき、id が重複せず、off 以外は uses と check のどちらか一方だけを持つことを確認する。登録済みの組み込みは uses 付きで含まれ、require-desc、no-debug、loop-until-with-test は check だけを持つことを確認する。
+// Loading the default config finds no duplicate ids, and every rule other than off has exactly one of uses or check. Registered builtins are included with uses, and require-desc, no-debug, and loop-until-with-test have only check.
 func TestDefaultConfigMatchesRegistry(t *testing.T) {
 	cfg := defaultConfig(t)
 	seen := map[string]config.Rule{}
@@ -42,7 +42,7 @@ func TestDefaultConfigMatchesRegistry(t *testing.T) {
 	}
 }
 
-// 未知の uses を error で渡したとき CheckConfig が失敗することを確認する。同じ uses でも severity が off なら成功することを確認する。
+// CheckConfig fails when an unknown uses is passed at error. The same uses succeeds when severity is off.
 func TestCheckConfigRejectsUnknownBuiltin(t *testing.T) {
 	err := CheckConfig(&config.Config{Rules: []config.Rule{{
 		ID: "x", Uses: "no-such-rule", Severity: "error",

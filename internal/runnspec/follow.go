@@ -2,20 +2,21 @@ package runnspec
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
-// Canon は改行の違いを除いて、記法定義のバイト列を比較できる形にする。
+// Canon puts notation-definition bytes into a form that can be compared aside from newline differences.
 func Canon(b []byte) []byte {
 	b = bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 	return bytes.TrimRight(b, "\n")
 }
 
-// Changed は、取り込んだ定義と最新の定義で内容が違うファイル名を返す。
-// タグだけが進み、中身が同じときは空である。
+// Changed returns the names of files whose imported definition differs from the latest.
+// The result is empty when only the tag moved forward and the contents are the same.
 func Changed(currentSchema, currentCDP, latestSchema, latestCDP []byte) []string {
 	var out []string
 	if !bytes.Equal(Canon(currentSchema), Canon(latestSchema)) {
@@ -27,14 +28,14 @@ func Changed(currentSchema, currentCDP, latestSchema, latestCDP []byte) []string
 	return out
 }
 
-// WriteNotation は dir に、タグと2つの定義ファイルを書く。
+// WriteNotation writes the tag and the two definition files into dir.
 func WriteNotation(dir, tag string, schema, cdp []byte) error {
 	tag = strings.TrimSpace(tag)
 	if tag == "" {
-		return fmt.Errorf("タグが空です")
+		return message.New(message.TagEmpty)
 	}
 	if len(bytes.TrimSpace(schema)) == 0 || len(bytes.TrimSpace(cdp)) == 0 {
-		return fmt.Errorf("記法定義が空です")
+		return message.New(message.SpecEmpty)
 	}
 	files := []struct {
 		name string

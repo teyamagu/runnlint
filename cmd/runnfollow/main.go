@@ -1,5 +1,5 @@
-// Command runnfollow は、最新の runn から記法定義を取り込み直す。
-// 差分が無ければ何も書かない。ルールや examples の修正はしない。
+// Command runnfollow reimports notation definitions from the latest runn.
+// It writes nothing when there is no diff. It does not change rules or examples.
 package main
 
 import (
@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runnspec"
 )
 
@@ -74,10 +75,10 @@ func fetchLatestTag() (string, error) {
 		TagName string `json:"tag_name"`
 	}
 	if err := json.Unmarshal(body, &meta); err != nil {
-		return "", fmt.Errorf("runn のリリース情報を解釈できません: %w", err)
+		return "", message.Wrap(message.RunnRelease, err)
 	}
 	if strings.TrimSpace(meta.TagName) == "" {
-		return "", fmt.Errorf("runn の最新タグが空です")
+		return "", message.New(message.RunnTagEmpty)
 	}
 	return meta.TagName, nil
 }
@@ -101,7 +102,7 @@ func fetch(url string) ([]byte, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%s を取得できません: %w", url, err)
+		return nil, message.Wrap(message.HTTPFetch, err, url)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
@@ -109,10 +110,10 @@ func fetch(url string) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s が HTTP %d を返しました", url, resp.StatusCode)
+		return nil, message.New(message.HTTPStatus, url, resp.StatusCode)
 	}
 	if len(bytesTrim(body)) == 0 {
-		return nil, fmt.Errorf("%s が空です", url)
+		return nil, message.New(message.HTTPEmpty, url)
 	}
 	return body, nil
 }
@@ -132,7 +133,7 @@ func moduleRoot() (string, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("go.mod が見つかりません")
+			return "", message.New(message.GoModMissing)
 		}
 		dir = parent
 	}

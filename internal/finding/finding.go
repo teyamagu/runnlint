@@ -1,7 +1,7 @@
-// Package finding は lint 結果の1件を表す。
+// Package finding represents one lint diagnostic.
 package finding
 
-// Severity は診断の深刻度。
+// Severity is the severity of a diagnostic.
 type Severity string
 
 const (
@@ -11,7 +11,10 @@ const (
 	Off     Severity = "off"
 )
 
-// Finding は1件の診断。
+// Finding is one diagnostic.
+// Message is the sentence in the display language.
+// Match is the English sentence used for baseline comparison.
+// An empty Match means Message is used, which is how a user-written rule message is stored.
 type Finding struct {
 	File     string
 	Line     int
@@ -19,4 +22,13 @@ type Finding struct {
 	Severity Severity
 	Rule     string
 	Message  string
+	Match    string
+}
+
+// BaselineMessage is the sentence stored in a baseline file and used when matching.
+func (f Finding) BaselineMessage() string {
+	if f.Match != "" {
+		return f.Match
+	}
+	return f.Message
 }
