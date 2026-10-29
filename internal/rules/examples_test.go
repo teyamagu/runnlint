@@ -10,7 +10,7 @@ import (
 	"github.com/teyamagu/runnlint/internal/finding"
 )
 
-// examples/bad の各ファイルを既定ルールで lint したとき、ファイル名と同じルールの診断が出ることを確認する。既定ルールに対応するファイルが無いときは失敗することを確認する。
+// Linting each file in examples/bad with the default rules reports the rule named by the file. A default rule with no corresponding file fails the test.
 func TestBadExamplesCoverDefaultRules(t *testing.T) {
 	root := moduleRoot(t)
 	t.Chdir(root)
@@ -55,7 +55,7 @@ func TestBadExamplesCoverDefaultRules(t *testing.T) {
 	}
 }
 
-// examples/valid を既定ルールで lint したとき、診断が無いことを確認する。
+// Linting examples/valid with the default rules reports no diagnostics.
 func TestValidExamplesAreClean(t *testing.T) {
 	root := moduleRoot(t)
 	t.Chdir(root)

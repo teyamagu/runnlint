@@ -1,8 +1,18 @@
 # 変更履歴
 
+[English](CHANGELOG.en.md)
+
 バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) です。上げ方は [docs/versioning.md](docs/versioning.md) に書いてあります。
 
 ## [Unreleased]
+
+### 追加
+
+- 表示言語。設定の `language` は `ja` または `en` で、省略すると日本語です。`--lang` は設定より優先します。text、github、JSON の `message` と使い方は、選んだ言語だけを出します。
+
+### 変更
+
+- 組み込み診断の baseline 照合は、表示言語にかかわらず英語の文です。宣言的ルールの `message` は書いた文のままです。baseline ファイルの形式を version 2 にしました。version 1 は読み込めないので、`--write-baseline` で書き直してください。
 
 ## [0.1.4]
 

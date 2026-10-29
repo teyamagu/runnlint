@@ -1,23 +1,23 @@
-// Package runnspec は、追従対象の runn から写した記法の定義を読む。
+// Package runnspec reads notation definitions copied from the runn release being followed.
 //
-// キーの追加は runbook.schema.yaml に現れる。CDP のアクション名はスキーマに無く、
-// cdpfn.src に現れる。HTTP の body や runner 種別の判定など、スキーマに無い規則は
-// rules パッケージ側の上書きとして残す。
+// Added keys appear in runbook.schema.yaml. CDP action names are not in the schema;
+// they appear in cdpfn.src. Rules the schema does not cover, such as HTTP body checks and
+// runner-kind detection, stay as overrides in the rules package.
 package runnspec
 
 import (
 	"embed"
-	"fmt"
 	"strings"
 	"sync"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"gopkg.in/yaml.v3"
 )
 
 //go:embed VERSION runbook.schema.yaml cdpfn.src
 var files embed.FS
 
-// スキーマ上の定義名。runbook.schema.yaml の $defs と対応する。
+// Schema definition names. They correspond to $defs in runbook.schema.yaml.
 const (
 	DefStep        = "step"
 	DefLoop        = "loopValue"
@@ -54,7 +54,7 @@ var (
 	loadErr  error
 )
 
-// Version は写しの元になった runn のタグ。
+// Version is the runn tag this copy was taken from.
 func Version() string {
 	raw, err := files.ReadFile("VERSION")
 	if err != nil {
@@ -63,37 +63,37 @@ func Version() string {
 	return strings.TrimSpace(string(raw))
 }
 
-// SchemaYAML は取り込んだ runbook.schema.yaml。
+// SchemaYAML is the imported runbook.schema.yaml.
 func SchemaYAML() []byte {
 	mustLoad()
 	return loaded.schemaYAML
 }
 
-// CDPSource は取り込んだ cdpfn.go。
+// CDPSource is the imported cdpfn.go.
 func CDPSource() []byte {
 	mustLoad()
 	return loaded.cdpSource
 }
 
-// TopLevelKeys は runbook のトップレベルに書いてよいキー。
+// TopLevelKeys are the keys allowed at the top level of a runbook.
 func TopLevelKeys() map[string]struct{} {
 	mustLoad()
 	return loaded.root
 }
 
-// ExtensionPrefixes は patternProperties の固定前置。いまは x-。
+// ExtensionPrefixes are the fixed prefixes from patternProperties. Currently x-.
 func ExtensionPrefixes() []string {
 	mustLoad()
 	return loaded.prefixes
 }
 
-// LabelPattern は labels の要素に使う正規表現。
+// LabelPattern is the regular expression used for elements of labels.
 func LabelPattern() string {
 	mustLoad()
 	return loaded.label
 }
 
-// DefKeys は $defs のプロパティ名。oneOf の各枝は和集合にする。
+// DefKeys are the property names of a $defs entry. Each oneOf branch is included in the union.
 func DefKeys(name string) map[string]struct{} {
 	mustLoad()
 	def, ok := loaded.defs[name]
@@ -103,7 +103,7 @@ func DefKeys(name string) map[string]struct{} {
 	return def.keys
 }
 
-// Required はオブジェクト定義の required。oneOf の枝には広げない。
+// Required is the required list of an object definition. It is not expanded into oneOf branches.
 func Required(name string) []string {
 	mustLoad()
 	def, ok := loaded.defs[name]
@@ -113,7 +113,7 @@ func Required(name string) []string {
 	return def.required
 }
 
-// CDPArgs は CDP アクション名と、その別名、入力引数。
+// CDPArgs maps each CDP action name and alias to its input arguments.
 func CDPArgs() map[string][]string {
 	mustLoad()
 	return loaded.cdp
@@ -154,14 +154,14 @@ func load() (index, error) {
 		DefSSHRunner, DefIncludeRun, DefAgentRunner,
 	} {
 		if _, ok := idx.defs[name]; !ok {
-			return index{}, fmt.Errorf("スキーマに $defs.%s がありません", name)
+			return index{}, message.New(message.SchemaDefs, name)
 		}
 	}
 	if idx.label == "" {
-		return index{}, fmt.Errorf("スキーマに labels の pattern がありません")
+		return index{}, message.New(message.SchemaLabels)
 	}
 	if len(idx.cdp) == 0 {
-		return index{}, fmt.Errorf("CDP のアクションを読めません")
+		return index{}, message.New(message.SchemaCDP)
 	}
 	return idx, nil
 }
@@ -174,13 +174,13 @@ func parseSchema(raw []byte) (index, error) {
 	root := &doc
 	if doc.Kind == yaml.DocumentNode {
 		if len(doc.Content) == 0 {
-			return index{}, fmt.Errorf("スキーマが空です")
+			return index{}, message.New(message.SchemaEmpty)
 		}
 		root = doc.Content[0]
 	}
 	props := mapValue(root, "properties")
 	if props == nil {
-		return index{}, fmt.Errorf("スキーマに properties がありません")
+		return index{}, message.New(message.SchemaProps)
 	}
 	idx := index{
 		root: mapKeys(props),
@@ -200,7 +200,7 @@ func parseSchema(raw []byte) (index, error) {
 	}
 	defs := mapValue(root, "$defs")
 	if defs == nil {
-		return index{}, fmt.Errorf("スキーマに $defs がありません")
+		return index{}, message.New(message.SchemaNoDefs)
 	}
 	for _, name := range mapKeyList(defs) {
 		node := mapValue(defs, name)

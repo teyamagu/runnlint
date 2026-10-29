@@ -1,4 +1,4 @@
-# どこからも include されない。
+# Not included from anywhere.
 desc: orphan
 if: included
 steps:

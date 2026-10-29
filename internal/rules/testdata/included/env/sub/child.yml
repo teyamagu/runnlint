@@ -1,4 +1,4 @@
-# ${...} を含むパスはワイルドカードとして照合する。
+# Paths containing ${...} are matched as wildcards.
 desc: env child
 if: included
 steps:

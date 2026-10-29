@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// desc が無い runbook を検査したとき require-desc の warning が出て終了コードは 0 であることを確認する。defer だけの runbook では defer-experimental の info が出て、やはり 0 であることを確認する。
+// TestWarningAndInfoDoNotFail checks that a runbook without desc yields a require-desc warning and exits 0. A defer-only runbook yields a defer-experimental info and also exits 0.
 func TestWarningAndInfoDoNotFail(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -48,7 +48,7 @@ func TestWarningAndInfoDoNotFail(t *testing.T) {
 	}
 }
 
-// ignore に入れたファイルをディレクトリ走査したとき、結果に出ず終了コードが 0 になることを確認する。同じファイルをパス指定したときは検査され、終了コードが 1 になることを確認する。
+// TestIgnoreAppliesOnlyToDirectoryWalk checks that a directory walk omits a file listed in ignore and exits 0. Passing that same file by path lints it and exits 1.
 func TestIgnoreAppliesOnlyToDirectoryWalk(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -92,7 +92,7 @@ func TestIgnoreAppliesOnlyToDirectoryWalk(t *testing.T) {
 	}
 }
 
-// 複数 document で steps を持つ壊れた YAML をディレクトリ走査したとき、そのファイルが診断されて終了コードが 1 になることを確認する。steps も runners も無いファイルは結果に出ないことを確認する。
+// TestBrokenRunbookWithRootKeyIsReported checks that a directory walk reports a broken multi-document YAML that has steps and exits 1. A file with neither steps nor runners is omitted.
 func TestBrokenRunbookWithRootKeyIsReported(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -120,7 +120,7 @@ func TestBrokenRunbookWithRootKeyIsReported(t *testing.T) {
 	}
 }
 
-// 存在しないパスと、出力形式 xml では終了コードが 2 になることを確認する。github 形式で error のある runbook を検査したとき、出力に ::error が含まれ終了コードが 1 になることを確認する。
+// TestRunFailures checks that a missing path and the output format xml exit 2. Linting a runbook that has an error in github format includes ::error and exits 1.
 func TestRunFailures(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -159,7 +159,7 @@ func TestRunFailures(t *testing.T) {
 	}
 }
 
-// --write-baseline で既存の診断を書き出したあと --baseline を渡すと、既存の診断は出ず終了コードが 0 になることを確認する。新しい違反を足すと、その診断だけが出て 1 になることを確認する。
+// TestBaselineReportsOnlyNewFindings checks that writing existing diagnostics with --write-baseline and then passing --baseline hides them and exits 0. Adding a new violation reports only that diagnostic and exits 1.
 func TestBaselineReportsOnlyNewFindings(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -195,7 +195,7 @@ func TestBaselineReportsOnlyNewFindings(t *testing.T) {
 		t.Fatalf("code = %d err = %v\nstdout:\n%s\nstderr:\n%s", code, err, stdout.String(), stderr.String())
 	}
 
-	// 先頭に行を足して既存の違反の行をずらし、新しい違反を足す。
+	// Add a line at the top so existing violations shift, and add a new violation.
 	bad = "# shifted\n" + bad + "  - other:\n      query: SELECT 2\n"
 	if err := os.WriteFile(filepath.Join(dir, "bad.yml"), []byte(bad), 0o644); err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func TestBaselineReportsOnlyNewFindings(t *testing.T) {
 	}
 }
 
-// 存在しない baseline を渡すと、終了コード 2 で失敗することを確認する。
+// TestMissingBaselineFails checks that a missing baseline fails with exit code 2.
 func TestMissingBaselineFails(t *testing.T) {
 	t.Chdir(t.TempDir())
 	code, err := Run(context.Background(), Options{Paths: []string{"."}, NoYamllint: true, Baseline: "missing.json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}})
@@ -248,8 +248,8 @@ func runText(t *testing.T, opt Options) (int, string) {
 	return code, stdout.String()
 }
 
-// ディレクトリを走査したとき、include されていない if: included の runbook だけに included-unreferenced が出ることを確認する。
-// ignore で検査から外したファイルも参照元として読む。ファイルを直接渡したときは判定しない。--include-root で範囲を足すと判定する。
+// TestIncludedUnreferencedScope checks that a directory walk reports included-unreferenced only for an if: included runbook that nothing includes.
+// A file excluded by ignore is still read as a referrer. A file passed directly is not judged. Adding --include-root extends the range that is judged.
 func TestIncludedUnreferencedScope(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -286,7 +286,7 @@ func TestIncludedUnreferencedScope(t *testing.T) {
 	}
 }
 
-// included-unreferenced は severity: off で止まり、baseline でも既存の診断として除けることを確認する。存在しない --include-root は 2 で失敗する。
+// TestIncludedUnreferencedConfigAndBaseline checks that included-unreferenced is silent when severity is off, and that a baseline can suppress it as an existing diagnostic. A missing --include-root fails with 2.
 func TestIncludedUnreferencedConfigAndBaseline(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -312,7 +312,7 @@ func TestIncludedUnreferencedConfigAndBaseline(t *testing.T) {
 	}
 }
 
-// インライン抑制は baseline より先に効くことを確認する。抑制した診断は baseline に書かれず、使われない抑制の unused-suppression は baseline で除ける。
+// TestInlineSuppressionBeforeBaseline checks that an inline suppression applies before the baseline. A suppressed diagnostic is not written into the baseline, and an unused suppression's unused-suppression can itself be suppressed by the baseline.
 func TestInlineSuppressionBeforeBaseline(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -334,7 +334,7 @@ func TestInlineSuppressionBeforeBaseline(t *testing.T) {
 	}
 }
 
-// examples/bad/included-unreferenced.yml を直接渡したとき included-unreferenced が出ず、--include-root examples を足したときに出ることを確認する。
+// TestIncludedUnreferencedExampleCommand checks that passing examples/bad/included-unreferenced.yml directly does not report included-unreferenced, and that adding --include-root examples does.
 func TestIncludedUnreferencedExampleCommand(t *testing.T) {
 	t.Chdir(moduleRoot(t))
 	path := "examples/bad/included-unreferenced.yml"
@@ -373,7 +373,7 @@ func moduleRoot(t *testing.T) string {
 	}
 }
 
-// .runnlint.yaml は探索しない。別のツールの設定があっても警告せず、デフォルトで検査することを確認する。
+// TestLegacyConfigNameIsIgnored checks that .runnlint.yaml is not discovered. Another tool's config produces no warning, and linting uses the defaults.
 func TestLegacyConfigNameIsIgnored(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)

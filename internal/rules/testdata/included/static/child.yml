@@ -1,4 +1,4 @@
-# parent.yml から文字列で include される。
+# Included from parent.yml as a string.
 desc: included child
 if: included
 steps:

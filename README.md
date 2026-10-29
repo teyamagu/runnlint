@@ -1,5 +1,7 @@
 # runnlint
 
+[English](README.en.md)
+
 [![build](https://github.com/teyamagu/runnlint/actions/workflows/ci.yml/badge.svg)](https://github.com/teyamagu/runnlint/actions/workflows/ci.yml)
 [![coverage](docs/coverage.svg)](docs/coverage.svg)
 [![code to test ratio](docs/ratio.svg)](docs/ratio.svg)
@@ -44,6 +46,8 @@ runnlint --version
 
 終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。
 
+表示は日本語が既定です。設定の `language: en`、または `--lang en` で英語にします。`--lang` は設定より優先します。`ja` と `en` 以外を渡すと終了コード `2` です。text、github、JSON の `message`、`-h` の使い方は、選んだ言語の文だけを出します。
+
 `included-unreferenced` は、ほかのファイルからの include を見るので、判定する範囲が決まっています。ディレクトリを渡して走査したファイルと、`--include-root` の中のファイルだけを判定し、参照元はその範囲の YAML をすべて読みます。ファイルを1つだけ渡したときは判定しません。include 元が走査範囲の外にあるときは `--include-root` で足します。詳しくは [docs/configuration.md](docs/configuration.md#included-unreferenced-の判定範囲) です。
 
 ### インライン抑制
@@ -81,6 +85,8 @@ runnlint --baseline runnlint-baseline.json .
 ```
 
 `--write-baseline` は error / warning / info をすべて書き出し、終了コード `0` で終わります。照合のキーは、baseline ファイルのあるディレクトリからの相対パス、ルール ID、メッセージです。行と列は使わないので、違反の前に行を足しても既存の違反のままです。同じキーの診断は件数で照合し、記録より増えた分を新しい診断として出します。直した違反が baseline に残っているときは件数を標準エラーに出すので、同じコマンドで書き直してください。
+
+組み込み診断のメッセージは、表示が日本語でも英語の文で記録し、英語の文で照合します。宣言的ルールに書いた `message` は、書いた文のままです。baseline ファイルの形式は version 2 です。version 1 は読み込めません。`--write-baseline` で書き直してください。
 
 製品の版は Semantic Versioning です。ルールファイルの `version: 1` とは別です。番号の上げ方と、タグからのリリースは [docs/versioning.md](docs/versioning.md) に書いてあります。
 

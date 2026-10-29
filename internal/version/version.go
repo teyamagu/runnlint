@@ -1,16 +1,16 @@
-// Package version は runnlint の製品バージョンを持つ。
-// ルールファイルの version フィールドとは別である。
+// Package version holds the runnlint product version.
+// It is separate from the version field of a rules file.
 package version
 
 import "regexp"
 
-// Version はリリースする版。Git のタグは先頭に v を付ける。
+// Version is the version that is released. Git tags add a leading v.
 const Version = "0.1.4"
 
-// semver は MAJOR.MINOR.PATCH と、任意のプレリリース部。先頭の v は含めない。
+// semver matches MAJOR.MINOR.PATCH plus an optional prerelease. A leading v is not included.
 var semver = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
 
-// Valid は v が Semantic Versioning の MAJOR.MINOR.PATCH であるときに true を返す。
+// Valid reports whether v is a Semantic Versioning MAJOR.MINOR.PATCH value.
 func Valid(v string) bool {
 	return semver.MatchString(v)
 }

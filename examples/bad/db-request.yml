@@ -1,4 +1,4 @@
-# DB の step に query が無い例。
+# Example of a DB step with no query.
 desc: missing query
 runners:
   db: mysql://root:pass@localhost:3306/app

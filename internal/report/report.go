@@ -1,4 +1,4 @@
-// Package report は診断をテキスト、JSON、GitHub Actions 形式で書く。
+// Package report writes diagnostics as text, JSON, or GitHub Actions format.
 package report
 
 import (
@@ -8,9 +8,10 @@ import (
 	"sort"
 
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
-// Write は format に従って診断を出力する。
+// Write writes diagnostics according to format.
 func Write(w io.Writer, format string, findings []finding.Finding) error {
 	sort.SliceStable(findings, func(i, j int) bool {
 		if findings[i].File != findings[j].File {
@@ -66,11 +67,11 @@ func Write(w io.Writer, format string, findings []finding.Finding) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(items)
 	default:
-		return fmt.Errorf("不明な出力形式です: %s", format)
+		return message.New(message.FormatUnknown, format)
 	}
 }
 
-// HasError は error の診断が含まれるか。
+// HasError reports whether the diagnostics include an error.
 func HasError(findings []finding.Finding) bool {
 	for _, f := range findings {
 		if f.Severity == finding.Error {

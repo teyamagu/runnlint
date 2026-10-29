@@ -5,8 +5,8 @@ on:
     branches: [main, master]
   pull_request:
   schedule:
-    # 新しい Go の安定版を、コードの変更が無くても週次で確認する。
-    # runn の記法定義が変わると、このテストが失敗する。取り込みと修正 PR は runn-follow.yml が行う。
+    # Check the latest stable Go weekly, even when the code has not changed.
+    # If runn's notation definition changes, this test fails. runn-follow.yml imports it and opens the fix PR.
     - cron: "17 0 * * 1"
 
 permissions:

@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Style は steps の並び。
+// Style is how steps are arranged.
 type Style int
 
 const (
@@ -15,7 +15,7 @@ const (
 	StyleMap
 )
 
-// RunnerKind は runner の種別。
+// RunnerKind is the kind of a runner.
 type RunnerKind string
 
 const (
@@ -29,7 +29,7 @@ const (
 	KindUnknown RunnerKind = "unknown"
 )
 
-// Book は1つの runbook。include のインライン steps も Book になる。
+// Book is one runbook. Inline steps of an include are also a Book.
 type Book struct {
 	File          string
 	Dir           string
@@ -42,13 +42,13 @@ type Book struct {
 	Problems      []Problem
 }
 
-// Problem はモデル化の時点で分かる構造の問題。
+// Problem is a structural problem known while building the model.
 type Problem struct {
 	Node    *yaml.Node
 	Message string
 }
 
-// Step は1つの step。
+// Step is one step.
 type Step struct {
 	Index    int
 	Name     string
@@ -58,7 +58,7 @@ type Step struct {
 	Inline   *Book
 }
 
-// Runner は runners または runner: で定義された runner。
+// Runner is a runner defined in runners or in runner:.
 type Runner struct {
 	Name     string
 	NameNode *yaml.Node
@@ -67,7 +67,7 @@ type Runner struct {
 	FromStep int
 }
 
-// SetLocation は診断と相対パス解決に使うファイル位置を全書へ書く。
+// SetLocation writes the file location used for diagnostics and relative paths onto every book.
 func (b *Book) SetLocation(file, dir string) {
 	b.Walk(func(book *Book) {
 		book.File = file
@@ -75,7 +75,7 @@ func (b *Book) SetLocation(file, dir string) {
 	})
 }
 
-// VarNames は vars のキー。
+// VarNames returns the keys of vars.
 func (b *Book) VarNames() map[string]struct{} {
 	names := map[string]struct{}{}
 	vars, ok := b.Root.Get("vars")
@@ -88,7 +88,7 @@ func (b *Book) VarNames() map[string]struct{} {
 	return names
 }
 
-// StepByName は map 形式の step 名を探す。
+// StepByName looks up a step name used by map-style steps.
 func (b *Book) StepByName(name string) (Step, bool) {
 	for _, s := range b.Steps {
 		if s.Name == name {
@@ -98,7 +98,7 @@ func (b *Book) StepByName(name string) (Step, bool) {
 	return Step{}, false
 }
 
-// RunnersAt は stepIndex より前までに使える runner。
+// RunnersAt returns the runners available before stepIndex.
 func (b *Book) RunnersAt(stepIndex int) map[string]Runner {
 	out := map[string]Runner{}
 	for _, r := range b.ParentRunners {
@@ -128,7 +128,7 @@ func (b *Book) RunnersAt(stepIndex int) map[string]Runner {
 	return out
 }
 
-// Walk はインライン include を含む全書を訪れる。
+// Walk visits every book, including inline includes.
 func (b *Book) Walk(fn func(*Book)) {
 	if b == nil {
 		return
@@ -141,7 +141,7 @@ func (b *Book) Walk(fn func(*Book)) {
 	}
 }
 
-// LoopEnabled は runbook 自身が loop を持つか。
+// LoopEnabled reports whether this runbook itself has a loop.
 func (b *Book) LoopEnabled() bool {
 	_, ok := b.Root.Get("loop")
 	return ok
@@ -207,7 +207,7 @@ func makeStep(parent *Book, index int, name string, nameNode *yaml.Node, value V
 	return s
 }
 
-// DetectKind は runn が runner 定義から種別を決める順に合わせる。
+// DetectKind follows the order runn uses to decide a kind from a runner definition.
 func DetectKind(v Value) RunnerKind {
 	switch v.Kind {
 	case KindString:

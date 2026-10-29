@@ -1,4 +1,4 @@
-# parent.yml から include.path で include される。
+# Included from parent.yml via include.path.
 desc: included with vars
 if: included
 steps:

@@ -1,4 +1,4 @@
-# 抑制コメントに存在しないルールを書いた例と、何も抑制しない例。
+# Example of a suppression comment that names a nonexistent rule, and one that suppresses nothing.
 desc: unused suppression # runnlint disable-line rule:no-such-rule
 steps:
   - test: "true" # runnlint disable-line rule:expr-syntax

@@ -8,7 +8,7 @@ import (
 	"github.com/teyamagu/runnlint/internal/finding"
 )
 
-// 既定を継承する設定で var-ref を off にし ban-debug を足して読み込んだとき、var-ref の uses は残り、require-steps も残り、ban-debug の check が加わることを確認する。
+// TestLoadOverride checks that a config extending the defaults, with var-ref off and ban-debug added, keeps var-ref's uses and require-steps, and adds ban-debug's check.
 func TestLoadOverride(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -49,9 +49,9 @@ func TestLoadOverride(t *testing.T) {
 	}
 }
 
-// リテラルは走査パスの一致とその下に当たる。末尾の / を除くのはその下だけで、ファイルパスそのものの一致は末尾の / を残す。
-// ベース名に当たるのは、パターン全体がベース名と一致するとき。*.gen.yml は当たり、dir/*.yml は dir の直下だけ。
-// ** は走査パスだけに当たり、途中のディレクトリをまたぐ。./ 付きや、/ を含むパターンは、走査パスの文字列が違うと当たらない。
+// TestIgnore checks that a literal matches the walked path and paths under it. A trailing / is stripped only for descendants; an exact path match keeps the trailing /.
+// A pattern matches a base name only when the whole pattern matches that name. *.gen.yml matches; dir/*.yml matches only files directly under dir.
+// ** matches only a walked path and spans intermediate directories. A pattern with ./, or one that contains /, misses when the walked path string differs.
 func TestIgnore(t *testing.T) {
 	cases := []struct {
 		pat  string

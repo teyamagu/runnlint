@@ -1,11 +1,10 @@
-// Package yamllint は汎用の YAML lint を yamllint に委譲する。
+// Package yamllint delegates generic YAML lint to yamllint.
 package yamllint
 
 import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,11 +14,12 @@ import (
 
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
 var parsableRe = regexp.MustCompile(`^(.*?):(\d+):(\d+): \[(error|warning)\] (.+) \(([^)]+)\)$`)
 
-// ParseOutput は yamllint -f parsable の出力を診断に変換する。
+// ParseOutput converts yamllint -f parsable output into diagnostics.
 func ParseOutput(out string) []finding.Finding {
 	var findings []finding.Finding
 	for _, line := range strings.Split(out, "\n") {
@@ -49,7 +49,7 @@ func ParseOutput(out string) []finding.Finding {
 	return findings
 }
 
-// Run はファイル群に対して yamllint を実行する。
+// Run runs yamllint on a set of files.
 func Run(ctx context.Context, cfg config.Yamllint, configDir string, files []string) ([]finding.Finding, error) {
 	if !cfg.EnabledOrDefault() || len(files) == 0 {
 		return nil, nil
@@ -104,7 +104,7 @@ func Run(ctx context.Context, cfg config.Yamllint, configDir string, files []str
 	if msg == "" {
 		msg = err.Error()
 	}
-	return nil, fmt.Errorf("yamllint の実行に失敗しました: %s", msg)
+	return nil, message.New(message.YamllintFailed, msg)
 }
 
 func isLintFailure(err error) bool {

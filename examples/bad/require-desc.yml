@@ -1,3 +1,3 @@
-# runbook に desc が無い例。
+# Example of a runbook with no desc.
 steps:
   - test: "true"

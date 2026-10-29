@@ -1,4 +1,4 @@
-# if が無い runbook は対象外。
+# A runbook with no if is out of scope.
 desc: no if
 steps:
   - test: "true"

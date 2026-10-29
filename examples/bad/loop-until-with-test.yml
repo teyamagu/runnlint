@@ -1,4 +1,4 @@
-# 同じ step に、loop.until と test を両方書いた例。
+# Example of one step that writes both loop.until and test.
 desc: until and test
 runners:
   req: https://example.com

@@ -1,5 +1,5 @@
-# カバレッジ、コードとテストの比率、テスト時間のバッジを docs/ に書く。
-# main ではそのファイルを push する。閾値は置かない。
+# Write coverage, code-to-test ratio, and test-duration badges under docs/.
+# On main, push those files. No thresholds are set.
 coverage:
   paths:
     - coverage.out
@@ -14,8 +14,8 @@ codeToTestRatio:
   badge:
     path: docs/ratio.svg
 testExecutionTime:
-  # steps の名前は .github/workflows/ci.yml の name: テスト と一致している必要があります。
-  # 一致しないと、coverage.out の時刻からステップを推測して測れず、docs/time.svg が作られません。
+  # The steps entry must match the name of the go test step in .github/workflows/ci.yml.
+  # If it does not match, the step cannot be inferred from coverage.out timestamps, and docs/time.svg is not created.
   steps:
     - テスト
   badge:

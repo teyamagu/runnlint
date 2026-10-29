@@ -1,4 +1,4 @@
-# runner の名前に、step の予約語である exec を使った例。
+# Example of a runner name that uses exec, a reserved word for steps.
 desc: reserved runner name
 runners:
   exec: https://example.com

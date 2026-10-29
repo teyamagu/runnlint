@@ -1,4 +1,4 @@
-# vars に定義していない名前を参照している例。
+# Example of referencing a name that is not defined in vars.
 desc: undefined var
 vars:
   username: alice

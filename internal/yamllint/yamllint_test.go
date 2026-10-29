@@ -11,7 +11,7 @@ import (
 	"github.com/teyamagu/runnlint/internal/finding"
 )
 
-// yamllint の2行を解析したとき、ファイル、行、列、深刻度、yamllint/ルール名になることを確認する。形式に合わない行と空出力は診断にならないことを確認する。
+// TestParseOutput checks that two yamllint lines become file, line, column, severity, and yamllint/rule. A malformed line and empty output produce no diagnostic.
 func TestParseOutput(t *testing.T) {
 	out := "book.yml:12:3: [error] trailing spaces (trailing-spaces)\nbook.yml:4:1: [warning] missing document start (document-start)\nnot a finding\n"
 	got := ParseOutput(out)
@@ -29,7 +29,7 @@ func TestParseOutput(t *testing.T) {
 	}
 }
 
-// 絶対パスを渡したとき、そのまま返ることを確認する。設定ディレクトリに実在する相対パスは絶対パスになることを確認する。実在しない相対パスはそのまま返ることを確認する。
+// TestResolveConfig checks that an absolute path is returned unchanged. A relative path that exists in the config directory becomes absolute. A relative path that does not exist is returned unchanged.
 func TestResolveConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".yamllint.yaml")
@@ -47,7 +47,7 @@ func TestResolveConfig(t *testing.T) {
 	}
 }
 
-// 存在しない yamllint コマンドで missing が error のとき、yamllint ルールの error が1件出ることを確認する。missing が off、無効、対象ファイル無しのときは診断もエラーも無いことを確認する。
+// TestRunMissingBinary checks that a missing yamllint command with missing set to error yields one error from the yamllint rule. With missing off, yamllint disabled, or no target files, there is neither a diagnostic nor an error.
 func TestRunMissingBinary(t *testing.T) {
 	ctx := context.Background()
 	bin := "runnlint-no-such-yamllint"
@@ -70,7 +70,7 @@ func TestRunMissingBinary(t *testing.T) {
 	}
 }
 
-// 終了コード 1 のとき isLintFailure が true になることを確認する。終了コード 2 と nil では false になることを確認する。
+// TestIsLintFailure checks that exit code 1 makes isLintFailure true. Exit code 2 and a nil error make it false.
 func TestIsLintFailure(t *testing.T) {
 	cmd := exec.Command("sh", "-c", "exit 1")
 	err := cmd.Run()

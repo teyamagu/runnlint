@@ -37,7 +37,7 @@ func capture(t *testing.T, args []string) (int, string, string) {
 	return code, outBuf.String(), errBuf.String()
 }
 
-// --version を渡したとき、標準出力が runnlint と Version になり、終了コードが 0 であることを確認する。
+// TestVersion checks that --version prints runnlint and Version on stdout and exits 0.
 func TestVersion(t *testing.T) {
 	code, stdout, stderr := capture(t, []string{"--version"})
 	if code != 0 || stderr != "" || stdout != "runnlint "+version.Version+"\n" {
@@ -45,7 +45,7 @@ func TestVersion(t *testing.T) {
 	}
 }
 
-// -h を渡して実行したとき、使い方が標準エラーに出て終了コードが 0 になることを確認する。未知のフラグでは終了コードが 2 になることを確認する。
+// TestHelpAndUnknownFlag checks that -h prints usage on stderr and exits 0. An unknown flag exits 2.
 func TestHelpAndUnknownFlag(t *testing.T) {
 	code, _, stderr := capture(t, []string{"-h"})
 	if code != 0 {
@@ -61,7 +61,7 @@ func TestHelpAndUnknownFlag(t *testing.T) {
 	}
 }
 
-// --print-config を実行したとき、埋め込みルール定義が標準出力に出ることを確認する。--print-yamllint-config では yamllint 用の埋め込み設定が出ることを確認する。
+// TestPrintEmbeddedConfig checks that --print-config prints the embedded rules on stdout. --print-yamllint-config prints the embedded yamllint config.
 func TestPrintEmbeddedConfig(t *testing.T) {
 	code, stdout, stderr := capture(t, []string{"--print-config"})
 	if code != 0 {
@@ -80,7 +80,7 @@ func TestPrintEmbeddedConfig(t *testing.T) {
 	}
 }
 
-// 設定ファイルの無いディレクトリで --list-rules を実行したとき、duplicate-key が builtin、require-desc が check として既定の一覧に出ることを確認する。
+// TestListRules checks that --list-rules, in a directory with no config file, lists duplicate-key as builtin and require-desc as check.
 func TestListRules(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -96,7 +96,7 @@ func TestListRules(t *testing.T) {
 	}
 }
 
-// error のある runbook を検査したとき終了コードが 1、warning だけの runbook では 0 になることを確認する。severity が不正な設定では検査せず 2 になることを確認する。
+// TestCommandExitCodes checks that a runbook with an error exits 1 and a warning-only runbook exits 0. A config with an invalid severity exits 2 without linting.
 func TestCommandExitCodes(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -137,7 +137,7 @@ func TestCommandExitCodes(t *testing.T) {
 	}
 }
 
-// --write-baseline で書き出したファイルを --baseline に渡すと、既存の error が出ず終了コードが 0 になることを確認する。
+// TestBaselineFlags checks that passing a file written by --write-baseline to --baseline hides the existing error and exits 0.
 func TestBaselineFlags(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -152,5 +152,38 @@ func TestBaselineFlags(t *testing.T) {
 	code, stdout, stderr = capture(t, []string{"--no-yamllint", "--baseline", "baseline.json", "bad.yml"})
 	if code != 0 || stdout != "" {
 		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "ありません") || !strings.Contains(string(raw), `"version": 2`) {
+		t.Fatalf("%s", raw)
+	}
+}
+
+// TestLangFlag checks that --lang en switches the display to English, and that a --lang value other than ja or en exits 2.
+func TestLangFlag(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	body := []byte("desc: x\n")
+	if err := os.WriteFile(filepath.Join(dir, "book.yml"), body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := capture(t, []string{"--no-yamllint", "--lang", "en", "book.yml"})
+	if code != 1 || !strings.Contains(stdout, "steps is missing") || strings.Contains(stdout, "steps がありません") {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+	code, stdout, stderr = capture(t, []string{"--no-yamllint", "book.yml"})
+	if code != 1 || !strings.Contains(stdout, "steps がありません") {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+	code, _, stderr = capture(t, []string{"--lang", "fr", "book.yml"})
+	if code != 2 || !strings.Contains(stderr, "language") {
+		t.Fatalf("code = %d\n%s", code, stderr)
+	}
+	code, _, stderr = capture(t, []string{"--lang", "en", "-h"})
+	if code != 0 || !strings.Contains(stderr, "Usage: runnlint") {
+		t.Fatalf("code = %d\n%s", code, stderr)
 	}
 }

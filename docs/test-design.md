@@ -1,5 +1,7 @@
 # テスト設計
 
+[English](en/test-design.md)
+
 検査の契約は [ルールファイル](configuration.md) と [runn への追従](runn-follow.md)、実行の流れ（コマンド、ファイル収集、ルール、yamllint、出力、終了コード）に分かれる。テストもその境界で分ける。
 
 これ以降の変更は、先に失敗するテストを追加してから実装する。ここに書いた既存の契約は、いまの実装を仕様として固定するテストで確認する。
@@ -23,8 +25,8 @@
 | BIN-11 | YAML の重複キー、alias、merge、複数 document、runner 種別 | `internal/runbook/parse_test.go` |
 | BIN-12 | スキーマと `cdpfn.go` からキーと CDP アクションを読む。最新リリースとの差で失敗する | `internal/runnspec` |
 | BIN-13 | Go の最新安定版と、依存ライセンス | `internal/gotoolchain`、`internal/license` |
-| BIN-14 | 製品バージョンは semver。`--version` は `runnlint X.Y.Z`。変更履歴にその節がある | `internal/version`、`cmd/runnlint/main_test.go` |
-| BIN-15 | `--write-baseline` は全診断を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の診断を出さない。新しい診断だけで終了コードを決める。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
+| BIN-14 | 製品バージョンは semver。`--version` は `runnlint X.Y.Z`。`CHANGELOG.md` と `CHANGELOG.en.md` の `## [X.Y.Z]` が見出しとして一致し、現行版の節がある | `internal/version`、`cmd/runnlint/main_test.go` |
+| BIN-15 | `--write-baseline` は全診断を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の診断を出さない。新しい診断だけで終了コードを決める。組み込み診断のメッセージは英語で記録し、表示が日本語でもその英語で照合する。宣言的ルールの文は書いたまま。形式は version 2 で、version 1 は 2 で失敗する。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
 | BIN-16 | 探索は `.runnlint-runn.yaml`、次に `.runnlint-runn.yml` だけを選ぶ。`.runnlint.yaml` などは読まず、警告も出さない。見つけたファイルは形が違えば 2。下の階層の未知のキーは警告して読む。`--config` は未知のキーを警告して読む | `internal/config/contract_test.go`、`internal/app/contract_test.go` |
 
 BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。記法定義の差を取り込んで PR にする処理は `.github/workflows/runn-follow.yml` と `cmd/runnfollow` です。差の有無は `internal/runnspec.Changed` が決めます。

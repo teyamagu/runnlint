@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// stable が 1.27.2、1.28.0、1.26.9 で rc もある一覧から、最新安定版が 1.28.0 になることを確認する。
+// TestLatestStablePicksHighestStable checks that a list with stable releases 1.27.2, 1.28.0, and 1.26.9, plus a release candidate, yields 1.28.0.
 func TestLatestStablePicksHighestStable(t *testing.T) {
 	data := []byte(`[
 		{"version": "go1.28rc1", "stable": false},
@@ -26,7 +26,7 @@ func TestLatestStablePicksHighestStable(t *testing.T) {
 	}
 }
 
-// stable が無く rc だけの一覧では、LatestStable がエラーになることを確認する。
+// TestLatestStableRejectsReleaseCandidatesOnly checks that LatestStable returns an error for a list that contains only release candidates.
 func TestLatestStableRejectsReleaseCandidatesOnly(t *testing.T) {
 	_, err := LatestStable([]byte(`[{"version": "go1.28rc1", "stable": false}]`))
 	if err == nil {
@@ -34,7 +34,7 @@ func TestLatestStableRejectsReleaseCandidatesOnly(t *testing.T) {
 	}
 }
 
-// go1.27.2 を正規化したとき 1.27.2 になることを確認する。devel ビルドの文字列ではエラーになることを確認する。
+// TestNormalize checks that normalizing go1.27.2 yields 1.27.2. A devel build string returns an error.
 func TestNormalize(t *testing.T) {
 	got, err := Normalize("go1.27.2")
 	if err != nil {
@@ -48,7 +48,7 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-// .go-version と go.mod の go 行が一致し、どちらも実行中の Go および go.dev の最新安定版と同じであることを確認する。
+// TestUsesLatestStableGo checks that .go-version and the go line of go.mod agree, and that both equal the running Go and the latest stable release on go.dev.
 func TestUsesLatestStableGo(t *testing.T) {
 	root := moduleRoot(t)
 	fileVersion, modVersion, err := Declared(root)

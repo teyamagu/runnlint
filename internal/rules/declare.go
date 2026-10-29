@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"github.com/teyamagu/runnlint/internal/config"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/runbook"
 	"gopkg.in/yaml.v3"
 )
@@ -27,29 +28,29 @@ func runCheck(c *Context) {
 	}
 	matchRe, err := compileRe(check.Matches)
 	if err != nil {
-		c.Add(c.Doc.Root.Node, "matches の正規表現が不正です: %s", err.Error())
+		c.Add(c.Doc.Root.Node, message.ReMatches, err.Error())
 		return
 	}
 	notRe, err := compileRe(check.NotMatch)
 	if err != nil {
-		c.Add(c.Doc.Root.Node, "not_matches の正規表現が不正です: %s", err.Error())
+		c.Add(c.Doc.Root.Node, message.ReNotMatches, err.Error())
 		return
 	}
 	keyRe, err := compileRe(check.KeyMatches)
 	if err != nil {
-		c.Add(c.Doc.Root.Node, "key_matches の正規表現が不正です: %s", err.Error())
+		c.Add(c.Doc.Root.Node, message.ReKeyMatches, err.Error())
 		return
 	}
 	keyNotRe, err := compileRe(check.KeyNotMatch)
 	if err != nil {
-		c.Add(c.Doc.Root.Node, "key_not_matches の正規表現が不正です: %s", err.Error())
+		c.Add(c.Doc.Root.Node, message.ReKeyNot, err.Error())
 		return
 	}
 	var whereRe []*regexp.Regexp
 	for _, cond := range check.Where {
 		re, err := compileRe(cond.Matches)
 		if err != nil {
-			c.Add(c.Doc.Root.Node, "where.matches の正規表現が不正です: %s", err.Error())
+			c.Add(c.Doc.Root.Node, message.ReWhere, err.Error())
 			return
 		}
 		whereRe = append(whereRe, re)
@@ -58,12 +59,12 @@ func runCheck(c *Context) {
 	found := selectPath(c.Doc.Root, check.Select)
 	if check.Exists != nil && *check.Exists && len(found) == 0 {
 		node, path := deepest(c.Doc.Root, splitPath(check.Select))
-		c.Add(node.Node, "%s", render(c, path, "", runbook.Value{}, "パス "+check.Select+" がありません"))
+		c.report(node.Node, path, "", runbook.Value{}, message.PathMissing, check.Select)
 		return
 	}
 	if check.Exists != nil && !*check.Exists && len(found) > 0 {
 		for _, m := range found {
-			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, "パス "+m.path+" があります"))
+			c.report(m.value.Node, m.path, m.key, m.value, message.PathPresent, m.path)
 		}
 		return
 	}
@@ -73,17 +74,26 @@ func runCheck(c *Context) {
 			continue
 		}
 		if check.Forbid {
-			c.Add(m.value.Node, "%s", render(c, m.path, m.key, m.value, "条件に一致しました"))
+			c.report(m.value.Node, m.path, m.key, m.value, message.CondMatch)
 			continue
 		}
-		if msg, onKey, ok := violate(m.value, m.key, check, matchRe, notRe, keyRe, keyNotRe); ok {
+		if id, args, onKey, ok := violate(m.value, m.key, check, matchRe, notRe, keyRe, keyNotRe); ok {
 			node := m.value.Node
 			if onKey && m.keyNode != nil {
 				node = m.keyNode
 			}
-			c.Add(node, "%s", render(c, m.path, m.key, m.value, msg))
+			c.report(node, m.path, m.key, m.value, id, args...)
 		}
 	}
+}
+
+// report uses the rule's own message when one is set. Otherwise it uses the built-in sentence.
+func (c *Context) report(node *yaml.Node, path, key string, v runbook.Value, id message.ID, args ...any) {
+	if strings.TrimSpace(c.Rule.Message) != "" {
+		c.AddText(node, render(c, path, key, v))
+		return
+	}
+	c.Add(node, id, args...)
 }
 
 func compileRe(expr string) (*regexp.Regexp, error) {
@@ -93,36 +103,36 @@ func compileRe(expr string) (*regexp.Regexp, error) {
 	return regexp.Compile(expr)
 }
 
-func violate(v runbook.Value, key string, check *config.Check, matchRe, notRe, keyRe, keyNotRe *regexp.Regexp) (string, bool, bool) {
+func violate(v runbook.Value, key string, check *config.Check, matchRe, notRe, keyRe, keyNotRe *regexp.Regexp) (message.ID, []any, bool, bool) {
 	if check.Equals != nil && check.Equals.Set && !equalValue(v, check.Equals.Value) {
-		return "値が " + fmt.Sprint(check.Equals.Value) + " ではありません", false, true
+		return message.ValueNotEq, []any{fmt.Sprint(check.Equals.Value)}, false, true
 	}
 	if check.NotEquals != nil && check.NotEquals.Set && equalValue(v, check.NotEquals.Value) {
-		return "値が " + fmt.Sprint(check.NotEquals.Value) + " です", false, true
+		return message.ValueIs, []any{fmt.Sprint(check.NotEquals.Value)}, false, true
 	}
 	text := scalarText(v)
 	if matchRe != nil && (v.Kind != runbook.KindString && v.Kind != runbook.KindNumber || !matchRe.MatchString(text)) {
-		return "値がパターンに一致しません", false, true
+		return message.ValuePattern, nil, false, true
 	}
 	if notRe != nil && (v.Kind == runbook.KindString || v.Kind == runbook.KindNumber) && notRe.MatchString(text) {
-		return "値が禁止パターンに一致します", false, true
+		return message.ValueForbid, nil, false, true
 	}
 	if keyRe != nil && !keyRe.MatchString(key) {
-		return "キーがパターンに一致しません", true, true
+		return message.KeyPattern, nil, true, true
 	}
 	if keyNotRe != nil && keyNotRe.MatchString(key) {
-		return "キーが禁止パターンに一致します", true, true
+		return message.KeyForbid, nil, true, true
 	}
 	if len(check.OneOf) > 0 && !oneOf(v, check.OneOf) {
-		return "値が許可された一覧にありません", false, true
+		return message.ValueOneOf, nil, false, true
 	}
 	if check.MinLen != nil && v.Len() < *check.MinLen {
-		return fmt.Sprintf("長さが %d 未満です", *check.MinLen), false, true
+		return message.LenUnder, []any{*check.MinLen}, false, true
 	}
 	if check.MaxLen != nil && v.Len() > *check.MaxLen {
-		return fmt.Sprintf("長さが %d を超えています", *check.MaxLen), false, true
+		return message.LenOver, []any{*check.MaxLen}, false, true
 	}
-	return "", false, false
+	return "", nil, false, false
 }
 
 func whereMatch(v runbook.Value, conds []config.Cond, res []*regexp.Regexp) bool {
@@ -293,11 +303,8 @@ func deepest(root runbook.Value, segs []string) (runbook.Value, string) {
 	return cur, acc
 }
 
-func render(c *Context, path, key string, v runbook.Value, fallback string) string {
+func render(c *Context, path, key string, v runbook.Value) string {
 	msg := c.Rule.Message
-	if strings.TrimSpace(msg) == "" {
-		msg = fallback
-	}
 	tpl, err := template.New("msg").Option("missingkey=zero").Parse(msg)
 	if err != nil {
 		return msg

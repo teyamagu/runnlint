@@ -1,4 +1,4 @@
-# needs が指すファイルが存在しない例。
+# Example of needs pointing at a file that does not exist.
 desc: missing need
 needs:
   auth: missing-need.yml

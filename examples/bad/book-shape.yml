@@ -1,4 +1,4 @@
-# desc に文字列以外を書いた例。
+# Example of desc written as something other than a string.
 desc: 1
 steps:
   - test: "true"

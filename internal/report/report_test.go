@@ -17,7 +17,7 @@ func sample() []finding.Finding {
 	}
 }
 
-// 位置の違う診断を text で書き出したとき、ファイル・行・列の順に並ぶことを確認する。同じ位置ではルール名の辞書順になり、defer-experimental が http-request より前に出ることを確認する。
+// TestWriteTextSortsAndFormats checks that diagnostics written as text are ordered by file, line, and column. At the same position, rule names are lexicographic, so defer-experimental comes before http-request.
 func TestWriteTextSortsAndFormats(t *testing.T) {
 	var buf bytes.Buffer
 	if err := Write(&buf, "text", sample()); err != nil {
@@ -35,7 +35,7 @@ func TestWriteTextSortsAndFormats(t *testing.T) {
 	}
 }
 
-// github 形式で書き出したとき、error が ::error、warning が ::warning、info が ::notice になることを確認する。
+// TestWriteGitHubLevels checks that github format writes error as ::error, warning as ::warning, and info as ::notice.
 func TestWriteGitHubLevels(t *testing.T) {
 	var buf bytes.Buffer
 	if err := Write(&buf, "github", sample()); err != nil {
@@ -53,7 +53,7 @@ func TestWriteGitHubLevels(t *testing.T) {
 	}
 }
 
-// 形式を空文字にしたとき text として書き出されることを確認する。json にしたとき、診断が配列になり rule、severity、line が残ることを確認する。
+// TestWriteJSON checks that an empty format is written as text. json writes the diagnostics as an array that keeps rule, severity, and line.
 func TestWriteJSON(t *testing.T) {
 	var buf bytes.Buffer
 	if err := Write(&buf, "", sample()[:1]); err != nil {
@@ -76,7 +76,7 @@ func TestWriteJSON(t *testing.T) {
 	}
 }
 
-// 形式に xml を渡したとき、書き出さずエラーメッセージに xml が含まれることを確認する。
+// TestWriteRejectsUnknownFormat checks that passing xml as the format writes nothing and the error message contains xml.
 func TestWriteRejectsUnknownFormat(t *testing.T) {
 	err := Write(&bytes.Buffer{}, "xml", nil)
 	if err == nil || !strings.Contains(err.Error(), "xml") {
@@ -84,7 +84,7 @@ func TestWriteRejectsUnknownFormat(t *testing.T) {
 	}
 }
 
-// 診断が無いときと warning だけのとき HasError が false になり、error を含むときは true になることを確認する。
+// TestHasError checks that HasError is false when there are no diagnostics and when there are only warnings, and true when an error is included.
 func TestHasError(t *testing.T) {
 	if HasError(nil) || HasError(sample()[:1]) {
 		t.Fatal("warning を error と扱っています")

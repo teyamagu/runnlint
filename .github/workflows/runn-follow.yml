@@ -2,7 +2,7 @@ name: runn follow
 
 on:
   schedule:
-    # CI の週次テストのあとで、記法の差があれば取り込みの PR を作る。
+    # After the weekly CI test, open an import PR if the notation differs.
     - cron: "47 0 * * 1"
   workflow_dispatch:
 

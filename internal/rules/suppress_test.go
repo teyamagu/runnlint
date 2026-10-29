@@ -24,8 +24,8 @@ func onlyRules(t *testing.T, got []finding.Finding, want ...string) {
 	}
 }
 
-// 行末の runnlint disable-line は、その行の指定したルールの診断だけを消すことを確認する。
-// 指定していないルールの診断と、ほかの行の診断は残る。
+// A runnlint disable-line at the end of a line removes only that line's diagnostic for the named rule.
+// Diagnostics for rules that were not named, and diagnostics on other lines, remain.
 func TestDisableLineTrailing(t *testing.T) {
 	got := lint(t, `desc: d
 steps:
@@ -38,8 +38,8 @@ steps:
 	onlyRules(t, got, "expr-syntax@06", "var-ref@07", "unused-suppression@07")
 }
 
-// コメントだけの行の runnlint disable-line は、次の(空行とコメント行を除く)行に効くことを確認する。
-// ルールを複数書け、rule: は省略でき、ルールを書かなければすべてのルールを消す。
+// A runnlint disable-line on a comment-only line applies to the next line that is neither empty nor a comment.
+// Several rules may be listed, rule: may be omitted, and listing no rule removes every rule.
 func TestDisableLineStandalone(t *testing.T) {
 	got := lint(t, `desc: d
 steps:
@@ -55,8 +55,8 @@ steps:
 	onlyRules(t, got, "step-ref@10")
 }
 
-// 複数行のスカラーの診断はキーの行に出るので、キーの行に書いた抑制で消えることを確認する。
-// ブロックの中のコメントは値の一部なので抑制にならず、unused-suppression で知らせる。式としては # コメントとして取り除かれる。
+// A diagnostic for a multiline scalar is reported on the key line, so a suppression written on the key line removes it.
+// A comment inside the block is part of the value, so it is not a suppression and is reported as unused-suppression. As an expression, it is stripped as a # comment.
 func TestDisableLineWithBlockScalar(t *testing.T) {
 	got := lint(t, `desc: d
 steps:
@@ -75,7 +75,7 @@ steps:
 	onlyRules(t, got, "unused-suppression@12")
 }
 
-// 引用符の中の # runnlint は抑制として扱わないことを確認する。
+// # runnlint inside quotes is not treated as a suppression.
 func TestDisableLineIgnoresQuoted(t *testing.T) {
 	got := lint(t, `desc: d
 steps:
@@ -86,7 +86,7 @@ steps:
 	onlyRules(t, got, "var-ref@03", "var-ref@05")
 }
 
-// 存在しないルール、yamllint のルール、使えない指示、何も消さない抑制を unused-suppression で知らせることを確認する。
+// An unknown rule, a yamllint rule, an unavailable directive, and a suppression that removes nothing are reported as unused-suppression.
 func TestUnusedSuppression(t *testing.T) {
 	got := lint(t, `desc: d # runnlint disable-line rule:no-such-rule
 steps:
@@ -103,7 +103,7 @@ steps:
 	}
 }
 
-// YAML だけで書いた独自ルールと宣言的ルールにも効くことを確認する。off にしたルールを名指しした抑制は知らせない。
+// It also applies to custom rules and declarative rules written only in YAML. A suppression that names a rule set to off is not reported.
 func TestDisableLineCustomRuleAndOff(t *testing.T) {
 	got := lintConfig(t, `
 rules:

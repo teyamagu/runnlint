@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// dir 以下の .yml をすべて参照元として読み、scopes を判定範囲にした Refs を作る。
+// Read every .yml under dir as a caller and build a Refs whose judgment scope is scopes.
 func refsFor(t *testing.T, scopes []string, sources ...string) *Refs {
 	t.Helper()
 	refs := NewRefs(scopes...)
@@ -31,7 +31,7 @@ func refsFor(t *testing.T, scopes []string, sources ...string) *Refs {
 	return refs
 }
 
-// dir 以下の各 runbook を refs 付きで lint し、included-unreferenced が出たファイル名を返す。
+// Lint each runbook under dir with refs and return the file names that reported included-unreferenced.
 func unreferenced(t *testing.T, dir string, refs *Refs) []string {
 	t.Helper()
 	cfg := defaultConfig(t)
@@ -72,9 +72,9 @@ func testdataDir(t *testing.T, parts ...string) string {
 	return abs
 }
 
-// static を走査したとき、include されていない if: included と included && ... だけが指摘されることを確認する。
-// 文字列の include、include.path（./ と .. を含む）、include runner の参照先、if の無い runbook、included || ...、!included は指摘しない。
-// outside から include されるファイルも、outside が走査範囲に入っていなければ指摘される。
+// Scanning static reports only if: included and included && ... that are not included.
+// A string include, include.path (including ./ and ..), the target of an include runner, a runbook without if, included || ..., and !included are not reported.
+// A file included from outside is still reported when outside is not in the scan.
 func TestIncludedUnreferencedStatic(t *testing.T) {
 	dir := testdataDir(t, "static")
 	got := unreferenced(t, dir, refsFor(t, []string{dir}, dir))
@@ -84,7 +84,7 @@ func TestIncludedUnreferencedStatic(t *testing.T) {
 	}
 }
 
-// 走査範囲の外の参照元も読ませると、そこから include されるファイルは指摘されないことを確認する。
+// When a caller outside the scan is also read, a file it includes is not reported.
 func TestIncludedUnreferencedExtraRoot(t *testing.T) {
 	dir := testdataDir(t, "static")
 	outside := testdataDir(t, "outside")
@@ -94,7 +94,7 @@ func TestIncludedUnreferencedExtraRoot(t *testing.T) {
 	}
 }
 
-// {{ }} や ${...} を含む参照元は解決できないので、照合しうるファイルを指摘しないことを確認する。
+// A caller whose path contains {{ }} or ${...} cannot be resolved, so files it might match are not reported.
 func TestIncludedUnreferencedDynamic(t *testing.T) {
 	dirs := map[string]string{"dynamic": testdataDir(t, "dynamic"), "env": testdataDir(t, "env")}
 	for name, dir := range dirs {
@@ -104,7 +104,7 @@ func TestIncludedUnreferencedDynamic(t *testing.T) {
 	}
 }
 
-// 判定範囲の外のファイルと、Refs を渡さない Lint では指摘しないことを確認する。
+// A file outside the judgment scope, and Lint without Refs, are not reported.
 func TestIncludedUnreferencedOutOfScope(t *testing.T) {
 	dir := testdataDir(t, "static")
 	other := testdataDir(t, "outside")
@@ -156,9 +156,9 @@ func varRefMessages(t *testing.T, path string, refs *Refs) []string {
 	return messagesOf(got, "var-ref")
 }
 
-// ディレクトリを走査したとき、include 元の include.vars で渡す変数は var-ref を出さないことを確認する。
-// 呼び出し元が複数あれば、どれかで渡す変数を定義済みとする。parent.vars も include 元があれば親の外とは言わない。
-// どこからも渡されない変数と、include されない runbook の未定義の変数は、これまでどおり指摘する。
+// When a directory is scanned, a variable passed in a caller's include.vars does not report var-ref.
+// When there are several callers, a variable passed by any of them is treated as defined. parent.vars is not treated as outside the parent when a caller exists.
+// A variable passed by nobody, and an undefined variable in a runbook that is not included, are still reported.
 func TestVarRefUsesIncludeVars(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Join(moduleRoot(t), "internal", "rules", "testdata", "includevars"))
 	if err != nil {
@@ -177,7 +177,7 @@ func TestVarRefUsesIncludeVars(t *testing.T) {
 	}
 }
 
-// include 元を読まずにファイルだけを lint したとき、if: included の runbook では var-ref を出さず、それ以外はこれまでどおり出すことを確認する。
+// Linting a file alone, without reading callers, does not report var-ref for a runbook with if: included, and still reports it otherwise.
 func TestVarRefWithoutCallers(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Join(moduleRoot(t), "internal", "rules", "testdata", "includevars"))
 	if err != nil {
@@ -191,8 +191,8 @@ func TestVarRefWithoutCallers(t *testing.T) {
 	}
 }
 
-// 動的な include の参照先になりうるだけのファイルは、include 元が見つかったとは扱わないことを確認する。
-// if: included の runbook は vars を調べず、そうでない runbook は動的な include が渡しうる変数だけを定義済みとする。
+// A file that is only a possible target of a dynamic include is not treated as having a caller.
+// A runbook with if: included does not have its vars checked, and any other runbook treats as defined only the variables a dynamic include might pass.
 func TestVarRefWithDynamicCallers(t *testing.T) {
 	dir := t.TempDir()
 	writeFile := func(name, body string) string {

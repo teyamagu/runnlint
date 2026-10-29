@@ -1,4 +1,4 @@
-# parent.yml から token と user を渡される。typo はどこからも渡されない。
+# token and user are passed from parent.yml. typo is not passed from anywhere.
 desc: child
 vars:
   own: 1

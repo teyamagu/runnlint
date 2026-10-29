@@ -1,4 +1,4 @@
-# include されない runbook の未定義の変数は、これまでどおり指摘する。
+# Undefined variables in a runbook that is not included are still reported, as before.
 desc: top
 steps:
   - dump: vars.missing

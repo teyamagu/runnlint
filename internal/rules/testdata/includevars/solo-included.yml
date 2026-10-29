@@ -1,4 +1,4 @@
-# if: included なのに include 元が見つからない。渡される変数が分からないので var-ref を出さない。
+# if: included, but no includer is found. Passed variables are unknown, so var-ref is not reported.
 desc: solo
 if: included
 steps:

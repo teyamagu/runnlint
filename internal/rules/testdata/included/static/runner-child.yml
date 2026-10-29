@@ -1,4 +1,4 @@
-# parent.yml の include runner から参照される。
+# Referenced from the include runner in parent.yml.
 desc: included by runner
 if: included
 steps:

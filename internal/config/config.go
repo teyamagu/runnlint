@@ -1,10 +1,9 @@
-// Package config は runnlint のルールファイルを読み込む。
+// Package config loads runnlint rules files.
 package config
 
 import (
 	"bytes"
 	"embed"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,33 +11,35 @@ import (
 	"strings"
 
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 	"gopkg.in/yaml.v3"
 )
 
 //go:embed default.yaml yamllint.yaml
 var embedded embed.FS
 
-// Config はルールファイル全体。
+// Config is a whole rules file.
 type Config struct {
 	Version  int      `yaml:"version"`
 	Extends  string   `yaml:"extends"`
+	Language string   `yaml:"language"`
 	Ignore   []string `yaml:"ignore"`
 	Yamllint Yamllint `yaml:"yamllint"`
 	Rules    []Rule   `yaml:"rules"`
 
-	// SourceDir は設定ファイルがあるディレクトリ。空ならカレントディレクトリ。
+	// SourceDir is the directory that contains the config file. Empty means the current directory.
 	SourceDir string `yaml:"-"`
-	// Warnings は読み込みを止めるほどではない設定の問題。標準エラーに出す。
-	Warnings []string `yaml:"-"`
+	// Warnings are configuration problems that do not stop loading. They are printed to stderr.
+	Warnings []error `yaml:"-"`
 }
 
-// UniqueName は探索で最初に探す設定ファイル名。
+// UniqueName is the config file name discovery looks for first.
 const UniqueName = ".runnlint-runn.yaml"
 
-// configNames は探索する設定ファイル名。.yaml を先に探す。
+// configNames are the config file names discovery looks for. .yaml is tried first.
 var configNames = []string{UniqueName, ".runnlint-runn.yml"}
 
-// Yamllint は汎用 YAML lint の委譲先。
+// Yamllint is the delegate for generic YAML lint.
 type Yamllint struct {
 	Enabled *bool  `yaml:"enabled"`
 	Bin     string `yaml:"bin"`
@@ -46,7 +47,7 @@ type Yamllint struct {
 	Missing string `yaml:"missing"`
 }
 
-// Rule は組み込みルール、または YAML で書いたルール。
+// Rule is a built-in rule or a rule written in YAML.
 type Rule struct {
 	ID       string           `yaml:"id"`
 	Uses     string           `yaml:"uses"`
@@ -56,7 +57,7 @@ type Rule struct {
 	Options  map[string]any   `yaml:"options"`
 }
 
-// Check は宣言的ルールの条件。
+// Check is the condition of a declarative rule.
 type Check struct {
 	Select      string    `yaml:"select"`
 	Exists      *bool     `yaml:"exists"`
@@ -73,7 +74,7 @@ type Check struct {
 	Where       WhereList `yaml:"where"`
 }
 
-// Cond は select 結果を絞り込む条件。path は選択ノードからの相対パス。
+// Cond filters select results. path is relative to the selected node.
 type Cond struct {
 	Path    string `yaml:"path"`
 	Exists  *bool  `yaml:"exists"`
@@ -81,10 +82,10 @@ type Cond struct {
 	Matches string `yaml:"matches"`
 }
 
-// WhereList は mapping 1件でも sequence でも受け付ける。
+// WhereList accepts either a single mapping or a sequence.
 type WhereList []Cond
 
-// UnmarshalYAML は where の単一 mapping と sequence の両方を読む。
+// UnmarshalYAML reads where as one mapping or as a sequence.
 func (w *WhereList) UnmarshalYAML(n *yaml.Node) error {
 	if n.Kind == yaml.SequenceNode {
 		var items []Cond
@@ -102,19 +103,19 @@ func (w *WhereList) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-// Any は設定された YAML 値。null と未設定を区別する。
+// Any is a YAML value from the config. It distinguishes null from unset.
 type Any struct {
 	Value any
 	Set   bool
 }
 
-// UnmarshalYAML は null を含む任意のスカラーを保持する。
+// UnmarshalYAML keeps any scalar, including null.
 func (a *Any) UnmarshalYAML(n *yaml.Node) error {
 	a.Set = true
 	return n.Decode(&a.Value)
 }
 
-// Enabled は yamllint を起動するか。
+// EnabledOrDefault reports whether to run yamllint.
 func (y Yamllint) EnabledOrDefault() bool {
 	if y.Enabled == nil {
 		return true
@@ -122,26 +123,26 @@ func (y Yamllint) EnabledOrDefault() bool {
 	return *y.Enabled
 }
 
-// DefaultYAML は組み込みのデフォルトルール。
+// DefaultYAML is the built-in default rules.
 func DefaultYAML() ([]byte, error) {
 	return embedded.ReadFile("default.yaml")
 }
 
-// YamllintYAML は runbook 向けに緩めた yamllint 設定。
+// YamllintYAML is the yamllint config relaxed for runbooks.
 func YamllintYAML() ([]byte, error) {
 	return embedded.ReadFile("yamllint.yaml")
 }
 
-// Load は path のルールファイルを読む。path が空なら探索し、無ければデフォルトを返す。
+// Load reads the rules file at path. An empty path searches, and returns the defaults when none is found.
 func Load(path string) (*Config, error) {
 	base, err := parseBytes(mustDefault(), "")
 	if err != nil {
-		return nil, fmt.Errorf("デフォルトルールを読めません: %w", err)
+		return nil, message.Wrap(message.DefaultRulesRead, err)
 	}
 	if err := base.Validate(); err != nil {
-		return nil, fmt.Errorf("デフォルトルールが不正です: %w", err)
+		return nil, message.Wrap(message.DefaultRulesBad, err)
 	}
-	var warnings []string
+	var warnings []error
 	explicit := path != ""
 	if !explicit {
 		path = discover()
@@ -152,22 +153,22 @@ func Load(path string) (*Config, error) {
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("ルールファイルを読めません: %w", err)
+		return nil, message.Wrap(message.RulesFileRead, err)
 	}
 	foreign, nested := checkShape(raw)
 	if foreign != nil {
 		if !explicit {
-			return nil, fmt.Errorf("%s: %w", path, foreign)
+			return nil, message.Prefix(path, foreign)
 		}
-		// --config で渡したファイルは、未知のキーがあっても従来どおり読む。
-		warnings = append(warnings, fmt.Sprintf("%s: %v", path, foreign))
+		// A file passed with --config is still read when it has unknown keys.
+		warnings = append(warnings, message.Prefix(path, foreign))
 	}
 	if nested != nil {
-		warnings = append(warnings, fmt.Sprintf("%s: %v", path, nested))
+		warnings = append(warnings, message.Prefix(path, nested))
 	}
 	user, err := parseBytes(raw, filepath.Dir(path))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, message.Prefix(path, err)
 	}
 	var cfg *Config
 	if strings.EqualFold(user.Extends, "none") {
@@ -176,45 +177,45 @@ func Load(path string) (*Config, error) {
 		cfg = merge(base, user)
 	}
 	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, message.Prefix(path, err)
 	}
 	cfg.Warnings = warnings
 	return cfg, nil
 }
 
-var topLevelKeys = map[string]struct{}{"version": {}, "extends": {}, "ignore": {}, "yamllint": {}, "rules": {}}
+var topLevelKeys = map[string]struct{}{"version": {}, "extends": {}, "language": {}, "ignore": {}, "yamllint": {}, "rules": {}}
 
-// checkShape は raw が runnlint のルールファイルの形か確かめる。
-// foreign は別のツールの設定とみなす問題で、YAML として読めない、トップレベルに未知のキーがある、型が違う、version が 1 でない、のどれか。
-// nested は rules の中などの未知のキーで、runnlint の設定の書き損じとみなして警告だけにする。
+// checkShape reports whether raw has the shape of a runnlint rules file.
+// foreign means the file looks like another tool's config: unreadable YAML, an unknown top-level key, a wrong type, or a version other than 1.
+// nested is an unknown key inside rules or similar. It is treated as a typo in a runnlint config and only warned about.
 func checkShape(raw []byte) (foreign, nested error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return fmt.Errorf("YAML として読めません: %w", err), nil
+		return message.Wrap(message.YAMLRead, err), nil
 	}
 	if len(doc.Content) == 0 {
 		return nil, nil
 	}
 	root := doc.Content[0]
 	if root.Kind != yaml.MappingNode {
-		return fmt.Errorf("トップレベルが mapping ではありません"), nil
+		return message.New(message.TopNotMap), nil
 	}
 	for i := 0; i+1 < len(root.Content); i += 2 {
 		if _, ok := topLevelKeys[root.Content[i].Value]; !ok {
-			return fmt.Errorf("runnlint のルールファイルに無いキー %s があります (行 %d)", root.Content[i].Value, root.Content[i].Line), nil
+			return message.New(message.UnknownTopKey, root.Content[i].Value, root.Content[i].Line), nil
 		}
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
-		return fmt.Errorf("runnlint のルールファイルの形ではありません: %w", err), nil
+		return message.Wrap(message.RulesShape, err), nil
 	}
 	if cfg.Version != 0 && cfg.Version != 1 {
-		return fmt.Errorf("runnlint のルールファイルの version は 1 です (version: %d)", cfg.Version), nil
+		return message.New(message.RulesVersion, cfg.Version), nil
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(raw))
 	dec.KnownFields(true)
 	if err := dec.Decode(&Config{}); err != nil && err != io.EOF {
-		return nil, fmt.Errorf("未知のキーを無視します: %w", err)
+		return nil, message.Wrap(message.UnknownKeyIgnored, err)
 	}
 	return nil, nil
 }
@@ -253,6 +254,9 @@ func merge(base, user *Config) *Config {
 	out.Version = user.Version
 	if user.Version == 0 {
 		out.Version = base.Version
+	}
+	if user.Language != "" {
+		out.Language = user.Language
 	}
 	if user.Ignore != nil {
 		out.Ignore = append(append([]string{}, base.Ignore...), user.Ignore...)
@@ -323,46 +327,46 @@ func overlay(base, over Rule) Rule {
 	return out
 }
 
-// Validate はルール ID と uses / check の組み合わせを確認する。
+// Validate checks rule IDs and the combination of uses and check.
 func (c *Config) Validate() error {
 	seen := map[string]struct{}{}
 	for _, rule := range c.Rules {
 		if rule.ID == "" {
-			return fmt.Errorf("id が空のルールがあります")
+			return message.New(message.RuleIDEmpty)
 		}
 		if _, ok := seen[rule.ID]; ok {
-			return fmt.Errorf("ルール %s が重複しています", rule.ID)
+			return message.New(message.RuleIDDup, rule.ID)
 		}
 		seen[rule.ID] = struct{}{}
 		switch rule.Severity {
 		case finding.Error, finding.Warning, finding.Info, finding.Off:
 		default:
-			return fmt.Errorf("ルール %s の severity %q は error / warning / info / off のいずれかです", rule.ID, rule.Severity)
+			return message.New(message.SeverityBad, rule.ID, rule.Severity)
 		}
 		if rule.Severity == finding.Off {
 			continue
 		}
 		switch {
 		case rule.Uses != "" && rule.Check != nil:
-			return fmt.Errorf("ルール %s は uses と check を同時に持てません", rule.ID)
+			return message.New(message.UsesAndCheck, rule.ID)
 		case rule.Uses == "" && rule.Check == nil:
-			return fmt.Errorf("ルール %s には uses か check が必要です", rule.ID)
+			return message.New(message.UsesOrCheck, rule.ID)
 		case rule.Check != nil && strings.TrimSpace(rule.Check.Select) == "":
-			return fmt.Errorf("ルール %s の check.select が空です", rule.ID)
+			return message.New(message.SelectEmpty, rule.ID)
 		}
 	}
 	if c.Yamllint.Missing != "" {
 		switch finding.Severity(c.Yamllint.Missing) {
 		case finding.Error, finding.Warning, finding.Info, finding.Off:
 		default:
-			return fmt.Errorf("yamllint.missing %q は error / warning / info / off のいずれかです", c.Yamllint.Missing)
+			return message.New(message.YamllintMissing, c.Yamllint.Missing)
 		}
 	}
 	return nil
 }
 
-// Ignored は、走査で得た path（スラッシュ区切り）か、そのベース名が ignore に当たるか。
-// ** を含むパターンは path だけを見る。引数のファイルを外すかは、呼び出し側が決める。
+// Ignored reports whether a walked path (slash-separated), or its base name, matches ignore.
+// A pattern containing ** is matched only against the path. The caller decides whether to exclude a file passed as an argument.
 func (c *Config) Ignored(path string) bool {
 	slash := filepath.ToSlash(path)
 	base := filepath.Base(path)
@@ -423,7 +427,7 @@ func globMatch(pattern, path string) bool {
 	return re.MatchString(path)
 }
 
-// discover はカレントディレクトリから親へルールファイルを探す。
+// discover searches upward from the current directory for a rules file.
 func discover() string {
 	dir, err := os.Getwd()
 	if err != nil {

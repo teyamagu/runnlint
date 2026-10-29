@@ -1,4 +1,4 @@
-# 1つの step に、HTTP と DB の runner を同時に書いた例。
+# Example of one step that writes both an HTTP runner and a DB runner.
 desc: two main runners
 runners:
   req: https://example.com

@@ -9,6 +9,7 @@ import (
 
 	"github.com/teyamagu/runnlint/internal/app"
 	"github.com/teyamagu/runnlint/internal/config"
+	"github.com/teyamagu/runnlint/internal/message"
 	"github.com/teyamagu/runnlint/internal/rules"
 	"github.com/teyamagu/runnlint/internal/version"
 )
@@ -18,6 +19,7 @@ func main() {
 }
 
 func run(args []string) int {
+	helpLang := peekLang(args)
 	fs := flag.NewFlagSet("runnlint", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	var (
@@ -31,30 +33,33 @@ func run(args []string) int {
 		printYamllint bool
 		listRules     bool
 		showVersion   bool
+		langFlag      string
 	)
-	fs.StringVar(&configPath, "config", "", "ルールファイルのパス")
-	fs.StringVar(&configPath, "c", "", "ルールファイルのパス")
-	fs.StringVar(&format, "format", "text", "出力形式 (text, json, github)")
-	fs.StringVar(&format, "f", "text", "出力形式 (text, json, github)")
-	fs.BoolVar(&noYamllint, "no-yamllint", false, "yamllint を実行しない")
-	fs.StringVar(&baselinePath, "baseline", "", "既存の診断を記録したファイル。一致する診断を出さない")
-	fs.Var(&includeRoots, "include-root", "include の参照元を探す追加のディレクトリ。繰り返し指定できる")
-	fs.StringVar(&writeBaseline, "write-baseline", "", "今回の診断を baseline として書き出して終了する")
-	fs.BoolVar(&printConfig, "print-config", false, "デフォルトのルールファイルを出力して終了する")
-	fs.BoolVar(&printYamllint, "print-yamllint-config", false, "組み込みの yamllint 設定を出力して終了する")
-	fs.BoolVar(&listRules, "list-rules", false, "有効なルール一覧を出力して終了する")
-	fs.BoolVar(&showVersion, "version", false, "バージョンを出力して終了する")
+	fs.StringVar(&configPath, "config", "", message.Text(helpLang, message.FlagConfig))
+	fs.StringVar(&configPath, "c", "", message.Text(helpLang, message.FlagConfig))
+	fs.StringVar(&format, "format", "text", message.Text(helpLang, message.FlagFormat))
+	fs.StringVar(&format, "f", "text", message.Text(helpLang, message.FlagFormat))
+	fs.BoolVar(&noYamllint, "no-yamllint", false, message.Text(helpLang, message.FlagNoYamllint))
+	fs.StringVar(&baselinePath, "baseline", "", message.Text(helpLang, message.FlagBaseline))
+	fs.Var(&includeRoots, "include-root", message.Text(helpLang, message.FlagIncludeRoot))
+	fs.StringVar(&writeBaseline, "write-baseline", "", message.Text(helpLang, message.FlagWriteBase))
+	fs.BoolVar(&printConfig, "print-config", false, message.Text(helpLang, message.FlagPrintConfig))
+	fs.BoolVar(&printYamllint, "print-yamllint-config", false, message.Text(helpLang, message.FlagPrintYAML))
+	fs.BoolVar(&listRules, "list-rules", false, message.Text(helpLang, message.FlagListRules))
+	fs.BoolVar(&showVersion, "version", false, message.Text(helpLang, message.FlagVersion))
+	fs.StringVar(&langFlag, "lang", "", message.Text(helpLang, message.FlagLang))
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "使い方: runnlint [flags] [path...]\n\nrunn の runbook を検査します。一般的な YAML の検査は yamllint に委譲します。\n\n")
-		fmt.Fprintf(os.Stderr, "行の診断は YAML のコメントで抑制できます。行末ならその行、コメントだけの行なら次の行に効きます。\n")
-		fmt.Fprintf(os.Stderr, "  test: current.res.status == 200 # runnlint disable-line rule:expr-syntax -- 理由\n")
-		fmt.Fprintf(os.Stderr, "  # runnlint disable-line rule:var-ref,step-ref\n\n")
+		fmt.Fprint(os.Stderr, message.Text(helpLang, message.Usage))
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
 		}
+		return 2
+	}
+	if langFlag != "" && langFlag != "ja" && langFlag != "en" {
+		fmt.Fprintln(os.Stderr, message.Text(message.JA, message.LangUnknown, langFlag))
 		return 2
 	}
 	if showVersion {
@@ -82,14 +87,31 @@ func run(args []string) int {
 	if listRules {
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			show := message.JA
+			if langFlag == "en" {
+				show = message.EN
+			}
+			fmt.Fprintln(os.Stderr, message.Localize(show, err))
 			return 2
 		}
+		if langFlag != "" {
+			cfg.Language = langFlag
+		}
+		switch cfg.Language {
+		case "", "ja", "en":
+		default:
+			fmt.Fprintln(os.Stderr, message.Text(message.JA, message.LangUnknown, cfg.Language))
+			return 2
+		}
+		show := message.JA
+		if cfg.Language == "en" {
+			show = message.EN
+		}
 		for _, w := range cfg.Warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+			fmt.Fprintf(os.Stderr, "warning: %s\n", message.Localize(show, w))
 		}
 		if err := rules.CheckConfig(cfg); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, message.Localize(show, err))
 			return 2
 		}
 		for _, rule := range cfg.Rules {
@@ -110,6 +132,7 @@ func run(args []string) int {
 		Baseline:      baselinePath,
 		WriteBaseline: writeBaseline,
 		IncludeRoots:  includeRoots,
+		Lang:          langFlag,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -121,10 +144,29 @@ func run(args []string) int {
 	return code
 }
 
-// stringList は繰り返し指定できる文字列のフラグ。
+// stringList is a string flag that can be repeated.
 type stringList []string
 
 func (s *stringList) String() string { return strings.Join(*s, ",") }
+
+func peekLang(args []string) message.Lang {
+	for i, a := range args {
+		v := ""
+		switch {
+		case a == "--lang" && i+1 < len(args):
+			v = args[i+1]
+		case strings.HasPrefix(a, "--lang="):
+			v = strings.TrimPrefix(a, "--lang=")
+		default:
+			continue
+		}
+		if v == "en" {
+			return message.EN
+		}
+		return message.JA
+	}
+	return message.JA
+}
 
 func (s *stringList) Set(v string) error {
 	*s = append(*s, v)

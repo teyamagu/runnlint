@@ -2,15 +2,15 @@ package runbook
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"gopkg.in/yaml.v3"
 )
 
-// Document は1つの runbook ファイル。
+// Document is one runbook file.
 type Document struct {
 	Root  Value
 	Dups  []Dup
@@ -18,7 +18,7 @@ type Document struct {
 	Empty bool
 }
 
-// IsRunbook は runners か steps を持つ mapping か。
+// IsRunbook reports whether this is a mapping that has runners or steps.
 func (d *Document) IsRunbook() bool {
 	if d == nil || d.Empty || d.Root.Kind != KindMap {
 		return false
@@ -28,7 +28,7 @@ func (d *Document) IsRunbook() bool {
 	return steps || runners
 }
 
-// Parse は YAML を位置付きの値と runbook モデルに変換する。
+// Parse converts YAML into positioned values and a runbook model.
 func Parse(src []byte) (*Document, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(src))
 	var first yaml.Node
@@ -43,7 +43,7 @@ func Parse(src []byte) (*Document, error) {
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("runbook は1つの YAML document です")
+		return nil, message.New(message.OneYAML)
 	}
 
 	rootNode := &first
@@ -72,14 +72,14 @@ func decode(n *yaml.Node, seen map[*yaml.Node]struct{}, depth int) (Value, []Dup
 		return Value{Kind: KindNull}, nil, nil
 	}
 	if depth > 64 {
-		return Value{}, nil, fmt.Errorf("YAML の参照が深すぎます")
+		return Value{}, nil, message.New(message.AliasDeep)
 	}
 	if n.Kind == yaml.AliasNode {
 		if n.Alias == nil {
-			return Value{}, nil, fmt.Errorf("解決できない alias があります")
+			return Value{}, nil, message.New(message.AliasUnknown)
 		}
 		if _, ok := seen[n.Alias]; ok {
-			return Value{}, nil, fmt.Errorf("YAML anchor が循環しています")
+			return Value{}, nil, message.New(message.AliasCycle)
 		}
 		seen[n.Alias] = struct{}{}
 		v, dups, err := decode(n.Alias, seen, depth+1)
@@ -113,7 +113,7 @@ func decode(n *yaml.Node, seen map[*yaml.Node]struct{}, depth int) (Value, []Dup
 	case yaml.MappingNode:
 		return decodeMap(n, seen, depth)
 	default:
-		return Value{}, nil, fmt.Errorf("未対応の YAML ノードです")
+		return Value{}, nil, message.New(message.YAMLNode)
 	}
 }
 
@@ -231,15 +231,15 @@ func scalarKey(n *yaml.Node) (string, error) {
 		return scalarKey(n.Alias)
 	}
 	if n.Kind != yaml.ScalarNode {
-		return "", fmt.Errorf("mapping のキーはスカラーです (行 %d)", n.Line)
+		return "", message.New(message.KeyScalar, n.Line)
 	}
 	if n.Tag == "!!null" {
-		return "", fmt.Errorf("mapping のキーが null です (行 %d)", n.Line)
+		return "", message.New(message.KeyNull, n.Line)
 	}
 	return n.Value, nil
 }
 
-// ContainsTemplate は runn の {{ }} または ${} を含むか。
+// ContainsTemplate reports whether s contains a runn {{ }} or ${} template.
 func ContainsTemplate(s string) bool {
 	return strings.Contains(s, "{{") || strings.Contains(s, "${")
 }

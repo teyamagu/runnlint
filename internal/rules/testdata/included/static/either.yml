@@ -1,4 +1,4 @@
-# included || ... は単体でも動くので対象外。
+# included || ... can also run on its own, so it is out of scope.
 desc: either
 if: included || true
 steps:

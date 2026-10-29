@@ -1,8 +1,12 @@
 # バージョンとリリース
 
+[English](en/versioning.md)
+
 runnlint の製品バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) です。値は `internal/version/version.go` の `Version` に置き、Git のタグは先頭に `v` を付けます。`0.1.0` のタグは `v0.1.0` です。
 
 ルールファイルの `version: 1` は、設定の形の番号です。製品バージョンとは別です。
+
+baseline ファイルの `version` も別です。いまの形式は `2` です。組み込み診断は英語の文で記録します。`1` のファイルは読み込めないので、`--write-baseline` で書き直します。`1.0.0` より前は、診断の文言を変えても製品バージョンは上げません。変えたことは変更履歴に書き、既存の baseline は書き直します。
 
 ## 番号の上げ方
 
@@ -20,9 +24,9 @@ runnlint の製品バージョンは [Semantic Versioning 2.0.0](https://semver.
 
 ## リリース手順
 
-1. `CHANGELOG.md` の `[Unreleased]` にある項目を、新しい `## [X.Y.Z]` へ移す。
+1. `CHANGELOG.md` の `[Unreleased]` にある項目を、新しい `## [X.Y.Z]` へ移す。`CHANGELOG.en.md` も同じ見出しにし、対応する英語の項目を書く。GitHub Release の本文は `CHANGELOG.md` から取る。
 2. `internal/version/version.go` の `Version` を `X.Y.Z` にする。プレリリースは `1.2.3-rc.1` のように書く。
-3. `go test ./...` が通ることを確認する。このテストは、`Version` が semver であることと、変更履歴にその節があることを見る。
+3. `go test ./...` が通ることを確認する。このテストは、`Version` が semver であることと、`CHANGELOG.md` と `CHANGELOG.en.md` に同じ `## [X.Y.Z]` があることを見る。
 4. そのコミットに `vX.Y.Z` のタグを付けて push する。
 5. GitHub Actions の Release が、タグと `runnlint --version` の一致を確認してから、各 OS のバイナリと `SHA256SUMS` を GitHub Release に載せる。タグに `-` が含まれるときはプレリリースになる。
 

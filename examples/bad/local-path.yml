@@ -1,4 +1,4 @@
-# openapi3 が指すファイルが存在しない例。
+# Example of openapi3 pointing at a file that does not exist.
 desc: missing openapi
 runners:
   req:

@@ -1,34 +1,35 @@
 package rules
 
 import (
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
-// 抑制コメントの診断は、ルールの評価ではなく診断を集めたあとの共通の層で出す。
-// 登録は、デフォルト設定と既定ルールの一覧に載せるためだけにある。
+// Diagnostics for suppression comments are reported in the shared layer after findings are collected, not while rules run.
+// Registration exists only so the rule appears in the default config and the built-in rule list.
 const unusedSuppressionID = "unused-suppression"
 
 func init() {
 	register(unusedSuppressionID, func(*Context) {})
 }
 
-// directive は1つの runnlint コメント。
+// directive is one runnlint comment.
 type directive struct {
-	// line はコメントのある行、column は # の列。どちらも 1 始まり。
+	// line is the line of the comment and column is the column of #. Both are 1-based.
 	line   int
 	column int
-	// target は抑制する行。コメントだけの行なら、次の空でもコメントでもない行。
+	// target is the line to suppress. A comment-only line targets the next line that is neither empty nor a comment.
 	target int
-	// rules は抑制するルール。nil ならすべてのルール。
+	// rules are the rules to suppress. nil means every rule.
 	rules []string
-	// problem があれば抑制として使わず、その内容を unused-suppression で知らせる。
-	problem string
+	// problem is a built-in sentence shown instead of treating the comment as a suppression.
+	problem message.ID
+	pargs   []any
 }
 
 var (
@@ -37,9 +38,9 @@ var (
 	blockHeaderRe = regexp.MustCompile(`(?:^|:\s|-\s)\s*[|>][1-9+-]{0,2}\s*$`)
 )
 
-// parseDirectives は src の YAML コメントから runnlint の指示を読む。
-// yamllint の "# yamllint disable-line rule:..." と同じ形で、"# runnlint disable-line rule:<id> ... -- 理由" と書く。
-// 引用符の中と、| や > の複数行スカラーの中の # はコメントではない。複数行スカラーの中の指示は problem 付きで返す。
+// parseDirectives reads runnlint directives from YAML comments in src.
+// The form matches yamllint's "# yamllint disable-line rule:...", written as "# runnlint disable-line rule:<id> ... -- reason".
+// A # inside quotes or inside a | or > multiline scalar is not a comment. A directive inside a multiline scalar is returned with a problem.
 func parseDirectives(src []byte) []directive {
 	lines := strings.Split(string(src), "\n")
 	var out []directive
@@ -55,7 +56,7 @@ func parseDirectives(src []byte) []directive {
 			if blank || indent > block {
 				if m := inBlockRe.FindStringSubmatchIndex(line); m != nil {
 					out = append(out, directive{line: lineNo, column: m[2] + 1, target: lineNo,
-						problem: "複数行の値の中のコメントは抑制になりません。診断はキーの行に出るので、キーの行の行末か前の行に書きます"})
+						problem: message.SuppressInBlock})
 				}
 				continue
 			}
@@ -85,7 +86,8 @@ func parseDirectives(src []byte) []directive {
 		}
 		d := directive{line: lineNo, column: col + 1, target: lineNo}
 		if m[1] != "disable-line" {
-			d.problem = fmt.Sprintf("runnlint %s は使えません。disable-line を使います", m[1])
+			d.problem = message.SuppressVerb
+			d.pargs = []any{m[1]}
 		} else {
 			d.rules = parseRuleList(m[2])
 		}
@@ -94,14 +96,14 @@ func parseDirectives(src []byte) []directive {
 			pending = append(pending, len(out)-1)
 		}
 	}
-	// 後ろに行が無い指示は、どの行も抑制しない。
+	// A directive with no following line suppresses nothing.
 	for _, k := range pending {
 		out[k].target = -1
 	}
 	return out
 }
 
-// parseRuleList は "rule:a rule:b,c -- 理由" からルール名を取り出す。何も無ければ nil。
+// parseRuleList extracts rule names from "rule:a rule:b,c -- reason". It returns nil when there are none.
 func parseRuleList(s string) []string {
 	if i := strings.Index(s, "--"); i >= 0 {
 		s = s[:i]
@@ -119,8 +121,8 @@ func parseRuleList(s string) []string {
 	return out
 }
 
-// splitComment は1行をコードとコメントに分ける。quote は前の行から続く引用符。
-// col はコメントの # のバイト位置。コメントが無ければ comment は空。
+// splitComment splits one line into code and comment. quote is a quote that continues from the previous line.
+// col is the byte offset of the comment's #. comment is empty when there is no comment.
 func splitComment(line string, quote byte) (code, comment string, col int, endQuote byte) {
 	for i := 0; i < len(line); i++ {
 		c := line[i]
@@ -149,7 +151,7 @@ func splitComment(line string, quote byte) (code, comment string, col int, endQu
 	return line, "", -1, quote
 }
 
-// quoteStarts は、ここで始まる引用符がスカラーの始まりか。it's のような語の中の ' は引用符ではない。
+// quoteStarts reports whether a quote starting here begins a scalar. A ' inside a word such as it's is not a quote.
 func quoteStarts(before string) bool {
 	t := strings.TrimRight(before, " \t")
 	if t == "" {
@@ -162,8 +164,8 @@ func quoteStarts(before string) bool {
 	return false
 }
 
-// blockIndent は、| や > の行のあとで値の中身とみなす行の字下げの下限（これより深ければ中身）。
-// "  - test: |" ならキー test の列、"  - |" なら - の列。
+// blockIndent is the minimum indent of a line treated as the value after a | or > line (deeper lines are content).
+// "  - test: |" uses the column of the key test, and "  - |" uses the column of -.
 func blockIndent(code string) int {
 	pos := len(code) - len(strings.TrimLeft(code, " "))
 	last := pos
@@ -180,7 +182,7 @@ func blockIndent(code string) int {
 	return pos
 }
 
-// applySuppressions は runnlint disable-line で抑制した診断を除き、使われなかった抑制を unused-suppression として足す。
+// applySuppressions drops diagnostics suppressed by runnlint disable-line and adds unused suppressions as unused-suppression.
 func applySuppressions(file string, src []byte, findings []finding.Finding, cfg *config.Config) []finding.Finding {
 	dirs := parseDirectives(src)
 	if len(dirs) == 0 {
@@ -208,20 +210,23 @@ func applySuppressions(file string, src []byte, findings []finding.Finding, cfg 
 	if unusedSev == finding.Off {
 		return out
 	}
-	add := func(d directive, format string, args ...any) {
+	lang := displayLang(cfg)
+	add := func(d directive, id message.ID, args ...any) {
 		out = append(out, finding.Finding{
 			File: file, Line: d.line, Column: d.column, Severity: unusedSev,
-			Rule: unusedSuppressionID, Message: fmt.Sprintf(format, args...),
+			Rule:    unusedSuppressionID,
+			Message: message.Text(lang, id, args...),
+			Match:   message.English(id, args...),
 		})
 	}
 	for i, d := range dirs {
 		if d.problem != "" {
-			add(d, "%s", d.problem)
+			add(d, d.problem, d.pargs...)
 			continue
 		}
 		if d.rules == nil {
 			if !used[i]["*"] {
-				add(d, "runnlint disable-line で抑制する診断がありません")
+				add(d, message.SuppressNone)
 			}
 			continue
 		}
@@ -229,12 +234,12 @@ func applySuppressions(file string, src []byte, findings []finding.Finding, cfg 
 			sev, ok := known[id]
 			switch {
 			case strings.HasPrefix(id, "yamllint/"):
-				add(d, "%s は yamllint の診断です。# yamllint disable-line rule:%s で抑制します", id, strings.TrimPrefix(id, "yamllint/"))
+				add(d, message.SuppressYAML, id, strings.TrimPrefix(id, "yamllint/"))
 			case !ok:
-				add(d, "ルール %s はありません", id)
+				add(d, message.SuppressNoRule, id)
 			case sev == finding.Off:
 			case !used[i][id]:
-				add(d, "rule:%s で抑制する診断がありません", id)
+				add(d, message.SuppressNoHit, id)
 			}
 		}
 	}

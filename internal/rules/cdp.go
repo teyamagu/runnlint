@@ -2,7 +2,7 @@ package rules
 
 import "github.com/teyamagu/runnlint/internal/runnspec"
 
-// cdpArgs は runn の cdpfn.go から読んだアクション名と入力引数。
+// cdpArgs is action names and input arguments read from runn's cdpfn.go.
 var cdpArgs = map[string][]string{}
 
 func init() {

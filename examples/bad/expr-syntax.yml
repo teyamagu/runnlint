@@ -1,4 +1,4 @@
-# test の式が途中で切れている例。
+# Example of a test expression that is cut off midway.
 desc: broken expression
 steps:
   - test: "current.res.status =="

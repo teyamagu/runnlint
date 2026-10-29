@@ -18,7 +18,7 @@ func writeConfig(t *testing.T, dir, name, body string) string {
 	return path
 }
 
-// extends: none でルールを1つだけ書いた設定を読み込んだとき、ルールがその1件だけになることを確認する。yamllint の bin、missing、有効状態は既定のままであることを確認する。
+// TestExtendsNoneReplacesDefaults checks that a config with extends: none and one rule loads as that single rule. yamllint bin, missing, and enabled stay at their defaults.
 func TestExtendsNoneReplacesDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -43,7 +43,7 @@ rules:
 	}
 }
 
-// extends: NONE の設定に同じ id を2回書いたとき、読み込みが失敗しメッセージに「重複」が含まれることを確認する。
+// TestExtendsNoneRejectsDuplicateID checks that an extends: NONE config that repeats an id fails to load and the error says the rule is duplicated.
 func TestExtendsNoneRejectsDuplicateID(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -61,7 +61,7 @@ rules:
 	}
 }
 
-// 既定を継承する設定で同じ id を2回書いたとき、ルールは1件になり、後の message と select が残り、省略した severity は error になることを確認する。
+// TestLaterRuleOverlaysEarlier checks that a config extending the defaults and repeating an id keeps one rule, keeps the later message and select, and uses error when severity is omitted.
 func TestLaterRuleOverlaysEarlier(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -97,7 +97,7 @@ rules:
 	}
 }
 
-// severity を書かずに var-ref へ ignore だけ上書きしたとき、深刻度が error になり、uses は var-ref のまま、ignore に token が残ることを確認する。
+// TestOmittedSeverityBecomesError checks that overriding var-ref with only ignore, and no severity, sets severity to error, leaves uses as var-ref, and keeps token in ignore.
 func TestOmittedSeverityBecomesError(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -128,7 +128,7 @@ rules:
 	t.Fatal("var-ref がありません")
 }
 
-// duplicate-key に check だけを書いて読み込んだとき、uses が空になり select が desc の check に替わることを確認する。
+// TestCheckReplacesBuiltin checks that loading duplicate-key with only a check clears uses and replaces it with a check whose select is desc.
 func TestCheckReplacesBuiltin(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -154,7 +154,7 @@ rules:
 	t.Fatal("duplicate-key がありません")
 }
 
-// 次の不正な設定を読み込んだとき、いずれも失敗し、エラーに期待する語句が含まれることを確認する。
+// TestValidateRuleShape checks that each invalid config below fails and that the error contains the expected wording.
 func TestValidateRuleShape(t *testing.T) {
 	cases := []struct {
 		name string
@@ -162,7 +162,7 @@ func TestValidateRuleShape(t *testing.T) {
 		want string
 	}{
 		{
-			// uses と check を同時に書いた設定を読み込んだとき、失敗しエラーに「同時」が含まれることを確認する。
+			// A config that sets uses and check together fails, and the error says they cannot both be set.
 			name: "uses and check",
 			body: `
 version: 1
@@ -177,7 +177,7 @@ rules:
 			want: "同時",
 		},
 		{
-			// select が空白だけの check を読み込んだとき、失敗しエラーに select が含まれることを確認する。
+			// A check whose select is only whitespace fails, and the error mentions select.
 			name: "empty select",
 			body: `
 version: 1
@@ -191,7 +191,7 @@ rules:
 			want: "select",
 		},
 		{
-			// severity に fatal を書いた設定を読み込んだとき、失敗しエラーに severity が含まれることを確認する。
+			// A config that sets severity to fatal fails, and the error mentions severity.
 			name: "bad severity",
 			body: `
 version: 1
@@ -204,7 +204,7 @@ rules:
 			want: "severity",
 		},
 		{
-			// yamllint.missing に fatal を書いた設定を読み込んだとき、失敗しエラーに yamllint.missing が含まれることを確認する。
+			// A config that sets yamllint.missing to fatal fails, and the error mentions yamllint.missing.
 			name: "bad yamllint missing",
 			body: `
 version: 1
@@ -230,7 +230,7 @@ rules:
 	}
 }
 
-// uses も check も無く severity が off のルールだけを読み込んだとき、成功しそのルールの uses と check が空のままであることを確認する。
+// TestOffRuleNeedsNoImplementation checks that a rule with neither uses nor check and severity off loads, and that its uses and check stay empty.
 func TestOffRuleNeedsNoImplementation(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -249,7 +249,7 @@ rules:
 	}
 }
 
-// yamllint の enabled と missing だけを書いた設定を読み込んだとき、その2項目だけ替わり bin は yamllint のままであることを確認する。
+// TestYamllintFieldsMerge checks that a config setting only yamllint enabled and missing changes those two fields and leaves bin as yamllint.
 func TestYamllintFieldsMerge(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -267,7 +267,7 @@ yamllint:
 	}
 }
 
-// where を配列ではなく mapping 1件で書いた設定を読み込んだとき、条件が1件になり path と exists が保たれることを確認する。
+// TestWhereAcceptsSingleMapping checks that a where written as one mapping, not an array, becomes one condition and keeps path and exists.
 func TestWhereAcceptsSingleMapping(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", `
@@ -292,7 +292,7 @@ rules:
 	}
 }
 
-// 子ディレクトリで設定パスを空にして読み込んだとき、親の .runnlint-runn.yaml が選ばれ、同じディレクトリの .runnlint-runn.yml と .runnlint.yaml は読まれないことを確認する。
+// TestDiscoverWalksToParentAndPrefersYAML checks that an empty config path in a child directory selects the parent's .runnlint-runn.yaml and does not read the .runnlint-runn.yml or .runnlint.yaml beside it.
 func TestDiscoverWalksToParentAndPrefersYAML(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, ".runnlint-runn.yaml", `
@@ -330,7 +330,7 @@ rules:
 	}
 }
 
-// .runnlint.yaml などの従来の名前だけがあるときは、中身が runnlint の設定でも読まず、警告も出さずデフォルトを使うことを確認する。
+// TestDiscoverIgnoresLegacyNames checks that a legacy name such as .runnlint.yaml is not read even when its contents are a runnlint config, that no warning is emitted, and that the defaults are used.
 func TestDiscoverIgnoresLegacyNames(t *testing.T) {
 	for _, name := range []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"} {
 		t.Run(name, func(t *testing.T) {
@@ -353,7 +353,7 @@ func TestDiscoverIgnoresLegacyNames(t *testing.T) {
 	}
 }
 
-// JSON の設定ファイルを読み込んだとき成功し、extends: none のとおりルールが require-steps の1件だけになることを確認する。
+// TestLoadJSONConfig checks that a JSON config file loads and that extends: none leaves only the require-steps rule.
 func TestLoadJSONConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, "rules.json", `{
@@ -372,7 +372,7 @@ func TestLoadJSONConfig(t *testing.T) {
 	}
 }
 
-// 探索で見つけた .runnlint-runn.yaml の形が違うとき、読み飛ばさず失敗することを確認する。
+// TestDiscoverRejectsForeignUniqueName checks that a discovered .runnlint-runn.yaml with the wrong shape fails instead of being skipped.
 func TestDiscoverRejectsForeignUniqueName(t *testing.T) {
 	foreign := map[string]string{
 		"未知のキー":         "linters:\n  - runbook\n",
@@ -393,7 +393,7 @@ func TestDiscoverRejectsForeignUniqueName(t *testing.T) {
 	}
 }
 
-// --config で渡したファイルは、未知のキーがあっても従来どおり読み込み、警告だけを残すことを確認する。
+// TestExplicitConfigWarnsUnknownKeys checks that a file passed with --config still loads when it has unknown keys, and that only a warning is kept.
 func TestExplicitConfigWarnsUnknownKeys(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, ".runnlint.yaml", "extends: default\nignores:\n  - vendor\n")
@@ -401,12 +401,12 @@ func TestExplicitConfigWarnsUnknownKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0], "ignores") {
+	if len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0].Error(), "ignores") {
 		t.Fatalf("%v", cfg.Warnings)
 	}
 }
 
-// --print-config の出力を .runnlint-runn.yaml に置いたとき、警告なく読むことを確認する。
+// TestPrintedDefaultPassesShapeCheck checks that placing --print-config output in .runnlint-runn.yaml loads with no warning.
 func TestPrintedDefaultPassesShapeCheck(t *testing.T) {
 	root := t.TempDir()
 	raw, err := DefaultYAML()
@@ -424,7 +424,7 @@ func TestPrintedDefaultPassesShapeCheck(t *testing.T) {
 	}
 }
 
-// 探索で見つけた設定の rules の中に未知のキーがあるだけなら、警告を出して読み込むことを確認する。
+// TestNestedUnknownKeyWarnsAndLoads checks that a discovered config whose only problem is an unknown key inside rules loads and emits a warning.
 func TestNestedUnknownKeyWarnsAndLoads(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, ".runnlint-runn.yaml", "extends: none\nrules:\n  - id: mine\n    severity: off\n    sevrity: error\n")
@@ -433,7 +433,7 @@ func TestNestedUnknownKeyWarnsAndLoads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "mine" || len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0], "sevrity") {
+	if len(cfg.Rules) != 1 || cfg.Rules[0].ID != "mine" || len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0].Error(), "sevrity") {
 		t.Fatalf("%+v", cfg)
 	}
 }

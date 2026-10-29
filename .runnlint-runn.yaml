@@ -2,5 +2,5 @@ extends: default
 
 ignore:
   - examples/bad
-  # 検査の入力に使う runbook。わざと壊れているものを含む。
+  # Runbooks used as lint input. Includes ones that are broken on purpose.
   - internal/rules/testdata
