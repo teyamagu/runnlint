@@ -180,6 +180,7 @@ rules:
 | `local-path` | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | 式として読む欄を `{{ }}` で包んでいる |
+| `expr-sharp-comment` | `test` や `if` などの式に `#` のコメントがある。runn は取り除いて動くが、非推奨の警告を出す |
 | `step-ref` | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | `vars` に無い変数を参照している |
 | `loop-index` | `loop` の外で添字 `i` を使っている |

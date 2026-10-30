@@ -180,6 +180,7 @@ This table says which failure each id reported in a diagnostic means. The initia
 | `local-path` | A file a runner references, such as a certificate or proto, does not exist |
 | `expr-syntax` | An expression in `{{ }}`, `test`, or a similar field cannot be parsed as an expression |
 | `expr-braces` | A field that is read as an expression is wrapped in `{{ }}` |
+| `expr-sharp-comment` | An expression such as `test` or `if` has a `#` comment. runn strips it but prints a deprecation warning |
 | `step-ref` | An array step is referenced by name, a named step is referenced by index, or a step that has not run yet is referenced |
 | `var-ref` | A variable that is not in `vars` is referenced |
 | `loop-index` | The index `i` is used outside `loop` |

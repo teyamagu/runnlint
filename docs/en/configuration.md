@@ -194,6 +194,7 @@ Names that can be written in `uses`, their initial severity, and the failure tha
 | `local-path` | warning | A file a runner references, such as a certificate or proto, does not exist |
 | `expr-syntax` | error | An expression in `{{ }}`, `test`, or a similar field cannot be parsed as an expression |
 | `expr-braces` | warning | A field that is read as an expression is wrapped in `{{ }}` |
+| `expr-sharp-comment` | info | An expression such as `test`, `if`, `until`, or `bind` has a `#` comment outside brackets. runn strips it but warns "`#` comment is deprecated. Use `//` instead." A `#` inside a string literal or the closure `#` inside `( )` or `{ }` is not reported. The inside of `{{ }}` is not inspected |
 | `step-ref` | error | An array step is referenced by name, a named step is referenced by index, or a step that has not run yet is referenced |
 | `var-ref` | warning | A variable that is not in `vars` is referenced |
 | `loop-index` | warning | The index `i` is used outside `loop` |

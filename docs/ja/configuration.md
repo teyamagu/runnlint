@@ -194,6 +194,7 @@ rules:
 | `local-path` | warning | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | error | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | warning | 式として読む欄を `{{ }}` で包んでいる |
+| `expr-sharp-comment` | info | `test`、`if`、`until`、`bind` などの式に、括弧の外の `#` コメントがある。runn は取り除いて動くが「`#` comment is deprecated. Use `//` instead.」と警告する。文字列の中の `#` と、`( )` や `{ }` の中のクロージャの `#` は出さない。`{{ }}` の中は見ない |
 | `step-ref` | error | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | warning | `vars` に無い変数を参照している |
 | `loop-index` | warning | `loop` の外で添字 `i` を使っている |

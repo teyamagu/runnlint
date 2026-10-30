@@ -114,6 +114,11 @@ rules:
     uses: expr-braces
     severity: warning
 
+  # A # comment in test, if, until, or bind. runn strips it but warns that it is deprecated and asks for // instead.
+  - id: expr-sharp-comment
+    uses: expr-sharp-comment
+    severity: info
+
   - id: step-ref
     uses: step-ref
     severity: error

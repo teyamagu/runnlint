@@ -1,0 +1,8 @@
+# Example of a # comment inside a test expression. runn strips it but prints a deprecation warning. Write // instead.
+desc: sharp comment in expression
+steps:
+  - exec:
+      command: echo ok
+  - test: |
+      # the command succeeded
+      steps[0].exit_code == 0 # and nothing else

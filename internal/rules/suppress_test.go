@@ -72,7 +72,7 @@ steps:
       current.res.status == 200 # runnlint disable-line rule:expr-syntax
       && true
 `)
-	onlyRules(t, got, "unused-suppression@12")
+	onlyRules(t, got, "expr-sharp-comment@11", "unused-suppression@12")
 }
 
 // # runnlint inside quotes is not treated as a suppression.
@@ -83,7 +83,7 @@ steps:
     test: '"# runnlint disable-line" != ""'
   - dump: "vars.other # runnlint disable-line"
 `)
-	onlyRules(t, got, "var-ref@03", "var-ref@05")
+	onlyRules(t, got, "expr-sharp-comment@05", "var-ref@03", "var-ref@05")
 }
 
 // An unknown rule, a yamllint rule, an unavailable directive, and a suppression that removes nothing are reported as unused-suppression.
