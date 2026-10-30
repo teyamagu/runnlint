@@ -72,6 +72,16 @@ func Write(w io.Writer, format string, findings []finding.Finding) error {
 }
 
 // HasError reports whether the diagnostics include an error.
+// HasWarning reports whether any finding has severity warning.
+func HasWarning(findings []finding.Finding) bool {
+	for _, f := range findings {
+		if f.Severity == finding.Warning {
+			return true
+		}
+	}
+	return false
+}
+
 func HasError(findings []finding.Finding) bool {
 	for _, f := range findings {
 		if f.Severity == finding.Error {

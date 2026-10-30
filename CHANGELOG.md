@@ -8,6 +8,11 @@
 
 ### 追加
 
+- `--strict`。warning でも終了コードを 1 にする。info は対象外。`--baseline` で消した診断は数えない。
+- `unused-runner`（warning）。`runners` や step の `runner:` で定義した runner を、どの step も呼んでいないことを知らせる。inline include の中の step が呼ぶものは使っているとみなす。
+- `require-test-step`（info）。単独で実行できる runbook に `test` だけの step が無いことを知らせる。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にする。`if: included` の runbook は対象外。
+- `expr-sharp-comment`（info）。`test` や `if` などの式に括弧の外の `#` コメントがあることを知らせる。runn は取り除いて動くが、非推奨の警告を出して `//` を求める。
+- `unused-bind`（warning）。`bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいないことを知らせる。`if: included` で固定パスの参照元が無い runbook は判定しない。
 - 宣言的ルールの `select` に、深さを問わない `**` を足しました。`steps.*.**.query` はどの runner の下にある `query` でも選び、`vars.**` は `vars` の下のスカラーをすべて選びます。
 - `where` の `path` を `$.if` のように `$.` から始めると、runbook のルートから辿ります。合わないとそのルールはその runbook に何も出しません。
 - ルールの `files`。glob の配列で、当たるファイルにだけそのルールを当てます。組み込みルールにも宣言的ルールにも効き、引数に直接渡したファイルにも当たります。
@@ -18,6 +23,13 @@
 
 - 宣言的ルールの `exists` と `forbid` は、`where` で残った値だけを見ます。これまで `exists` は `where` を無視していました。
 - 日本語の文書を `docs/ja/` に置く。
+- mapping のキー（HTTP のパス、body の項目名）の中の `{{ }}` も式として読む。runn はキーも展開するため。`expr-syntax`、`var-ref`、`step-ref`、`unused-bind` がキーの中の参照を見る。
+- `examples` の runbook に、確かめたいことを名前にした `test` だけの step を足した。
+
+### 修正
+
+- `ignore` の `**/` の後ろの `*` と `?` がディレクトリ区切りをまたいで当たっていた（`a/**/?.yml` が `a/x/cc.yml` に当たる）。`**/` を 0 個以上のディレクトリ全体として扱う。
+- 宣言的ルールの `equals: null`、`not_equals: null`、`where` の `equals: null` が無視されていた。YAML の null は decode されないため、キーが書かれたことを設定の読み込みで記録するようにした。
 
 ## [0.2.0]
 

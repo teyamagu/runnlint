@@ -5,3 +5,4 @@ runners:
 steps:
   - db:
       trace: false
+  - test: len(steps[0].rows) >= 0

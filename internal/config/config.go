@@ -87,6 +87,45 @@ type Cond struct {
 	Matches string `yaml:"matches"`
 }
 
+// UnmarshalYAML decodes a check and then records equals and not_equals written as null.
+// yaml.v3 does not call an unmarshaler for a null node, so without this a written `equals: null` would look unset.
+func (c *Check) UnmarshalYAML(n *yaml.Node) error {
+	type plain Check
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*c = Check(p)
+	c.Equals = nullAny(n, "equals", c.Equals)
+	c.NotEquals = nullAny(n, "not_equals", c.NotEquals)
+	return nil
+}
+
+// UnmarshalYAML decodes a where condition and then records an equals written as null.
+func (c *Cond) UnmarshalYAML(n *yaml.Node) error {
+	type plain Cond
+	var p plain
+	if err := n.Decode(&p); err != nil {
+		return err
+	}
+	*c = Cond(p)
+	c.Equals = nullAny(n, "equals", c.Equals)
+	return nil
+}
+
+// nullAny returns a set Any with a nil value when mapping n has key with a null value and current is still unset.
+func nullAny(n *yaml.Node, key string, current *Any) *Any {
+	if current != nil || n.Kind != yaml.MappingNode {
+		return current
+	}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == key && n.Content[i+1].ShortTag() == "!!null" {
+			return &Any{Set: true, Value: nil}
+		}
+	}
+	return current
+}
+
 // WhereList accepts either a single mapping or a sequence.
 type WhereList []Cond
 
@@ -466,10 +505,13 @@ func globMatch(pattern, path string) bool {
 		switch pattern[i] {
 		case '*':
 			if i+1 < len(pattern) && pattern[i+1] == '*' {
-				b.WriteString(".*")
 				i++
 				if i+1 < len(pattern) && pattern[i+1] == '/' {
+					// **/ is zero or more whole directories, so what follows still starts at a segment boundary.
+					b.WriteString("(?:.*/)?")
 					i++
+				} else {
+					b.WriteString(".*")
 				}
 				continue
 			}

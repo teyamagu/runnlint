@@ -3,3 +3,4 @@ desc: undefined runner
 steps:
   - nope:
       query: SELECT 1
+  - test: len(steps[0].rows) == 1

@@ -6,3 +6,4 @@ steps:
   - sc:
       command: hostname
       extra: 1
+  - test: steps[0].stdout != ""

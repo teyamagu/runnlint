@@ -72,7 +72,7 @@ steps:
       current.res.status == 200 # runnlint disable-line rule:expr-syntax
       && true
 `)
-	onlyRules(t, got, "unused-suppression@12")
+	onlyRules(t, got, "expr-sharp-comment@11", "unused-suppression@12")
 }
 
 // # runnlint inside quotes is not treated as a suppression.
@@ -83,7 +83,7 @@ steps:
     test: '"# runnlint disable-line" != ""'
   - dump: "vars.other # runnlint disable-line"
 `)
-	onlyRules(t, got, "var-ref@03", "var-ref@05")
+	onlyRules(t, got, "expr-sharp-comment@05", "var-ref@03", "var-ref@05")
 }
 
 // An unknown rule, a yamllint rule, an unavailable directive, and a suppression that removes nothing are reported as unused-suppression.
@@ -93,6 +93,7 @@ steps:
   - dump: x # runnlint disable-line rule:yamllint/line-length
   - dump: x # runnlint disable rule:var-ref
   - dump: x # runnlint disable-line
+  - test: "true"
 `)
 	onlyRules(t, got, "unused-suppression@01", "unused-suppression@03", "unused-suppression@04", "unused-suppression@05")
 	want := []string{"no-such-rule", "yamllint disable-line", "disable-line", "抑制する診断がありません"}

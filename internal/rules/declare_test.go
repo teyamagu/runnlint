@@ -303,6 +303,33 @@ rules:
 	}
 }
 
+// equals: null and not_equals: null are real conditions: equals: null reports a value that is not null, and not_equals: null reports a null.
+// A where with equals: null keeps only null values. YAML leaves a null node undecoded, so the config must record that the key was written.
+func TestEqualsNullIsNotIgnored(t *testing.T) {
+	cases := []struct {
+		name    string
+		check   string
+		src     string
+		wantHit bool
+	}{
+		{"equals null on a non-null value", "select: debug\n      equals: null\n", "debug: true\nsteps:\n  - test: \"true\"\n", true},
+		{"equals null on a null value", "select: debug\n      equals: null\n", "debug: null\nsteps:\n  - test: \"true\"\n", false},
+		{"not_equals null on a null value", "select: debug\n      not_equals: null\n", "debug: null\nsteps:\n  - test: \"true\"\n", true},
+		{"not_equals null on a non-null value", "select: debug\n      not_equals: null\n", "debug: true\nsteps:\n  - test: \"true\"\n", false},
+		{"where equals null keeps a null", "select: steps.*\n      where:\n        path: dump\n        equals: null\n      forbid: true\n", "steps:\n  - dump: null\n", true},
+		{"where equals null drops a non-null", "select: steps.*\n      where:\n        path: dump\n        equals: null\n      forbid: true\n", "steps:\n  - dump: x\n", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			yml := "version: 1\nextends: none\nrules:\n  - id: custom\n    severity: error\n    check:\n      " + tc.check
+			got := lintConfig(t, yml, tc.src)
+			if hasRule(got, "custom") != tc.wantHit {
+				t.Fatalf("%+v", got)
+			}
+		})
+	}
+}
+
 // lintConfigAs is lintConfig with a file name, for rules that use files.
 func lintConfigAs(t *testing.T, yml, filename, src string) []finding.Finding {
 	t.Helper()
@@ -325,7 +352,7 @@ func lintConfigAs(t *testing.T, yml, filename, src string) []finding.Finding {
 	return got
 }
 
-func customRule(check string) string {
+func pathRule(check string) string {
 	return "version: 1\nextends: none\nrules:\n  - id: custom\n    severity: warning\n    message: \"path={{ .path }} key={{ .key }} value={{ .value }}\"\n    check:\n      " + check
 }
 
@@ -354,7 +381,7 @@ steps:
   - test: "true"
 `
 	t.Run("trailing ** selects every scalar", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'vars.**'\n      forbid: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'vars.**'\n      forbid: true\n"), book)
 		msgs := messagesOf(got, "custom")
 		want := []string{"path=vars.flat key=flat value=a", "path=vars.nested.deep[0] key=0 value=b", "path=vars.nested.deep[1] key=1 value=c"}
 		if strings.Join(msgs, "\n") != strings.Join(want, "\n") {
@@ -362,7 +389,7 @@ steps:
 		}
 	})
 	t.Run("** in the middle crosses runner, path, and method", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'steps.*.**.query'\n      forbid: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'steps.*.**.query'\n      forbid: true\n"), book)
 		msgs := messagesOf(got, "custom")
 		want := []string{"path=steps[0].req./graphql.post.body.application/json.query key=query value=query { a }", "path=steps[1].db.query key=query value=SELECT 1"}
 		if strings.Join(msgs, "\n") != strings.Join(want, "\n") {
@@ -370,27 +397,27 @@ steps:
 		}
 	})
 	t.Run("** matches zero levels", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'vars.**.flat'\n      forbid: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'vars.**.flat'\n      forbid: true\n"), book)
 		msgs := messagesOf(got, "custom")
 		if len(msgs) != 1 || msgs[0] != "path=vars.flat key=flat value=a" {
 			t.Fatalf("%#v", msgs)
 		}
 	})
 	t.Run("* still means one level", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'steps.*.query'\n      forbid: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'steps.*.query'\n      forbid: true\n"), book)
 		if msgs := messagesOf(got, "custom"); len(msgs) != 0 {
 			t.Fatalf("%#v", msgs)
 		}
 	})
 	t.Run("exists true reports once at the parent before the wildcard", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'steps.*.**.timeout'\n      exists: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'steps.*.**.timeout'\n      exists: true\n"), book)
 		msgs := messagesOf(got, "custom")
 		if len(msgs) != 1 || msgs[0] != "path=steps key= value=null" {
 			t.Fatalf("%#v", msgs)
 		}
 	})
 	t.Run("trailing ** on a scalar selects that scalar", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'desc.**'\n      forbid: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'desc.**'\n      forbid: true\n"), book)
 		msgs := messagesOf(got, "custom")
 		if len(msgs) != 1 || msgs[0] != "path=desc key=desc value=x" {
 			t.Fatalf("%#v", msgs)
@@ -476,7 +503,7 @@ func TestWhereRootPath(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := lintConfig(t, customRule(tc.check), tc.src)
+			got := lintConfig(t, pathRule(tc.check), tc.src)
 			msgs := messagesOf(got, "custom")
 			if tc.wantHit && len(msgs) == 0 {
 				t.Fatalf("診断がありません: %+v", got)
@@ -494,16 +521,16 @@ func TestWhereRootPath(t *testing.T) {
 // exists: false and forbid respect where. exists: true reports when no selected value passes where.
 func TestWhereAppliesToExists(t *testing.T) {
 	src := "steps:\n  - desc: a\n  - desc: b\n    test: \"true\"\n"
-	got := lintConfig(t, customRule("select: 'steps.*'\n      where:\n        - path: test\n          exists: true\n      exists: false\n"), src)
+	got := lintConfig(t, pathRule("select: 'steps.*'\n      where:\n        - path: test\n          exists: true\n      exists: false\n"), src)
 	msgs := messagesOf(got, "custom")
 	if len(msgs) != 1 || !strings.Contains(msgs[0], "path=steps[1]") {
 		t.Fatalf("%#v", msgs)
 	}
-	got = lintConfig(t, customRule("select: 'steps.*'\n      where:\n        - path: test\n          exists: true\n      exists: true\n"), src)
+	got = lintConfig(t, pathRule("select: 'steps.*'\n      where:\n        - path: test\n          exists: true\n      exists: true\n"), src)
 	if msgs := messagesOf(got, "custom"); len(msgs) != 0 {
 		t.Fatalf("%#v", msgs)
 	}
-	got = lintConfig(t, customRule("select: 'steps.*'\n      where:\n        - path: test\n          exists: true\n      exists: true\n"), "steps:\n  - desc: a\n")
+	got = lintConfig(t, pathRule("select: 'steps.*'\n      where:\n        - path: test\n          exists: true\n      exists: true\n"), "steps:\n  - desc: a\n")
 	msgs = messagesOf(got, "custom")
 	if len(msgs) != 1 || msgs[0] != "path=steps key= value=null" {
 		t.Fatalf("%#v", msgs)
@@ -534,7 +561,7 @@ func TestKindCondition(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.sel+" "+tc.kind, func(t *testing.T) {
-			got := lintConfig(t, customRule("select: "+tc.sel+"\n      kind: "+tc.kind+"\n"), book)
+			got := lintConfig(t, pathRule("select: "+tc.sel+"\n      kind: "+tc.kind+"\n"), book)
 			msgs := messagesOf(got, "custom")
 			if tc.hit != (len(msgs) == 1) {
 				t.Fatalf("%#v", msgs)
@@ -554,20 +581,20 @@ func TestKindCondition(t *testing.T) {
 		}
 	})
 	t.Run("map steps pass", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: steps\n      kind: mapping\n"), "steps:\n  a:\n    test: \"true\"\n")
+		got := lintConfig(t, pathRule("select: steps\n      kind: mapping\n"), "steps:\n  a:\n    test: \"true\"\n")
 		if msgs := messagesOf(got, "custom"); len(msgs) != 0 {
 			t.Fatalf("%#v", msgs)
 		}
 	})
 	t.Run("kind is checked before the other conditions", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: vars.n\n      kind: string\n      matches: '^1$'\n"), book)
+		got := lintConfig(t, pathRule("select: vars.n\n      kind: string\n      matches: '^1$'\n"), book)
 		msgs := messagesOf(got, "custom")
 		if len(msgs) != 1 {
 			t.Fatalf("%#v", msgs)
 		}
 	})
 	t.Run("kind in where filters values", func(t *testing.T) {
-		got := lintConfig(t, customRule("select: 'vars.*'\n      where:\n        - kind: mapping\n      forbid: true\n"), book)
+		got := lintConfig(t, pathRule("select: 'vars.*'\n      where:\n        - kind: mapping\n      forbid: true\n"), book)
 		msgs := messagesOf(got, "custom")
 		if len(msgs) != 1 || !strings.Contains(msgs[0], "path=vars.m") {
 			t.Fatalf("%#v", msgs)
@@ -592,26 +619,26 @@ steps:
           headers:
             X-A: "1"
 `
-	got := lintConfig(t, customRule("select: 'steps.*.req.\"/v1/{id}.json\".get'\n      forbid: true\n"), book)
+	got := lintConfig(t, pathRule("select: 'steps.*.req.\"/v1/{id}.json\".get'\n      forbid: true\n"), book)
 	msgs := messagesOf(got, "custom")
 	if len(msgs) != 1 || !strings.Contains(msgs[0], `path=steps[0].req."/v1/{id}.json".get key=get`) {
 		t.Fatalf("%#v", msgs)
 	}
-	got = lintConfig(t, customRule("select: 'steps.*.req.\"/v1/{id}.json\"'\n      where:\n        - path: 'get.headers.\"X-A\"'\n          equals: \"1\"\n      forbid: true\n"), book)
+	got = lintConfig(t, pathRule("select: 'steps.*.req.\"/v1/{id}.json\"'\n      where:\n        - path: 'get.headers.\"X-A\"'\n          equals: \"1\"\n      forbid: true\n"), book)
 	if msgs := messagesOf(got, "custom"); len(msgs) != 1 {
 		t.Fatalf("%#v", msgs)
 	}
-	got = lintConfig(t, customRule("select: 'vars.\"*\"'\n      forbid: true\n"), book)
+	got = lintConfig(t, pathRule("select: 'vars.\"*\"'\n      forbid: true\n"), book)
 	msgs = messagesOf(got, "custom")
 	if len(msgs) != 1 || !strings.Contains(msgs[0], "value=star") {
 		t.Fatalf("%#v", msgs)
 	}
-	got = lintConfig(t, customRule("select: 'vars.\"a.b\"'\n      forbid: true\n"), book)
+	got = lintConfig(t, pathRule("select: 'vars.\"a.b\"'\n      forbid: true\n"), book)
 	msgs = messagesOf(got, "custom")
 	if len(msgs) != 1 || !strings.Contains(msgs[0], `path=vars."a.b" key=a.b value=dotted`) {
 		t.Fatalf("%#v", msgs)
 	}
-	got = lintConfig(t, customRule("select: 'steps.*'\n      where:\n        - path: '$.vars.\"$\"'\n          equals: dollar\n      forbid: true\n"), book)
+	got = lintConfig(t, pathRule("select: 'steps.*'\n      where:\n        - path: '$.vars.\"$\"'\n          equals: dollar\n      forbid: true\n"), book)
 	if msgs := messagesOf(got, "custom"); len(msgs) != 1 {
 		t.Fatalf("%#v", msgs)
 	}

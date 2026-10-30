@@ -11,3 +11,4 @@ steps:
       count: 3
       until: current.res.status == 200
     test: current.res.status == 200
+  - test: steps[0].res.status == 200

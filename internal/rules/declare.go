@@ -259,6 +259,15 @@ func scalarText(v runbook.Value) string {
 	}
 }
 
+// selectPath returns every value that the select path selects. A path that cannot be parsed selects nothing.
+func selectPath(root runbook.Value, path string) []match {
+	segs, err := runbook.ParsePath(path)
+	if err != nil {
+		return nil
+	}
+	return selectSegs(root, segs)
+}
+
 // selectSegs returns every value that segs selects. A value reached twice, which is possible with repeated **, is kept once.
 func selectSegs(root runbook.Value, segs []runbook.Seg) []match {
 	all := walkPath(root, segs, "", "", nil)

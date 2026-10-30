@@ -38,13 +38,14 @@ runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
 runnlint --baseline runnlint-baseline.json .
+runnlint --strict .
 runnlint --include-root . books/payments
 runnlint --list-rules
 runnlint --print-config > .runnlint-runn.yaml
 runnlint --version
 ```
 
-終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。
+終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。`--strict` を付けると warning でも `1` になります。info は `--strict` でも失敗しません。`--baseline` で消した診断は数えないので、既存の warning を baseline に入れたまま、新しい warning だけで止められます。
 
 表示は日本語が既定です。設定の `language: en`、または `--lang en` で英語にします。`--lang` は設定より優先します。`ja` と `en` 以外を渡すと終了コード `2` です。text、github、JSON の `message`、`-h` の使い方は、選んだ言語の文だけを出します。
 
@@ -180,11 +181,15 @@ rules:
 | `local-path` | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | 式として読む欄を `{{ }}` で包んでいる |
+| `expr-sharp-comment` | `test` や `if` などの式に `#` のコメントがある。runn は取り除いて動くが、非推奨の警告を出す |
 | `step-ref` | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | `vars` に無い変数を参照している |
 | `loop-index` | `loop` の外で添字 `i` を使っている |
 | `previous-step` | 直前の step が無い場所で `previous` を使っている |
 | `defer-experimental` | `defer` は実験的機能だという知らせ |
+| `unused-runner` | `runners` や `runner:` で定義した runner を、どの step も呼んでいない |
+| `unused-bind` | `bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない |
+| `require-test-step` | 単独で実行できる runbook に、`test` だけの step（このシナリオで確かめたいことを名前にした検証 step）が無い |
 | `included-unreferenced` | include されたときだけ動く runbook が、どこからも include されていない |
 | `unused-suppression` | 抑制のコメントが、診断を抑制できていない |
 

@@ -51,7 +51,8 @@ func TestLoadOverride(t *testing.T) {
 
 // TestIgnore checks that a literal matches the walked path and paths under it. A trailing / is stripped only for descendants; an exact path match keeps the trailing /.
 // A pattern matches a base name only when the whole pattern matches that name. *.gen.yml matches; dir/*.yml matches only files directly under dir.
-// ** matches only a walked path and spans intermediate directories. A pattern with ./, or one that contains /, misses when the walked path string differs.
+// ** matches only a walked path and spans intermediate directories. **/ stands for zero or more whole directories, so * and ? after it stay inside one path segment.
+// A pattern with ./, or one that contains /, misses when the walked path string differs.
 func TestIgnore(t *testing.T) {
 	cases := []struct {
 		pat  string
@@ -83,6 +84,14 @@ func TestIgnore(t *testing.T) {
 		{"vendor/**", "vendor/a.yml", true},
 		{"vendor/**", "vendor/a/b.yml", true},
 		{"vendor/**", "other/vendor/a.yml", false},
+		{"a/**/?.yml", "a/x/c.yml", true},
+		{"a/**/?.yml", "a/c.yml", true},
+		{"a/**/?.yml", "a/x/cc.yml", false},
+		{"a/**/b*.yml", "a/x/y/book.yml", true},
+		{"a/**/b*.yml", "a/x/yb/ook.yml", false},
+		{"**/openapi.yml", "a/b/openapi.yml", true},
+		{"**/openapi.yml", "openapi.yml", true},
+		{"**/openapi.yml", "a/xopenapi.yml", false},
 	}
 	for _, c := range cases {
 		cfg := &Config{Ignore: []string{c.pat}}

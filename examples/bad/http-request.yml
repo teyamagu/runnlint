@@ -8,3 +8,4 @@ steps:
         post:
           headers:
             Authorization: token
+  - test: steps[0].res.status == 200

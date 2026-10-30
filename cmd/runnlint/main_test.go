@@ -187,3 +187,36 @@ func TestLangFlag(t *testing.T) {
 		t.Fatalf("code = %d\n%s", code, stderr)
 	}
 }
+
+// TestStrictFlag checks that --strict makes a warning-only runbook exit 1, while an info-only runbook still exits 0.
+// A warning hidden by --baseline does not count, so --strict with that baseline exits 0.
+func TestStrictFlag(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	warn := []byte("steps:\n  - test: \"true\"\n")
+	if err := os.WriteFile(filepath.Join(dir, "warn.yml"), warn, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := capture(t, []string{"--no-yamllint", "--strict", "warn.yml"})
+	if code != 1 || !strings.Contains(stdout, "warning: [require-desc]") {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+
+	info := []byte("desc: deferred\nsteps:\n  - defer: true\n    test: \"true\"\n")
+	if err := os.WriteFile(filepath.Join(dir, "info.yml"), info, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr = capture(t, []string{"--no-yamllint", "--strict", "info.yml"})
+	if code != 0 || !strings.Contains(stdout, "info: [defer-experimental]") {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+
+	code, _, stderr = capture(t, []string{"--no-yamllint", "--write-baseline", "baseline.json", "warn.yml"})
+	if code != 0 {
+		t.Fatalf("code = %d\n%s", code, stderr)
+	}
+	code, stdout, stderr = capture(t, []string{"--no-yamllint", "--strict", "--baseline", "baseline.json", "warn.yml"})
+	if code != 0 || stdout != "" {
+		t.Fatalf("code = %d\n%s\n%s", code, stdout, stderr)
+	}
+}

@@ -38,13 +38,14 @@ runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
 runnlint --baseline runnlint-baseline.json .
+runnlint --strict .
 runnlint --include-root . books/payments
 runnlint --list-rules
 runnlint --print-config > .runnlint-runn.yaml
 runnlint --version
 ```
 
-The exit code is `1` when there is at least one error, `2` when configuration or execution fails, and `0` otherwise. Warnings and info alone do not fail the run.
+The exit code is `1` when there is at least one error, `2` when configuration or execution fails, and `0` otherwise. Warnings and info alone do not fail the run. With `--strict`, a warning also exits `1`. Info never fails, even with `--strict`. Diagnostics hidden by `--baseline` do not count, so existing warnings can stay in the baseline while new warnings stop the run.
 
 The display language defaults to Japanese. Set `language: en` in the config, or pass `--lang en`, to show English. `--lang` overrides the config. Any other value exits with code `2`. text, github, the JSON `message`, and `-h` usage print only the selected language.
 
@@ -180,11 +181,15 @@ This table says which failure each id reported in a diagnostic means. The initia
 | `local-path` | A file a runner references, such as a certificate or proto, does not exist |
 | `expr-syntax` | An expression in `{{ }}`, `test`, or a similar field cannot be parsed as an expression |
 | `expr-braces` | A field that is read as an expression is wrapped in `{{ }}` |
+| `expr-sharp-comment` | An expression such as `test` or `if` has a `#` comment. runn strips it but prints a deprecation warning |
 | `step-ref` | An array step is referenced by name, a named step is referenced by index, or a step that has not run yet is referenced |
 | `var-ref` | A variable that is not in `vars` is referenced |
 | `loop-index` | The index `i` is used outside `loop` |
 | `previous-step` | `previous` is used where there is no previous step |
 | `defer-experimental` | Notice that `defer` is experimental |
+| `unused-runner` | A runner defined in `runners` or `runner:` is not called by any step |
+| `unused-bind` | A name given by `bind` is read neither by this file's expressions nor by any file that includes or needs this runbook |
+| `require-test-step` | A runbook that can run on its own has no step with only `test`, a verification step that names what the scenario checks |
 | `included-unreferenced` | A runbook that runs only when included is not included from anywhere |
 | `unused-suppression` | A suppression comment does not suppress a diagnostic |
 

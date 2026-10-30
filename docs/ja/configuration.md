@@ -118,7 +118,7 @@ runnlint examples/fixtures/openapi.yml
 | ディレクトリ | `examples/bad` や `vendor` は、そのパスとその下。`vendor` は `/` を含まないので、ベース名が `vendor` のファイルにも当たる |
 | ベース名 | `openapi.yml` は、ディレクトリが違ってもベース名が `openapi.yml` のファイル |
 | `*` と `?` | `*.gen.yml` はベース名にも当たる。`dir/*.yml` は `dir` の直下だけ。`*` と `?` はディレクトリ区切りをまたがない |
-| `**` | `vendor/**` は、走査で得たパスが `vendor/` 以下のファイル。途中のディレクトリをまたぐ。`other/vendor/a.yml` には当たらない |
+| `**` | `vendor/**` は、走査で得たパスが `vendor/` 以下のファイル。途中のディレクトリをまたぐ。`other/vendor/a.yml` には当たらない。`**/` は 0 個以上のディレクトリ全体なので、その後ろの `*` と `?` は 1 つの段の中に収まる。`a/**/?.yml` は `a/c.yml` と `a/x/c.yml` に当たり、`a/x/cc.yml` には当たらない |
 
 `.git`、`vendor`、`node_modules` は、`ignore` が無くてもディレクトリごと降りません。include の参照元としても読みません。
 
@@ -186,7 +186,7 @@ rules:
 
 パターンの当て方は「ignore」と同じです。走査で得たパス（スラッシュ区切り）とそのベース名に当て、`**` を含むパターンは走査で得たパスだけに当てます。違いは1つで、`ignore` は引数がディレクトリのときだけ見ますが、`files` は引数にファイルを渡したときにも見ます。`runnlint integrations/a.yml` と書けば、`integrations/**` のルールが当たります。走査で得たパスは引数のディレクトリを起点にするので、`runnlint .` では `integrations/a.yml`、`runnlint books` では `books/integrations/a.yml` です。`files: []` と、空のパターンは、設定の読み込みで失敗します。
 
-終了コードは、`error` が1件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。`warning` と `info` だけでは失敗しません。
+終了コードは、`error` が1件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。`warning` と `info` だけでは失敗しません。コマンドに `--strict` を付けると `warning` でも `1` になります。`info` は失敗しません。ルールファイルにこの設定はありません。
 
 ## 組み込みルール
 
@@ -216,11 +216,15 @@ rules:
 | `local-path` | warning | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | error | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | warning | 式として読む欄を `{{ }}` で包んでいる |
+| `expr-sharp-comment` | info | `test`、`if`、`until`、`bind` などの式に、括弧の外の `#` コメントがある。runn は取り除いて動くが「`#` comment is deprecated. Use `//` instead.」と警告する。文字列の中の `#` と、`( )` や `{ }` の中のクロージャの `#` は出さない。`{{ }}` の中は見ない |
 | `step-ref` | error | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | warning | `vars` に無い変数を参照している |
 | `loop-index` | warning | `loop` の外で添字 `i` を使っている |
 | `previous-step` | warning | 直前の step が無い場所で `previous` を使っている |
 | `defer-experimental` | info | `defer` は実験的機能だという知らせ |
+| `unused-runner` | warning | `runners` や `runner:` で定義した runner を、どの step も呼んでいない。inline include の中の step が呼ぶものは使っているとみなします。予約語の名前は `runner-reserved` に任せます |
+| `unused-bind` | warning | `bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない。範囲は「unused-bind の判定範囲」 |
+| `require-test-step` | info | 単独で実行できる runbook に、`test` だけの step が無い。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にします。トップレベルの `if` が `included` を要する runbook は呼び出し側が確かめるので対象外です。step が無い runbook は `require-steps` に任せます |
 | `included-unreferenced` | warning | include されたときだけ動く runbook が、どこからも include されていない |
 | `unused-suppression` | warning | 抑制のコメントが、診断を抑制できていない |
 
@@ -256,11 +260,20 @@ rules:
 
 ### 式と step の参照
 
-`expr-syntax` が見るのは、`{{ }}` の中と、`test`、`if`、`until`、`bind` です。検査の前に、値の `${...}` を展開し、括弧の外の `#` から行末をコメントとして除きます。`test` と `bind` の式の中にある `{{` はテンプレートにしません。`bind` は文字列のほか、mapping、配列、数値も受け、中の文字列を式として検査します。
+`expr-syntax` が見るのは、`{{ }}` の中と、`test`、`if`、`until`、`bind` です。`{{ }}` は mapping の値だけでなく、HTTP のパスや body の項目名のようなキーの中も見ます。runn はキーも展開するためです。検査の前に、値の `${...}` を展開し、括弧の外の `#` から行末をコメントとして除きます。`test` と `bind` の式の中にある `{{` はテンプレートにしません。`bind` は文字列のほか、mapping、配列、数値も受け、中の文字列を式として検査します。
 
 `expr-braces` の `test` と `bind` は、値全体が `{{ }}` のときだけ出します。文字列の中の `{{` は見ません。
 
 `step-ref` では、自分自身の step は参照できます。
+
+### unused-bind の判定範囲
+
+`bind` で付けた名前は、同じ runbook の式から名前のまま読めるほか、include した側からは `steps.<n>.<名前>` や `previous.<名前>`、`needs` で読み込んだ側からは `needs.<名前>.<bind 名>` で読めます。このルールは次の順で「読まれている」と判定し、どれにも当たらない bind を出します。
+
+- このファイルの式（`test`、`if`、`until`、`dump`、`bind` の値、`{{ }}`）のどこかに、その名前が識別子かメンバー名として出てくる
+- このファイルを固定パスで include するファイル、`{{ }}` や `${...}` を含むパスで include しうるファイル、`needs` に書いたファイルの式のどこかに、その名前が出てくる。`include.vars` の値は runn が呼び出し側の式として評価するので、`{{ }}` が無くても式として読めれば数えます。参照元を読む範囲は「included-unreferenced の判定範囲」と同じです
+
+次のときは判定しません。トップレベルの `if` が `included` を要する runbook を、固定パスで include も needs もするファイルが無いとき（呼び出し元が走査の外にあるかもしれないため）。このファイルか参照元のどれかに、式として読めない値があるとき。`a.b` や `a[0]` のような bind のキーは、すでにある `a` への代入なので、新しい名前ではなく `a` の参照として数えます。
 
 ### included-unreferenced の判定範囲
 
