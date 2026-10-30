@@ -108,6 +108,10 @@ func walkStrings(v runbook.Value, b *runbook.Book, step *runbook.Step, sites *[]
 		}
 	case runbook.KindMap:
 		for _, e := range v.Map {
+			// runn expands {{ }} in mapping keys too, such as an HTTP path or a body field name.
+			if e.KeyNode != nil && strings.Contains(e.Key, "{{") {
+				walkStrings(runbook.Value{Kind: runbook.KindString, String: e.Key, Node: e.KeyNode}, b, step, sites)
+			}
 			walkStrings(e.Value, b, step, sites)
 		}
 	}

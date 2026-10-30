@@ -16,6 +16,7 @@
 ### 変更
 
 - 日本語の文書を `docs/ja/` に置く。
+- mapping のキー（HTTP のパス、body の項目名）の中の `{{ }}` も式として読む。runn はキーも展開するため。`expr-syntax`、`var-ref`、`step-ref`、`unused-bind` がキーの中の参照を見る。
 - `examples` の runbook に、確かめたいことを名前にした `test` だけの step を足した。
 
 ## [0.2.0]

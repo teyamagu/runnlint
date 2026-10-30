@@ -16,6 +16,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 ### Changed
 
 - Japanese documents live in `docs/ja/`.
+- `{{ }}` inside mapping keys (an HTTP path, a body field name) is read as an expression, because runn expands keys too. `expr-syntax`, `var-ref`, `step-ref`, and `unused-bind` see references in keys.
 - The `examples` runbooks gained a step with only `test` that names what each one verifies.
 
 ## [0.2.0]

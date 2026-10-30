@@ -96,3 +96,37 @@ steps:
 		t.Fatalf("%+v", broken)
 	}
 }
+
+// runn expands {{ }} in mapping keys too, such as an HTTP path or a body field name. A bind read only from a key is used,
+// a variable referenced only from a key is still checked by var-ref, and a template in a key that does not parse reports expr-syntax on the key's line.
+func TestTemplatesInMappingKeys(t *testing.T) {
+	got := lint(t, `
+desc: key template
+runners:
+  req: https://example.com
+steps:
+  - exec:
+      command: echo 11
+    bind:
+      items: current.stdout
+      field: current.stdout
+  - req:
+      /documents?filters={{ items }}&page={{ vars.missing }}:
+        post:
+          body:
+            application/json:
+              "{{ field }}": 1
+              "{{ 1 + }}": 2
+  - test: steps[1].res.status == 400
+`)
+	if hasRule(got, "unused-bind") {
+		t.Fatalf("%+v", got)
+	}
+	if msgs := messagesOf(got, "var-ref"); len(msgs) != 1 || !strings.Contains(msgs[0], "vars.missing") {
+		t.Fatalf("%+v", got)
+	}
+	syntax := findRule(got, "expr-syntax")
+	if len(syntax) != 1 || syntax[0].Line != 17 {
+		t.Fatalf("%+v", got)
+	}
+}

@@ -238,7 +238,7 @@ rules:
 
 ### Expressions and step references
 
-`expr-syntax` looks inside `{{ }}` and at `test`, `if`, `until`, and `bind`. Before checking, it expands `${...}` in the value and removes a `#` outside parentheses through the end of the line as a comment. `{{` inside a `test` or `bind` expression is not a template. `bind` accepts a string, a mapping, an array, or a number, and checks strings inside it as expressions.
+`expr-syntax` looks inside `{{ }}` and at `test`, `if`, `until`, and `bind`. `{{ }}` is inspected not only in mapping values but also in keys, such as an HTTP path or a body field name, because runn expands keys too. Before checking, it expands `${...}` in the value and removes a `#` outside parentheses through the end of the line as a comment. `{{` inside a `test` or `bind` expression is not a template. `bind` accepts a string, a mapping, an array, or a number, and checks strings inside it as expressions.
 
 For `test` and `bind`, `expr-braces` is reported only when the whole value is `{{ }}`. `{{` inside a string is not looked at.
 
