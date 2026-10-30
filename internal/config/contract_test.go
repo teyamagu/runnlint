@@ -437,3 +437,125 @@ func TestNestedUnknownKeyWarnsAndLoads(t *testing.T) {
 		t.Fatalf("%+v", cfg)
 	}
 }
+
+// TestFilesAndKindLoad checks that files on a rule, kind on check, and kind on where load without an unknown-key warning, and that files written on an inherited built-in rule is kept on the merged rule.
+func TestFilesAndKindLoad(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, ".runnlint-runn.yaml", `
+version: 1
+rules:
+  - id: require-steps
+    files: ['setup/**']
+  - id: steps-must-be-map
+    files:
+      - 'books/**'
+      - '*.gen.yml'
+    check:
+      select: steps
+      kind: mapping
+      where:
+        - path: $.if
+          kind: string
+`)
+	t.Chdir(root)
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Warnings) != 0 {
+		t.Fatalf("%v", cfg.Warnings)
+	}
+	byID := map[string]Rule{}
+	for _, rule := range cfg.Rules {
+		byID[rule.ID] = rule
+	}
+	if got := byID["require-steps"]; got.Uses != "require-steps" || len(got.Files) != 1 || got.Files[0] != "setup/**" {
+		t.Fatalf("%+v", got)
+	}
+	got := byID["steps-must-be-map"]
+	if len(got.Files) != 2 || got.Check == nil || got.Check.Kind != "mapping" || len(got.Check.Where) != 1 || got.Check.Where[0].Kind != "string" || got.Check.Where[0].Path != "$.if" {
+		t.Fatalf("%+v", got)
+	}
+}
+
+// TestValidateNewFields checks that an unknown kind, an empty files, a blank files pattern, and an unclosed quote in select or where.path fail to load with an error that names the problem.
+func TestValidateNewFields(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "unknown kind",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    check:\n      select: steps\n      kind: list\n",
+			want: "kind",
+		},
+		{
+			name: "unknown kind in where",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    check:\n      select: steps\n      where:\n        - path: $.if\n          kind: text\n      forbid: true\n",
+			want: "kind",
+		},
+		{
+			name: "empty files",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    files: []\n    uses: require-steps\n",
+			want: "files",
+		},
+		{
+			name: "blank files pattern",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    files: ['books/**', '  ']\n    uses: require-steps\n",
+			want: "files",
+		},
+		{
+			name: "unclosed quote in select",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    check:\n      select: 'steps.*.req.\"/v1/{id}.json'\n      exists: true\n",
+			want: "引用符",
+		},
+		{
+			name: "text after a closing quote in select",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    check:\n      select: 'steps.\"a\"b'\n      exists: true\n",
+			want: "引用符",
+		},
+		{
+			name: "unclosed quote in where path",
+			body: "version: 1\nextends: none\nrules:\n  - id: x\n    check:\n      select: steps.*\n      where:\n        - path: 'req.\"/v1'\n          exists: true\n      forbid: true\n",
+			want: "引用符",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := writeConfig(t, dir, ".runnlint.yaml", tc.body)
+			_, err := Load(path)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// TestRuleAppliesTo checks that a rule without files applies to every path, and that files is matched like ignore: against the walked path and the base name, with ** only against the path.
+func TestRuleAppliesTo(t *testing.T) {
+	if !(Rule{}).AppliesTo("any/where.yml") {
+		t.Fatal("files 無しのルールは全ファイルに当たります")
+	}
+	cases := []struct {
+		files []string
+		path  string
+		want  bool
+	}{
+		{[]string{"integrations/**"}, "integrations/a/b.yml", true},
+		{[]string{"integrations/**"}, "other/integrations/a.yml", false},
+		{[]string{"integrations/**"}, "/abs/integrations/a.yml", false},
+		{[]string{"*.gen.yml"}, "dir/a.gen.yml", true},
+		{[]string{"setup"}, "setup/a.yml", true},
+		{[]string{"setup"}, "setup-extra/a.yml", false},
+		{[]string{"a/**", "b/**"}, "b/x.yml", true},
+		{[]string{"a/**", "b/**"}, "c/x.yml", false},
+	}
+	for _, c := range cases {
+		rule := Rule{Files: c.files}
+		if got := rule.AppliesTo(c.path); got != c.want {
+			t.Errorf("files %v path %q = %v, want %v", c.files, c.path, got, c.want)
+		}
+	}
+}

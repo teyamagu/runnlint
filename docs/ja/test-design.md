@@ -20,7 +20,7 @@
 | BIN-06 | `ignore` はディレクトリ走査で集めたファイルだけを外す。パターンがファイルパスでも、引数のファイルは検査する。リテラルは走査パスの一致とその下。末尾の `/` を除くのはその下だけで、`examples/fixtures/openapi.yml/` は `examples/fixtures/openapi.yml` に当たらない。ベース名に当たるのはパターン全体がベース名と一致するときで、`*.gen.yml` は当たり `dir/*.yml` は `dir` の直下だけ。`**` は走査パスだけ。`./` 付きや、`/` を含むパターンは、走査パスの文字列が違うと当たらない。`openapi.yml` と `*.gen.yml` は絶対パスにもベース名で当たる | `internal/app/contract_test.go`、`internal/config/config_test.go` |
 | BIN-07 | warning だけ、info だけでは 0。error は 1。不明な出力形式と存在しないパスは 2 | 同 |
 | BIN-08 | text / github / json の形と、ファイル・行・列・ルール名での整列 | `internal/report/report_test.go` |
-| BIN-09 | 継承、`extends: none`、同一 id の上書き、検証、探索順、JSON | `internal/config/contract_test.go` |
+| BIN-09 | 継承、`extends: none`、同一 id の上書き、検証、探索順、JSON。`files` と `kind` は警告なく読み、継承したルールに `files` だけを足せる。未知の `kind`、空の `files`、空のパターン、閉じていない引用符の段は読み込みで失敗する | `internal/config/contract_test.go` |
 | BIN-10 | yamllint の parsable 出力と、設定パスの解決 | `internal/yamllint/yamllint_test.go` |
 | BIN-11 | YAML の重複キー、alias、merge、複数 document、runner 種別 | `internal/runbook/parse_test.go` |
 | BIN-12 | スキーマと `cdpfn.go` からキーと CDP アクションを読む。最新リリースとの差で失敗する | `internal/runnspec` |
@@ -58,5 +58,8 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-19 | `/` で始まらない HTTP の path は既定で診断しない。`options.require-leading-slash: true` のときだけ warning | 同 |
 | RULE-20 | `var-ref` は、include 元の `include.vars` で渡す変数を定義済みとする。include 元があれば `parent.vars` を外と言わない。include 元が見つからない `if: included` の runbook では `vars` を調べない | `internal/rules/includes_test.go`（`testdata/includevars`） |
 | RULE-21 | `test` と `bind` の式の中の `{{` はテンプレートにしない。値全体が1つの `{{ }}` のときは中身を式として解析し、`expr-braces` を出す。`{{` で始まるが1つに収まらないときは `expr-braces` だけで、式の解析エラーは出さない | `internal/rules/falsepositive_test.go` |
+| RULE-22 | `select` の `**` は 0 段以上で、mapping の値と sequence の要素を深さを問わず辿る。末尾の `**` はスカラーだけを選ぶ。`*` は1段のまま。`exists: true` の位置は `*` と `**` の手前の親。二重引用符で囲んだ段は `.` を含む1つのキーで、`*` と `$` の意味を消す。`.` を含むキーは `path` でも引用符付き | `internal/rules/declare_test.go`、`internal/runbook/path_test.go` |
+| RULE-23 | `where` の `$.` はルートから辿る門で、合わなければそのルールは何も出さない。`exists` と `forbid` も `where` で残った値だけを見る。`kind` は `check` でも `where` でも6種の型名を受け、違えば実際の型と期待した型を文に出す | `internal/rules/declare_test.go` |
+| RULE-24 | `files` は `ignore` と同じ当て方で、`uses` にも `check` にも効き、直接渡したファイルにも当たる。受け入れ条件の6ルール（UUID 直書き、`if: included` の ID 既定値、`labels` 必須、`integrations/**` は include だけ、list 形式の `steps` 禁止、`__typename` 禁止）が正例と負例で固定されている | `internal/rules/declare_test.go`、`internal/config/contract_test.go`、`internal/app/contract_test.go` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。

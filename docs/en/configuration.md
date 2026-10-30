@@ -159,10 +159,32 @@ rules:
 | `uses` | The built-in implementation name. It may differ from `id`. |
 | `severity` | `error`, `warning`, `info`, or `off`. `error` when omitted. |
 | `message` | The diagnostic text of a declarative rule. |
+| `files` | An array of patterns for the files this rule applies to. When omitted, the rule applies to every file. |
 | `check` | The condition of a declarative rule. It cannot be written together with `uses`. |
 | `options` | Extra settings passed to a built-in implementation. |
 
 Other than `off`, either `uses` or `check` is required. `check.select` cannot be empty. An unknown `uses` fails before the run, and the exit code is `2`.
+
+### files
+
+When `files` is written, the rule applies only to files that match one of the patterns. It works for built-in rules (`uses`) and declarative rules (`check`) alike. Writing only `files` on an inherited rule narrows that rule.
+
+```yaml
+rules:
+  - id: integrations-only-include
+    severity: error
+    files: ['integrations/**']
+    check:
+      select: 'steps.*'
+      where:
+        - path: include
+          exists: false
+      forbid: true
+  - id: require-desc
+    files: ['books/**']
+```
+
+Patterns are matched the same way as `ignore`: against the walked path (slash-separated) and its base name, and a pattern that contains `**` only against the walked path. There is one difference. `ignore` is consulted only when the argument is a directory, while `files` is also consulted for a file passed as an argument. `runnlint integrations/a.yml` applies the `integrations/**` rules. The walked path starts from the argument directory, so it is `integrations/a.yml` for `runnlint .` and `books/integrations/a.yml` for `runnlint books`. `files: []` and a blank pattern fail when the config is loaded.
 
 The exit code is `1` when there is at least one `error`, `2` when configuration or execution fails, and `0` otherwise. `warning` and `info` alone do not fail the run.
 
@@ -274,7 +296,7 @@ rules:
 
 ### select
 
-Which values the conditions apply to. It is dot-separated. `*` is each value of a mapping, or each element of a sequence. `steps.*` means each step whether `steps` is a list or a map.
+Which values the conditions apply to. It is dot-separated. `*` is each value of a mapping, or each element of a sequence, and descends exactly one level. `**` is zero or more levels of any kind. It descends through mapping values and sequence elements at any depth. `steps.*` means each step whether `steps` is a list or a map.
 
 | select | What it means |
 | --- | --- |
@@ -282,8 +304,15 @@ Which values the conditions apply to. It is dot-separated. `*` is each value of 
 | `vars.password` | `password` under `vars` |
 | `steps.*` | Each step |
 | `steps.*.test` | `test` of each step |
+| `steps.*.**.query` | `query` inside a step, under any runner name, path, or method |
+| `vars.**` | Every scalar under `vars`, at any depth |
+| `steps.*.req."/v1/{id}.json".get` | Follows the key `/v1/{id}.json`, which contains a dot, as one segment |
 
-When a list element is selected, `key` is an index starting at `0`. When a map value is selected, `key` is the key name. `path` is a location such as `steps[0]` or `steps.login`.
+A `**` in the middle descends as many levels as needed until the following segment is found. Zero levels count, so `vars.**.flat` also matches `vars.flat`. A trailing `**` selects every scalar below. When the value itself is a scalar, it selects that scalar. Mappings and sequences themselves are not selected.
+
+When a key contains a dot, wrap that segment in double quotes. A quoted segment is a literal key even when it is `*`, `**`, or `$`. `vars."*"` is the value of the key `*`. A quote that is not closed, or anything other than `.` right after a closing quote, fails when the config is loaded. A `"` inside the quotes cannot be escaped.
+
+When a list element is selected, `key` is an index starting at `0`. When a map value is selected, `key` is the key name. `path` is a location such as `steps[0]` or `steps.login`. A key that contains a dot is also written in double quotes in `path`, as in `steps[0].req."/v1/{id}.json".get`.
 
 ### Conditions
 
@@ -291,8 +320,9 @@ When a selected value becomes a diagnostic. Every written condition is applied, 
 
 | Condition | When it reports |
 | --- | --- |
-| `exists: true` | The path is absent. Other conditions are not looked at |
-| `exists: false` | The path is present at least once. Other conditions are not looked at |
+| `exists: true` | No value passes `where`. Other conditions are not looked at |
+| `exists: false` | At least one value passes `where`. Other conditions are not looked at |
+| `kind` | The value has another type. Write one of `mapping`, `sequence`, `string`, `number`, `bool`, or `null`. It is checked before the other conditions |
 | `equals` | The value differs. `null` can be compared with YAML null |
 | `not_equals` | The value is the same |
 | `matches` | A string or number does not match the regular expression |
@@ -306,6 +336,17 @@ When a selected value becomes a diagnostic. Every written condition is applied, 
 
 Regular expressions are Go RE2. A broken expression reports a diagnostic at the runbook root.
 
+`kind` fixes the type of the selected value. To forbid list-style `steps`, write `select: steps` with `kind: mapping`. When `steps` is absent nothing is selected, so nothing is reported. A missing `steps` is reported by `require-steps`. The built-in sentence for `kind` names the actual and the expected type, as in "value kind is sequence, not mapping". An unknown type name fails when the config is loaded.
+
+```yaml
+rules:
+  - id: steps-must-be-map
+    severity: error
+    check:
+      select: steps
+      kind: mapping
+```
+
 `key_matches` and `key_not_matches` look at the key of the selected value. For a map's `steps.*` that is the step name. For a list's `steps.*` it is an index starting at `0`. The diagnostic is placed on the key line. A list has no key node, so it is placed on the value line. The default rules have no step-name convention. A project that needs one writes it. Existing step names can be accepted with a baseline.
 
 ```yaml
@@ -318,7 +359,7 @@ rules:
       key_matches: '^[a-z][a-z0-9-]*$'
 ```
 
-`where` narrows values before the check. It can be a list or a single mapping. When there is more than one entry, only values that match every entry remain. `where` may contain `path`, `exists`, `equals`, and `matches`. `path` is relative to the selected value.
+`where` narrows values before the check. It can be a list or a single mapping. When there is more than one entry, only values that match every entry remain. `where` may contain `path`, `exists`, `kind`, `equals`, and `matches`. `path` is relative to the selected value. As in `select`, a key that contains a dot is wrapped in double quotes. `*` and `**` cannot be written in `path`. `exists`, `forbid`, and the ordinary conditions all look only at the values that `where` keeps.
 
 ```yaml
 rules:
@@ -343,6 +384,28 @@ where:
   exists: true
 ```
 
+When `path` starts with `$.`, as in `$.if`, it is resolved from the runbook root instead of relative to the selected value. `$` alone is the root itself. Such a condition does not depend on the selected value, so it acts as a gate that is evaluated once per runbook. When any gate fails, the rule reports nothing for that runbook. When every gate holds, the relative conditions narrow the values and the check proceeds. Combined with `exists: true`, this expresses a required field that depends on the kind of runbook, such as "no top-level `if` but no `labels` either".
+
+```yaml
+rules:
+  - id: included-vars-have-no-id-default
+    severity: warning
+    check:
+      select: 'vars.*'
+      where:
+        - path: $.if
+          matches: included
+      not_matches: '^[0-9A-Za-z]{26}$|^[0-9a-fA-F-]{36}$'
+  - id: standalone-needs-labels
+    severity: warning
+    check:
+      select: labels
+      where:
+        - path: $.if
+          exists: false
+      exists: true
+```
+
 ### message
 
 The text printed in the diagnostic. When it is empty, a sentence that depends on the condition is printed. When it is written, it is a [Go text/template](https://pkg.go.dev/text/template). The four available values are below. An unknown name becomes an empty string.
@@ -354,4 +417,4 @@ The text printed in the diagnostic. When it is empty, a sentence that depends on
 | `{{ .value }}` | The scalar as a string. A mapping or sequence is empty |
 | `{{ .rule }}` | The rule `id` |
 
-When `exists: true` and the path is absent, `path` is the deepest parent that exists. When the top level is absent, it is empty.
+When `exists: true` and the path is absent, `path` is the deepest parent that exists. It stops before `*` and `**`, so when `steps.*.**.timeout` is absent it is `steps`. When the top level is absent, it is empty. `value` is `null` in this case.

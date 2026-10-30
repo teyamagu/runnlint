@@ -52,6 +52,12 @@ var (
 	UsesAndCheck      = spec("uses-and-check", "ルール %s は uses と check を同時に持てません", "rule %s cannot have both uses and check")
 	UsesOrCheck       = spec("uses-or-check", "ルール %s には uses か check が必要です", "rule %s needs uses or check")
 	SelectEmpty       = spec("select-empty", "ルール %s の check.select が空です", "rule %s has an empty check.select")
+	PathBad           = spec("path-bad", "ルール %s の %s %q を解釈できません: %s", "rule %s: cannot read %s %q: %s")
+	QuoteOpen         = spec("quote-open", "引用符が閉じていません", "a quote is not closed")
+	QuoteTail         = spec("quote-tail", "閉じ引用符の後は . か終端です", "a closing quote must be followed by . or the end")
+	KindBad           = spec("kind-bad", "ルール %s の %s %q は mapping、sequence、string、number、bool、null のいずれかです", "rule %s has %s %q, which must be mapping, sequence, string, number, bool, or null")
+	FilesEmpty        = spec("files-empty", "ルール %s の files が空です", "rule %s has an empty files")
+	FilesBlank        = spec("files-blank", "ルール %s の files に空のパターンがあります", "rule %s has a blank pattern in files")
 	YamllintMissing   = spec("yamllint-missing-sev", "yamllint.missing %q は error / warning / info / off のいずれかです", "yamllint.missing %q must be error, warning, info, or off")
 
 	BaselineRead    = spec("baseline-read", "baseline を読めません: %s", "cannot read the baseline: %s")
@@ -100,6 +106,7 @@ var (
 	ValueOneOf   = spec("value-one-of", "値が許可された一覧にありません", "value is not in the allowed list")
 	LenUnder     = spec("len-under", "長さが %d 未満です", "length is under %d")
 	LenOver      = spec("len-over", "長さが %d を超えています", "length is over %d")
+	KindMismatch = spec("kind-mismatch", "値の型が %s で、%s ではありません", "value kind is %s, not %s")
 
 	IfExpr       = spec("if-expr", "if は式または bool です", "if is an expression or a bool")
 	DeferType    = spec("defer-type", "defer は bool または文字列です", "defer is a bool or a string")

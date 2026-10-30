@@ -6,6 +6,17 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Added
+
+- `**` in a declarative rule's `select`, matching any depth. `steps.*.**.query` selects `query` under any runner, and `vars.**` selects every scalar under `vars`.
+- A `where` `path` that starts with `$.`, as in `$.if`, is resolved from the runbook root. When it does not hold, the rule reports nothing for that runbook.
+- `files` on a rule. An array of globs; the rule applies only to matching files. It works for built-in and declarative rules, and also for a file passed directly as an argument.
+- `kind` in `check` and `where`. It requires the value to be one of `mapping`, `sequence`, `string`, `number`, `bool`, or `null`.
+- In `select` and `where.path`, a segment in double quotes such as `req."/v1/{id}.json".get` is one key that may contain `.`.
+
+### Changed
+
+- A declarative rule's `exists` and `forbid` look only at the values that `where` keeps. `exists` used to ignore `where`.
 - Japanese documents live in `docs/ja/`.
 
 ## [0.2.0]

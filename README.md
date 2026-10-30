@@ -133,9 +133,9 @@ rules:
 
 ### 宣言的ルール
 
-`check.select` はドット区切りです。`*` は mapping の各値、または sequence の各要素です。`steps` が list でも map でも `steps.*` で各 step を指します。
+`check.select` はドット区切りです。`*` は mapping の各値、または sequence の各要素です。`**` は深さを問わない任意の段で、`steps.*.**.query` はどの runner の下にある `query` でも選びます。`steps` が list でも map でも `steps.*` で各 step を指します。`.` を含むキーは `req."/v1/{id}.json"` のように二重引用符で囲みます。
 
-使える条件は `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`forbid` です。`key_matches` はキー名を見ます。map の step 名の規約に使えます。`where` で絞り込んでから判定します。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}`、`{{ .rule }}` を使えます。
+使える条件は `exists`、`kind`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`forbid` です。`kind` は値の型を固定し、`key_matches` はキー名を見ます。map の step 名の規約に使えます。`where` で絞り込んでから判定します。`where` の `path` を `$.if` のように `$.` から始めると、runbook のルートから見ます。`files` を書くと、そのパターンに当たるファイルにだけルールを当てます。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}`、`{{ .rule }}` を使えます。
 
 ```yaml
 rules:
