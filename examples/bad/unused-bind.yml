@@ -1,0 +1,8 @@
+# Example of a bind that nothing reads. The test reads the response directly, so the bound name does no work.
+desc: unused bind
+steps:
+  - exec:
+      command: echo ok
+    bind:
+      output: current.stdout
+  - test: steps[0].exit_code == 0

@@ -201,6 +201,7 @@ Names that can be written in `uses`, their initial severity, and the failure tha
 | `previous-step` | warning | `previous` is used where there is no previous step |
 | `defer-experimental` | info | Notice that `defer` is experimental |
 | `unused-runner` | warning | A runner defined in `runners` or `runner:` is not called by any step. A runner called by a step inside an inline include counts as used. Reserved names are left to `runner-reserved` |
+| `unused-bind` | warning | A name given by `bind` is read neither by this file's expressions nor by any file that includes or needs this runbook. See "Scope of unused-bind" |
 | `require-test-step` | info | A runbook that can run on its own has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks whose top-level `if` requires `included` are verified by their caller and are not reported. Runbooks without steps are left to `require-steps` |
 | `included-unreferenced` | warning | A runbook that runs only when included is not included from anywhere |
 | `unused-suppression` | warning | A suppression comment does not suppress a diagnostic |
@@ -242,6 +243,15 @@ rules:
 For `test` and `bind`, `expr-braces` is reported only when the whole value is `{{ }}`. `{{` inside a string is not looked at.
 
 In `step-ref`, a step may reference itself.
+
+### Scope of unused-bind
+
+A name given by `bind` can be read by name in the same runbook, as `steps.<n>.<name>` or `previous.<name>` by a file that includes it, and as `needs.<name>.<bind>` by a file that lists it in `needs`. This rule treats a bind as read in the following cases and reports the rest.
+
+- Some expression in this file (`test`, `if`, `until`, `dump`, `bind` values, `{{ }}`) mentions the name as an identifier or a member name
+- Some expression in a file that includes this file by a fixed path, that may include it by a path containing `{{ }}` or `${...}`, or that lists it in `needs` mentions the name. runn evaluates an `include.vars` value as an expression in the caller, so a value that parses as one counts even without `{{ }}`. Referrers are read in the same scope as "Scope of included-unreferenced"
+
+It does not judge a runbook whose top-level `if` requires `included` when no file includes or needs it by a fixed path, because the caller may be outside the scanned files. It also does not judge when this file or any referrer has a value that does not parse as an expression. A bind key such as `a.b` or `a[0]` assigns into an existing `a`, so it counts as a reference to `a`, not as a new name.
 
 ### Scope of included-unreferenced
 

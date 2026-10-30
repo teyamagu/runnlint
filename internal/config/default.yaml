@@ -149,6 +149,11 @@ rules:
     uses: unused-runner
     severity: warning
 
+  # A bind that no expression in this file reads, and that no file including or needing this runbook reads. Judged with the same scope as included-unreferenced.
+  - id: unused-bind
+    uses: unused-bind
+    severity: warning
+
   # A runbook that can run on its own has no step with only test. Tests attached to requests check one response; a step with only test names what the scenario verifies.
   # Runbooks with if: included are verified by their caller.
   - id: require-test-step

@@ -1,0 +1,10 @@
+# Includes dyn.yml by a fixed path, and again by a name decided at run time. Reads dyn from the dynamic one.
+desc: dynamic parent
+vars:
+  name: dyn
+steps:
+  - include:
+      path: dyn.yml
+  - include:
+      path: "{{ vars.name }}.yml"
+  - test: steps[1].dyn != null

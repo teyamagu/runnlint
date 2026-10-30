@@ -201,6 +201,7 @@ rules:
 | `previous-step` | warning | 直前の step が無い場所で `previous` を使っている |
 | `defer-experimental` | info | `defer` は実験的機能だという知らせ |
 | `unused-runner` | warning | `runners` や `runner:` で定義した runner を、どの step も呼んでいない。inline include の中の step が呼ぶものは使っているとみなします。予約語の名前は `runner-reserved` に任せます |
+| `unused-bind` | warning | `bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない。範囲は「unused-bind の判定範囲」 |
 | `require-test-step` | info | 単独で実行できる runbook に、`test` だけの step が無い。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にします。トップレベルの `if` が `included` を要する runbook は呼び出し側が確かめるので対象外です。step が無い runbook は `require-steps` に任せます |
 | `included-unreferenced` | warning | include されたときだけ動く runbook が、どこからも include されていない |
 | `unused-suppression` | warning | 抑制のコメントが、診断を抑制できていない |
@@ -242,6 +243,15 @@ rules:
 `expr-braces` の `test` と `bind` は、値全体が `{{ }}` のときだけ出します。文字列の中の `{{` は見ません。
 
 `step-ref` では、自分自身の step は参照できます。
+
+### unused-bind の判定範囲
+
+`bind` で付けた名前は、同じ runbook の式から名前のまま読めるほか、include した側からは `steps.<n>.<名前>` や `previous.<名前>`、`needs` で読み込んだ側からは `needs.<名前>.<bind 名>` で読めます。このルールは次の順で「読まれている」と判定し、どれにも当たらない bind を出します。
+
+- このファイルの式（`test`、`if`、`until`、`dump`、`bind` の値、`{{ }}`）のどこかに、その名前が識別子かメンバー名として出てくる
+- このファイルを固定パスで include するファイル、`{{ }}` や `${...}` を含むパスで include しうるファイル、`needs` に書いたファイルの式のどこかに、その名前が出てくる。`include.vars` の値は runn が呼び出し側の式として評価するので、`{{ }}` が無くても式として読めれば数えます。参照元を読む範囲は「included-unreferenced の判定範囲」と同じです
+
+次のときは判定しません。トップレベルの `if` が `included` を要する runbook を、固定パスで include も needs もするファイルが無いとき（呼び出し元が走査の外にあるかもしれないため）。このファイルか参照元のどれかに、式として読めない値があるとき。`a.b` や `a[0]` のような bind のキーは、すでにある `a` への代入なので、新しい名前ではなく `a` の参照として数えます。
 
 ### included-unreferenced の判定範囲
 

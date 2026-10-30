@@ -207,6 +207,7 @@ var (
 	RunnerReserved  = spec("runner-reserved", "runner 名 %s は runn の予約語です", "runner name %s is reserved by runn")
 	RunnerMissing   = spec("runner-missing", "runner %s は runners にも先行する runner: にもありません", "runner %s is not in runners or a preceding runner:")
 	ExprSharp       = spec("expr-sharp", "%s の式に # のコメントがあります。runn は非推奨の警告を出すので // を使ってください", "the %s expression has a # comment. runn warns that it is deprecated; use // instead")
+	BindUnused      = spec("bind-unused", "bind %s はどこからも参照されていません", "bind %s is not referenced anywhere")
 	RunnerUnused    = spec("runner-unused", "runner %s はどの step からも呼ばれていません", "runner %s is not called by any step")
 	TestStepMissing = spec("test-step-missing", "test だけの step がありません。このシナリオで確かめたいことを test だけの step に分けて書いてください", "there is no step with only test. Put what this scenario verifies in a step of its own")
 	RunnerEndpoint  = spec("runner-endpoint", "runner %s の値は http(s)、grpc、ssh、cdp、chrome、または DB の DSN ではありません", "runner %s is not an http(s), grpc, ssh, cdp, or chrome value, or a DB DSN")

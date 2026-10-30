@@ -187,6 +187,7 @@ This table says which failure each id reported in a diagnostic means. The initia
 | `previous-step` | `previous` is used where there is no previous step |
 | `defer-experimental` | Notice that `defer` is experimental |
 | `unused-runner` | A runner defined in `runners` or `runner:` is not called by any step |
+| `unused-bind` | A name given by `bind` is read neither by this file's expressions nor by any file that includes or needs this runbook |
 | `require-test-step` | A runbook that can run on its own has no step with only `test`, a verification step that names what the scenario checks |
 | `included-unreferenced` | A runbook that runs only when included is not included from anywhere |
 | `unused-suppression` | A suppression comment does not suppress a diagnostic |

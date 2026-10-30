@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 - `unused-runner` (warning). Reports a runner defined in `runners` or in a step's `runner:` that no step calls. A runner called by a step inside an inline include counts as used.
 - `require-test-step` (info). Reports a runbook that can run on its own but has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks with `if: included` are not reported.
 - `expr-sharp-comment` (info). Reports an expression such as `test` or `if` that has a `#` comment outside brackets. runn strips it but prints a deprecation warning asking for `//`.
+- `unused-bind` (warning). Reports a name given by `bind` that neither this file's expressions nor any file that includes or needs this runbook reads. A runbook with `if: included` and no fixed-path referrer is not judged.
 
 ### Changed
 

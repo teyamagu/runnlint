@@ -1,0 +1,14 @@
+# Includes child.yml and reads two of its binds: token in a dump, session as a bare expression in include.vars. Needs needed.yml and reads one of its binds.
+desc: parent
+needs:
+  login: needed.yml
+steps:
+  - include:
+      path: child.yml
+  - include:
+      path: child.yml
+      vars:
+        passed: steps[0].session
+  - dump: steps[0].token
+  - dump: needs.login.cookie
+  - test: steps[0].token != null

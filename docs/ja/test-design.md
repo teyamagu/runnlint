@@ -60,5 +60,6 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-21 | `test` と `bind` の式の中の `{{` はテンプレートにしない。値全体が1つの `{{ }}` のときは中身を式として解析し、`expr-braces` を出す。`{{` で始まるが1つに収まらないときは `expr-braces` だけで、式の解析エラーは出さない | `internal/rules/falsepositive_test.go` |
 | RULE-22 | `unused-runner` は、`runners` と step の `runner:` の runner のうち、その runbook と inline include のどの step も呼ばないものを warning で出す。予約語の名前は出さない。`require-test-step` は、トップレベルの `if` が `included` を要しない runbook に、runner の呼び出し・include・exec・`runner:` が無く `test` だけの step（`desc`・`if`・`dump`・`bind` は添えてよい）が本体にも inline include にも無いとき、`steps` の行に info で出す。`if: included` の runbook と step が無い runbook は出さない | `internal/rules/unused_test.go` |
 | RULE-23 | `expr-sharp-comment` は、`test`・`if`・`until`・`bind` などの式に括弧の外の `#` コメントがあるとき、その欄の行に info で出す。文字列の中の `#`、クロージャの `#`、`//` のコメントは出さない。YAML のコメント（空白の後の `#`）は値に含まれないので出さない | `internal/rules/sharp_comment_test.go` |
+| RULE-24 | `unused-bind` は、`bind` の名前がこのファイルの式にも、固定パスか動的パスで include するファイルや `needs` するファイルの式にも出てこないとき、キーの行に warning で出す。`if: included` で固定パスの参照元が無い runbook と、式として読めない値を持つファイルは出さない。inline include の中の bind を同じファイルが読めば出さない。`a.b` のキーは `a` の参照 | `internal/rules/unused_bind_test.go`（`testdata/unusedbind`） |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。
