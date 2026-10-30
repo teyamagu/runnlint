@@ -26,6 +26,7 @@ func run(args []string) int {
 		configPath    string
 		format        string
 		noYamllint    bool
+		strict        bool
 		baselinePath  string
 		writeBaseline string
 		includeRoots  stringList
@@ -40,6 +41,7 @@ func run(args []string) int {
 	fs.StringVar(&format, "format", "text", message.Text(helpLang, message.FlagFormat))
 	fs.StringVar(&format, "f", "text", message.Text(helpLang, message.FlagFormat))
 	fs.BoolVar(&noYamllint, "no-yamllint", false, message.Text(helpLang, message.FlagNoYamllint))
+	fs.BoolVar(&strict, "strict", false, message.Text(helpLang, message.FlagStrict))
 	fs.StringVar(&baselinePath, "baseline", "", message.Text(helpLang, message.FlagBaseline))
 	fs.Var(&includeRoots, "include-root", message.Text(helpLang, message.FlagIncludeRoot))
 	fs.StringVar(&writeBaseline, "write-baseline", "", message.Text(helpLang, message.FlagWriteBase))
@@ -129,6 +131,7 @@ func run(args []string) int {
 		Config:        configPath,
 		Format:        format,
 		NoYamllint:    noYamllint,
+		Strict:        strict,
 		Baseline:      baselinePath,
 		WriteBaseline: writeBaseline,
 		IncludeRoots:  includeRoots,

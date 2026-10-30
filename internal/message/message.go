@@ -295,6 +295,7 @@ var (
 	FlagConfig      = spec("flag-config", "ルールファイルのパス", "path to the rules file")
 	FlagFormat      = spec("flag-format", "出力形式 (text, json, github)", "output format (text, json, github)")
 	FlagNoYamllint  = spec("flag-no-yamllint", "yamllint を実行しない", "do not run yamllint")
+	FlagStrict      = spec("flag-strict", "warning でも終了コードを 1 にする。info は対象外", "exit 1 on warnings as well. Info does not count")
 	FlagBaseline    = spec("flag-baseline", "既存の診断を記録したファイル。一致する診断を出さない", "file of accepted diagnostics. Matching diagnostics are hidden")
 	FlagIncludeRoot = spec("flag-include-root", "include の参照元を探す追加のディレクトリ。繰り返し指定できる", "extra directory to search for include callers. May be repeated")
 	FlagWriteBase   = spec("flag-write-baseline", "今回の診断を baseline として書き出して終了する", "write the current diagnostics as a baseline and exit")

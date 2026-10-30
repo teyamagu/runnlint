@@ -8,6 +8,7 @@
 
 ### 追加
 
+- `--strict`。warning でも終了コードを 1 にする。info は対象外。`--baseline` で消した診断は数えない。
 - `unused-runner`（warning）。`runners` や step の `runner:` で定義した runner を、どの step も呼んでいないことを知らせる。inline include の中の step が呼ぶものは使っているとみなす。
 - `require-test-step`（info）。単独で実行できる runbook に `test` だけの step が無いことを知らせる。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にする。`if: included` の runbook は対象外。
 - `expr-sharp-comment`（info）。`test` や `if` などの式に括弧の外の `#` コメントがあることを知らせる。runn は取り除いて動くが、非推奨の警告を出して `//` を求める。
