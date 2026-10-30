@@ -19,6 +19,10 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 - `{{ }}` inside mapping keys (an HTTP path, a body field name) is read as an expression, because runn expands keys too. `expr-syntax`, `var-ref`, `step-ref`, and `unused-bind` see references in keys.
 - The `examples` runbooks gained a step with only `test` that names what each one verifies.
 
+### Fixed
+
+- A declarative rule's `equals: null`, `not_equals: null`, and a where `equals: null` were ignored. A YAML null is never decoded, so the config loader now records that the key was written.
+
 ## [0.2.0]
 
 ### Added

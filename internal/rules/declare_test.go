@@ -302,3 +302,30 @@ rules:
 		t.Fatalf("%+v", got)
 	}
 }
+
+// equals: null and not_equals: null are real conditions: equals: null reports a value that is not null, and not_equals: null reports a null.
+// A where with equals: null keeps only null values. YAML leaves a null node undecoded, so the config must record that the key was written.
+func TestEqualsNullIsNotIgnored(t *testing.T) {
+	cases := []struct {
+		name    string
+		check   string
+		src     string
+		wantHit bool
+	}{
+		{"equals null on a non-null value", "select: debug\n      equals: null\n", "debug: true\nsteps:\n  - test: \"true\"\n", true},
+		{"equals null on a null value", "select: debug\n      equals: null\n", "debug: null\nsteps:\n  - test: \"true\"\n", false},
+		{"not_equals null on a null value", "select: debug\n      not_equals: null\n", "debug: null\nsteps:\n  - test: \"true\"\n", true},
+		{"not_equals null on a non-null value", "select: debug\n      not_equals: null\n", "debug: true\nsteps:\n  - test: \"true\"\n", false},
+		{"where equals null keeps a null", "select: steps.*\n      where:\n        path: dump\n        equals: null\n      forbid: true\n", "steps:\n  - dump: null\n", true},
+		{"where equals null drops a non-null", "select: steps.*\n      where:\n        path: dump\n        equals: null\n      forbid: true\n", "steps:\n  - dump: x\n", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			yml := "version: 1\nextends: none\nrules:\n  - id: custom\n    severity: error\n    check:\n      " + tc.check
+			got := lintConfig(t, yml, tc.src)
+			if hasRule(got, "custom") != tc.wantHit {
+				t.Fatalf("%+v", got)
+			}
+		})
+	}
+}

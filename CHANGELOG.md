@@ -19,6 +19,10 @@
 - mapping のキー（HTTP のパス、body の項目名）の中の `{{ }}` も式として読む。runn はキーも展開するため。`expr-syntax`、`var-ref`、`step-ref`、`unused-bind` がキーの中の参照を見る。
 - `examples` の runbook に、確かめたいことを名前にした `test` だけの step を足した。
 
+### 修正
+
+- 宣言的ルールの `equals: null`、`not_equals: null`、`where` の `equals: null` が無視されていた。YAML の null は decode されないため、キーが書かれたことを設定の読み込みで記録するようにした。
+
 ## [0.2.0]
 
 ### 追加
