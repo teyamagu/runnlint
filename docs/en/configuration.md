@@ -199,6 +199,8 @@ Names that can be written in `uses`, their initial severity, and the failure tha
 | `loop-index` | warning | The index `i` is used outside `loop` |
 | `previous-step` | warning | `previous` is used where there is no previous step |
 | `defer-experimental` | info | Notice that `defer` is experimental |
+| `unused-runner` | warning | A runner defined in `runners` or `runner:` is not called by any step. A runner called by a step inside an inline include counts as used. Reserved names are left to `runner-reserved` |
+| `require-test-step` | info | A runbook that can run on its own has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks whose top-level `if` requires `included` are verified by their caller and are not reported. Runbooks without steps are left to `require-steps` |
 | `included-unreferenced` | warning | A runbook that runs only when included is not included from anywhere |
 | `unused-suppression` | warning | A suppression comment does not suppress a diagnostic |
 

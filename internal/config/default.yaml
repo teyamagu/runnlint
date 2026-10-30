@@ -138,6 +138,18 @@ rules:
     uses: defer-experimental
     severity: info
 
+  # --- leftovers ---
+  # A runner in runners: or runner: that no step calls.
+  - id: unused-runner
+    uses: unused-runner
+    severity: warning
+
+  # A runbook that can run on its own has no step with only test. Tests attached to requests check one response; a step with only test names what the scenario verifies.
+  # Runbooks with if: included are verified by their caller.
+  - id: require-test-step
+    uses: require-test-step
+    severity: info
+
   # --- suppression comments ---
   # Among "# runnlint disable-line": an unknown rule, a comment that suppresses nothing,
   # a comment inside a multiline scalar, and a directive other than disable-line.

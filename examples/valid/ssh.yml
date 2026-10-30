@@ -4,3 +4,4 @@ runners:
 steps:
   - sc:
       command: hostname
+  - test: steps[0].stdout != ""

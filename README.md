@@ -185,6 +185,8 @@ rules:
 | `loop-index` | `loop` の外で添字 `i` を使っている |
 | `previous-step` | 直前の step が無い場所で `previous` を使っている |
 | `defer-experimental` | `defer` は実験的機能だという知らせ |
+| `unused-runner` | `runners` や `runner:` で定義した runner を、どの step も呼んでいない |
+| `require-test-step` | 単独で実行できる runbook に、`test` だけの step（このシナリオで確かめたいことを名前にした検証 step）が無い |
 | `included-unreferenced` | include されたときだけ動く runbook が、どこからも include されていない |
 | `unused-suppression` | 抑制のコメントが、診断を抑制できていない |
 

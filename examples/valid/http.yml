@@ -31,3 +31,6 @@ steps:
             Authorization: "token {{ steps.login.res.body.session_token }}"
           body: null
     test: steps.list_projects.res.status == 200
+  has_projects:
+    desc: The user sees at least one project
+    test: len(steps.list_projects.res.body.projects) > 0

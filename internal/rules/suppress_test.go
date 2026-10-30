@@ -93,6 +93,7 @@ steps:
   - dump: x # runnlint disable-line rule:yamllint/line-length
   - dump: x # runnlint disable rule:var-ref
   - dump: x # runnlint disable-line
+  - test: "true"
 `)
 	onlyRules(t, got, "unused-suppression@01", "unused-suppression@03", "unused-suppression@04", "unused-suppression@05")
 	want := []string{"no-such-rule", "yamllint disable-line", "disable-line", "抑制する診断がありません"}

@@ -6,7 +6,15 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Added
+
+- `unused-runner` (warning). Reports a runner defined in `runners` or in a step's `runner:` that no step calls. A runner called by a step inside an inline include counts as used.
+- `require-test-step` (info). Reports a runbook that can run on its own but has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks with `if: included` are not reported.
+
+### Changed
+
 - Japanese documents live in `docs/ja/`.
+- The `examples` runbooks gained a step with only `test` that names what each one verifies.
 
 ## [0.2.0]
 

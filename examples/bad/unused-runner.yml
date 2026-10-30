@@ -1,0 +1,8 @@
+# Example of a runner in runners that no step calls. Copied runners stay behind when the steps only include.
+desc: unused runner
+runners:
+  req: https://example.com
+  db: mysql://root:mypass@localhost:3306/testdb
+steps:
+  - include: ../valid/http.yml
+  - test: steps[0].steps.login.res.status == 200

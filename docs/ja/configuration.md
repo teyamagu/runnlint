@@ -199,6 +199,8 @@ rules:
 | `loop-index` | warning | `loop` の外で添字 `i` を使っている |
 | `previous-step` | warning | 直前の step が無い場所で `previous` を使っている |
 | `defer-experimental` | info | `defer` は実験的機能だという知らせ |
+| `unused-runner` | warning | `runners` や `runner:` で定義した runner を、どの step も呼んでいない。inline include の中の step が呼ぶものは使っているとみなします。予約語の名前は `runner-reserved` に任せます |
+| `require-test-step` | info | 単独で実行できる runbook に、`test` だけの step が無い。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にします。トップレベルの `if` が `included` を要する runbook は呼び出し側が確かめるので対象外です。step が無い runbook は `require-steps` に任せます |
 | `included-unreferenced` | warning | include されたときだけ動く runbook が、どこからも include されていない |
 | `unused-suppression` | warning | 抑制のコメントが、診断を抑制できていない |
 

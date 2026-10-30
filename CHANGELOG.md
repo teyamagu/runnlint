@@ -6,7 +6,15 @@
 
 ## [Unreleased]
 
+### 追加
+
+- `unused-runner`（warning）。`runners` や step の `runner:` で定義した runner を、どの step も呼んでいないことを知らせる。inline include の中の step が呼ぶものは使っているとみなす。
+- `require-test-step`（info）。単独で実行できる runbook に `test` だけの step が無いことを知らせる。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にする。`if: included` の runbook は対象外。
+
+### 変更
+
 - 日本語の文書を `docs/ja/` に置く。
+- `examples` の runbook に、確かめたいことを名前にした `test` だけの step を足した。
 
 ## [0.2.0]
 

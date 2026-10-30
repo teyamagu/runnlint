@@ -1,0 +1,11 @@
+# Example of a runbook that can run on its own but has no step with only test.
+# The test on the request checks one response. A step with only test names what the scenario verifies.
+desc: no verification step
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /health:
+        get:
+          body: null
+    test: current.res.status == 200
