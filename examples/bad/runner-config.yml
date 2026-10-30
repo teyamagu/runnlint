@@ -3,4 +3,8 @@ desc: bad scheme
 runners:
   req: htts://example.com
 steps:
-  - test: "true"
+  - req:
+      /health:
+        get:
+          body: null
+  - test: steps[0].res.status == 200

@@ -6,3 +6,4 @@ steps:
   - br:
       actions:
         - nope
+  - test: steps[0].title != ""

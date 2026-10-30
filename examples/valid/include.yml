@@ -1,3 +1,4 @@
 desc: Include another runbook.
 steps:
   - include: http.yml
+  - test: steps[0].steps.login.res.status == 200

@@ -3,3 +3,4 @@ desc: exec without command
 steps:
   - exec:
       stdin: hello
+  - test: steps[0].exit_code == 0

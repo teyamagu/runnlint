@@ -2,3 +2,4 @@
 desc: missing include
 steps:
   - include: missing-runbook.yml
+  - test: steps[0] != null

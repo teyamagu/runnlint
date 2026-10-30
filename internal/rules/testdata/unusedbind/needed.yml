@@ -1,0 +1,9 @@
+# cookie is read by parent.yml through needs. crumbs is read by nobody.
+desc: needed
+steps:
+  - exec:
+      command: echo ok
+    bind:
+      cookie: current.stdout
+      crumbs: current.stdout
+  - test: steps[0].exit_code == 0

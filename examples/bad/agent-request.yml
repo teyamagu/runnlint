@@ -7,3 +7,4 @@ runners:
 steps:
   - ai:
       prompt: 1
+  - test: steps[0].res != null

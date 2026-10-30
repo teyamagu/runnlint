@@ -5,4 +5,8 @@ runners:
     endpoint: https://example.com
     openapi3: missing-openapi.yml
 steps:
-  - test: "true"
+  - req:
+      /health:
+        get:
+          body: null
+  - test: steps[0].res.status == 200
