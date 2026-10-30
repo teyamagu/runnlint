@@ -118,7 +118,7 @@ runnlint examples/fixtures/openapi.yml
 | ディレクトリ | `examples/bad` や `vendor` は、そのパスとその下。`vendor` は `/` を含まないので、ベース名が `vendor` のファイルにも当たる |
 | ベース名 | `openapi.yml` は、ディレクトリが違ってもベース名が `openapi.yml` のファイル |
 | `*` と `?` | `*.gen.yml` はベース名にも当たる。`dir/*.yml` は `dir` の直下だけ。`*` と `?` はディレクトリ区切りをまたがない |
-| `**` | `vendor/**` は、走査で得たパスが `vendor/` 以下のファイル。途中のディレクトリをまたぐ。`other/vendor/a.yml` には当たらない |
+| `**` | `vendor/**` は、走査で得たパスが `vendor/` 以下のファイル。途中のディレクトリをまたぐ。`other/vendor/a.yml` には当たらない。`**/` は 0 個以上のディレクトリ全体なので、その後ろの `*` と `?` は 1 つの段の中に収まる。`a/**/?.yml` は `a/c.yml` と `a/x/c.yml` に当たり、`a/x/cc.yml` には当たらない |
 
 `.git`、`vendor`、`node_modules` は、`ignore` が無くてもディレクトリごと降りません。include の参照元としても読みません。
 

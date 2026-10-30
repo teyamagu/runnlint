@@ -441,10 +441,13 @@ func globMatch(pattern, path string) bool {
 		switch pattern[i] {
 		case '*':
 			if i+1 < len(pattern) && pattern[i+1] == '*' {
-				b.WriteString(".*")
 				i++
 				if i+1 < len(pattern) && pattern[i+1] == '/' {
+					// **/ is zero or more whole directories, so what follows still starts at a segment boundary.
+					b.WriteString("(?:.*/)?")
 					i++
+				} else {
+					b.WriteString(".*")
 				}
 				continue
 			}

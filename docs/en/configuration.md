@@ -118,7 +118,7 @@ A pattern that contains none of `*`, `?`, or `[` matches when the walked path eq
 | Directory | `examples/bad` or `vendor` is that path and everything under it. `vendor` contains no `/`, so it also matches a file whose base name is `vendor` |
 | Base name | `openapi.yml` matches a file whose base name is `openapi.yml`, in any directory |
 | `*` and `?` | `*.gen.yml` also matches the base name. `dir/*.yml` is only the files directly under `dir`. `*` and `?` do not cross a directory separator |
-| `**` | `vendor/**` is a file whose walked path is under `vendor/`. It crosses intermediate directories. It does not match `other/vendor/a.yml` |
+| `**` | `vendor/**` is a file whose walked path is under `vendor/`. It crosses intermediate directories. It does not match `other/vendor/a.yml`. `**/` stands for zero or more whole directories, so `*` and `?` after it stay inside one segment: `a/**/?.yml` matches `a/c.yml` and `a/x/c.yml` but not `a/x/cc.yml` |
 
 `.git`, `vendor`, and `node_modules` are not descended into even when `ignore` is absent. They are not read as include referrers either.
 

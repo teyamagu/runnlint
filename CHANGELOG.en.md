@@ -21,6 +21,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ### Fixed
 
+- `*` and `?` after `**/` in `ignore` matched across directory separators (`a/**/?.yml` matched `a/x/cc.yml`). `**/` now stands for zero or more whole directories.
 - A declarative rule's `equals: null`, `not_equals: null`, and a where `equals: null` were ignored. A YAML null is never decoded, so the config loader now records that the key was written.
 
 ## [0.2.0]
