@@ -1,0 +1,13 @@
+# Not included from anywhere. used is read by the test; unused is read by nobody. used.sub assigns into used, so it is a reference, not a new bind.
+desc: top
+steps:
+  - exec:
+      command: echo ok
+    bind:
+      used: current.stdout
+      unused: current.stdout
+  - exec:
+      command: echo again
+    bind:
+      used.sub: current.stdout
+  - test: used != ""

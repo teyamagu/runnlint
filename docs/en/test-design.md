@@ -17,7 +17,7 @@ The command parses flags and passes them to `app.Run`. The exit code is `1` when
 | BIN-03 | `--list-rules` prints `id`, severity, and `builtin:` or `check` | same |
 | BIN-04 | The command returns the check's exit code as it is. An invalid config is 2 | same |
 | BIN-05 | A directory walk skips non-runbooks. Broken YAML that has `steps:` or `runners:` is kept | `internal/app/contract_test.go` |
-| BIN-06 | `ignore` drops only files collected by a directory walk. An argument file is checked even when the pattern is a file path. A literal matches the walked path and everything under it. A trailing `/` is stripped only when looking underneath, so `examples/fixtures/openapi.yml/` does not match `examples/fixtures/openapi.yml`. A base name matches only when the whole pattern equals the base name: `*.gen.yml` matches, and `dir/*.yml` is only the files directly under `dir`. `**` matches only the walked path. A pattern with `./`, or a pattern that contains `/`, does not match when the walked-path string differs. `openapi.yml` and `*.gen.yml` also match an absolute path by base name | `internal/app/contract_test.go`, `internal/config/config_test.go` |
+| BIN-06 | `ignore` drops only files collected by a directory walk. An argument file is checked even when the pattern is a file path. A literal matches the walked path and everything under it. A trailing `/` is stripped only when looking underneath, so `examples/fixtures/openapi.yml/` does not match `examples/fixtures/openapi.yml`. A base name matches only when the whole pattern equals the base name: `*.gen.yml` matches, and `dir/*.yml` is only the files directly under `dir`. `**` matches only the walked path. `*` and `?` after `**/` stay inside one segment. A pattern with `./`, or a pattern that contains `/`, does not match when the walked-path string differs. `openapi.yml` and `*.gen.yml` also match an absolute path by base name | `internal/app/contract_test.go`, `internal/config/config_test.go` |
 | BIN-07 | Warnings alone, or info alone, are 0. An error is 1. An unknown output format and a missing path are 2 | same |
 | BIN-08 | The shape of text, github, and json, and sorting by file, line, column, and rule name | `internal/report/report_test.go` |
 | BIN-09 | Inheritance, `extends: none`, override of the same id, validation, discovery order, and JSON | `internal/config/contract_test.go` |
@@ -58,5 +58,36 @@ The default config enables every registered built-in rule. A declarative rule ha
 | RULE-19 | An HTTP path that does not start with `/` is not reported by default. It is a warning only when `options.require-leading-slash: true` | same |
 | RULE-20 | `var-ref` treats a variable passed in `include.vars` from an including runbook as defined. When an including runbook exists, `parent.vars` is not called undefined. An `if: included` runbook whose including runbook is not found does not have its `vars` checked | `internal/rules/includes_test.go` (`testdata/includevars`) |
 | RULE-21 | `{{` inside a `test` or `bind` expression is not a template. When the whole value is one `{{ }}`, the inside is parsed as an expression and `expr-braces` is reported. When the value starts with `{{` but is not exactly one template, only `expr-braces` is reported, and an expression parse error is not | `internal/rules/falsepositive_test.go` |
+| RULE-22 | `unused-runner` reports, as warning, a runner in `runners` or in a step's `runner:` that no step of the runbook or of its inline includes calls. Reserved names are not reported. `require-test-step` reports, as info on the `steps` line, a runbook whose top-level `if` does not require `included` and that has no step with only `test` (`desc`, `if`, `dump`, and `bind` may accompany it) in the runbook or its inline includes. Runbooks with `if: included` and runbooks without steps are not reported | `internal/rules/unused_test.go` |
+| RULE-23 | `expr-sharp-comment` reports, as info on the field's line, an expression such as `test`, `if`, `until`, or `bind` that has a `#` comment outside brackets. A `#` inside a string literal, the closure `#`, and `//` comments are not reported. A YAML comment (`#` after a space in a plain scalar) is not part of the value, so it is not reported | `internal/rules/sharp_comment_test.go` |
+| RULE-24 | `unused-bind` reports, as warning on the key line, a `bind` name that appears in no expression of this file, nor of a file that includes it by a fixed or dynamic path or lists it in `needs`. A runbook with `if: included` and no fixed-path referrer, and a file with a value that does not parse as an expression, are not reported. A bind inside an inline include that the same file reads is not reported. A key such as `a.b` is a reference to `a`. `{{ }}` inside mapping keys (an HTTP path, a body field name) is read as an expression too, for bind references, `var-ref`, and `expr-syntax` | `internal/rules/unused_bind_test.go` (`testdata/unusedbind`) |
+| RULE-25 | `equals: null`, `not_equals: null`, and a where `equals: null` work as written. A YAML null is never decoded, so the config loader records separately that the key was written | `internal/rules/declare_test.go` `TestEqualsNullIsNotIgnored` |
 
 RULE-03 looks at one main path of each rule. RULE-04 and RULE-07 look, per rule, at contracts that path missed. RULE-09 fixes the branches inside them down to the message.
+
+## Variation coverage of the rules
+
+Each rule's behavior is fixed by a matrix test that tables the factors (ways the input varies) and their levels (the values). These are `internal/rules/matrix_*_test.go`. The generator in `pairwise_test.go` builds rows in which every pair of levels of any two factors appears at least once (pairwise coverage), then adds rows that move one factor at a time away from the base levels (base choice). The expected outcome comes from an oracle written from the documented contract, not from the implementation. Rows are named by their levels, so a failing row can be rerun alone with `-run`. Each matrix also checks that a fair number of rows report and a fair number do not, so a degenerate oracle is caught.
+
+| ID | Rules | Factors | Test |
+| --- | --- | --- | --- |
+| MAT-01 | `unused-bind` | top-level `if`, bind key shape, reference site in the same file, caller kind, whether referrers are read, step style | `matrix_unused_bind_test.go` |
+| MAT-02 | `unused-runner` | definition site, name (reserved), call site, step style, runner kind | `matrix_unused_runner_test.go` |
+| MAT-03 | `require-test-step` | top-level `if` form, verification step shape, presence of steps, step style | `matrix_require_test_step_test.go` |
+| MAT-04 | `expr-sharp-comment` | field, comment position, scalar style, step count | `matrix_sharp_comment_test.go` |
+| MAT-05 | `{{ }}` in keys | key depth, content, step style | `matrix_key_template_test.go` |
+| MAT-06 | `var-ref` | reference site, where the variable is defined, `if: included`, whether referrers are read, caller kind | `matrix_var_ref_test.go` |
+| MAT-07 | `included-unreferenced` | `if` form, referrer kind, judged scope | `matrix_included_unreferenced_test.go` |
+| MAT-08 | `step-ref` | step style, reference form, target position, reference site, `defer` | `matrix_step_ref_test.go` |
+| MAT-09 | `loop-index`, `previous-step` | reference site, loop presence and place, step position, identifier form | `matrix_loop_previous_test.go` |
+| MAT-10 | `step-shape` | number of main runners, companions, `runner:`, annotations, step style | `matrix_step_shape_test.go` |
+| MAT-11 | `http-request` | path, method, body, headers, useCookie and trace | `matrix_http_request_test.go` |
+| MAT-12 | `runner-reserved`, `runner-config`, `runner-defined` | definition site, name, value shape, call | `matrix_runner_test.go` |
+| MAT-13 | `grpc-request`, `db-request`, `exec-request`, `ssh-request`, `cdp-request`, `agent-request`, `include-request` | shape variation, unknown key, step style | `matrix_request_shapes_test.go` |
+| MAT-14 | `book-shape`, `unknown-key`, `require-steps`, `label-format`, `duplicate-key`, `defer-experimental`, `require-desc`, `no-debug`, `loop-until-with-test` | top-level field and value shape, steps value, label position and value, duplicate location, `defer` value | `matrix_book_test.go` |
+| MAT-15 | `include-path`, `needs-path`, `local-path` | field, path form, file presence | `matrix_path_test.go` |
+| MAT-16 | `expr-syntax`, `expr-braces` | field, expression content, scalar style | `matrix_expr_test.go` |
+| MAT-17 | `# runnlint disable-line`, `unused-suppression` | position, rule list, target diagnostic, reason | `matrix_suppress_test.go` |
+| MAT-18 | declarative conditions | operator, value kind, `select` shape | `matrix_declarative_test.go` |
+
+Branch coverage is the job of `cov_<source file>_test.go`. Lines that cannot be reached are explained in each file's header comment.

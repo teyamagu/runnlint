@@ -6,7 +6,23 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Added
+
+- `unused-runner` (warning). Reports a runner defined in `runners` or in a step's `runner:` that no step calls. A runner called by a step inside an inline include counts as used.
+- `require-test-step` (info). Reports a runbook that can run on its own but has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks with `if: included` are not reported.
+- `expr-sharp-comment` (info). Reports an expression such as `test` or `if` that has a `#` comment outside brackets. runn strips it but prints a deprecation warning asking for `//`.
+- `unused-bind` (warning). Reports a name given by `bind` that neither this file's expressions nor any file that includes or needs this runbook reads. A runbook with `if: included` and no fixed-path referrer is not judged.
+
+### Changed
+
 - Japanese documents live in `docs/ja/`.
+- `{{ }}` inside mapping keys (an HTTP path, a body field name) is read as an expression, because runn expands keys too. `expr-syntax`, `var-ref`, `step-ref`, and `unused-bind` see references in keys.
+- The `examples` runbooks gained a step with only `test` that names what each one verifies.
+
+### Fixed
+
+- `*` and `?` after `**/` in `ignore` matched across directory separators (`a/**/?.yml` matched `a/x/cc.yml`). `**/` now stands for zero or more whole directories.
+- A declarative rule's `equals: null`, `not_equals: null`, and a where `equals: null` were ignored. A YAML null is never decoded, so the config loader now records that the key was written.
 
 ## [0.2.0]
 

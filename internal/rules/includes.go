@@ -21,6 +21,12 @@ type Refs struct {
 	scopes  []string
 	static  map[string][]IncludeRef
 	dynamic []dynamicRef
+	// needs maps a needed runbook to the files that list it in needs.
+	needs map[string][]string
+	// names are the identifiers and member names that each file's expressions reference. Used to see whether a caller reads a bind.
+	names map[string]map[string]struct{}
+	// unknown marks files with an expression that does not parse, whose references are therefore unknown.
+	unknown map[string]bool
 }
 
 // IncludeRef is one include.
@@ -42,7 +48,7 @@ type dynamicRef struct {
 // NewRefs builds a Refs that judges files inside scopes.
 // scopes are directories or files whose callers were all read.
 func NewRefs(scopes ...string) *Refs {
-	r := &Refs{static: map[string][]IncludeRef{}}
+	r := &Refs{static: map[string][]IncludeRef{}, needs: map[string][]string{}, names: map[string]map[string]struct{}{}, unknown: map[string]bool{}}
 	for _, s := range scopes {
 		if abs, err := filepath.Abs(s); err == nil {
 			r.scopes = append(r.scopes, abs)
@@ -65,6 +71,19 @@ func (r *Refs) Add(path string, src []byte) {
 		return
 	}
 	doc.Book.SetLocation(path, filepath.Dir(path))
+	r.addNames(doc.Book, from)
+	if needs, ok := doc.Book.Root.Get("needs"); ok && needs.Kind == runbook.KindMap {
+		for _, e := range needs.Map {
+			if e.Value.Kind != runbook.KindString {
+				continue
+			}
+			if target, ok := resolveLocal(doc.Book, e.Value.String); ok {
+				if abs, err := filepath.Abs(target); err == nil {
+					r.needs[abs] = append(r.needs[abs], from)
+				}
+			}
+		}
+	}
 	doc.Book.Walk(func(b *runbook.Book) {
 		for _, step := range b.Steps {
 			inc, ok := step.Value.Get("include")
@@ -119,6 +138,49 @@ func (r *Refs) addRef(b *runbook.Book, from string, path, vars runbook.Value) {
 		ref.Dynamic = true
 		r.dynamic = append(r.dynamic, dynamicRef{re: re, ref: ref})
 	}
+}
+
+// addNames records the names that the expressions of book reference. A file with an expression that does not parse is marked unknown.
+func (r *Refs) addNames(book *runbook.Book, from string) {
+	names, ok := bookNames(book, analyze(book))
+	if !ok {
+		r.unknown[from] = true
+	}
+	r.names[from] = names
+}
+
+// ReferrerNames returns the names referenced by every file that includes, may include, or needs path.
+// found reports whether a file includes or needs path by a fixed path. A dynamic include only possibly refers to path, so it adds names but does not count as found.
+// unknown reports whether one of those files has an expression that does not parse.
+func (r *Refs) ReferrerNames(path string) (names map[string]struct{}, found, unknown bool) {
+	names = map[string]struct{}{}
+	if r == nil {
+		return names, false, false
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return names, false, false
+	}
+	add := func(from string, fixed bool) {
+		if fixed {
+			found = true
+		}
+		if r.unknown[from] {
+			unknown = true
+		}
+		for name := range r.names[from] {
+			names[name] = struct{}{}
+		}
+	}
+	for _, ref := range r.Callers(path) {
+		add(ref.From, !ref.Dynamic)
+	}
+	for _, from := range r.needs[abs] {
+		if from != abs {
+			add(from, true)
+		}
+	}
+	return names, found, unknown
 }
 
 // InScope reports whether every caller of path was read.

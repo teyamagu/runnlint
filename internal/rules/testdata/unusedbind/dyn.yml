@@ -1,0 +1,9 @@
+# dyn is read by dynamic-parent.yml through its dynamic include. other is read by nobody.
+desc: dyn
+if: included
+steps:
+  - exec:
+      command: echo ok
+    bind:
+      dyn: current.stdout
+      other: current.stdout

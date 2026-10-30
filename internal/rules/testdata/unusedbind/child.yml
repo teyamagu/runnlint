@@ -1,0 +1,10 @@
+# token and session are read by parent.yml (session only through include.vars). orphan is read by nobody.
+desc: child
+if: included
+steps:
+  - exec:
+      command: echo ok
+    bind:
+      token: current.stdout
+      session: current.stdout
+      orphan: current.stdout

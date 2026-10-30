@@ -10,6 +10,7 @@ import (
 func init() {
 	register("expr-syntax", exprSyntax)
 	register("expr-braces", exprBraces)
+	register("expr-sharp-comment", exprSharpComment)
 	register("step-ref", lintStepRefs)
 	register("var-ref", varRef)
 	register("loop-index", loopIndex)
@@ -22,6 +23,16 @@ func exprSyntax(c *Context) {
 			continue
 		}
 		c.AddError(s.node, s.err)
+	}
+}
+
+// exprSharpComment reports an expression that has a # comment. runn strips it but prints a deprecation warning and asks for // instead.
+func exprSharpComment(c *Context) {
+	for _, s := range c.Sites {
+		if s.kind != siteExpr || !s.sharp {
+			continue
+		}
+		c.Add(s.node, message.ExprSharp, s.field)
 	}
 }
 

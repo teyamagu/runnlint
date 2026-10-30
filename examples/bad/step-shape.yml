@@ -10,3 +10,4 @@ steps:
           body: null
     db:
       query: SELECT 1
+  - test: steps[0].res.status == 200

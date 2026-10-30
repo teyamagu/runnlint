@@ -27,6 +27,8 @@ type site struct {
 	field  string
 	kind   siteKind
 	braced bool
+	// sharp means the expression has a # comment outside ( ) and { }. runn strips it and warns that it is deprecated.
+	sharp bool
 	// skipParse means do not parse this as an expression. An expression such as if wrapped in {{ }} is inspected by the template side.
 	skipParse bool
 	tree      *parser.Tree
@@ -65,6 +67,7 @@ func analyze(root *runbook.Book) []site {
 		src := sites[i].src
 		if sites[i].kind == siteExpr {
 			// runn strips # comments before evaluating only expressions such as test and if. It does not strip them inside {{ }}.
+			sites[i].sharp = commentCol(src) >= 0
 			src = trimSharpComment(src)
 		}
 		tree, err := parser.Parse(strings.TrimSpace(src))
@@ -105,6 +108,10 @@ func walkStrings(v runbook.Value, b *runbook.Book, step *runbook.Step, sites *[]
 		}
 	case runbook.KindMap:
 		for _, e := range v.Map {
+			// runn expands {{ }} in mapping keys too, such as an HTTP path or a body field name.
+			if e.KeyNode != nil && strings.Contains(e.Key, "{{") {
+				walkStrings(runbook.Value{Kind: runbook.KindString, String: e.Key, Node: e.KeyNode}, b, step, sites)
+			}
 			walkStrings(e.Value, b, step, sites)
 		}
 	}

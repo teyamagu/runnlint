@@ -1,0 +1,8 @@
+# if: included, but no includer is found. Callers are unknown, so unused-bind is not reported.
+desc: solo
+if: included
+steps:
+  - exec:
+      command: echo ok
+    bind:
+      anything: current.stdout

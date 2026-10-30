@@ -6,3 +6,4 @@ steps:
       pkg.Svc/Method:
         message:
           name: alice
+  - test: steps[0].res.status == 0

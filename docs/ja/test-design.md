@@ -17,7 +17,7 @@
 | BIN-03 | `--list-rules` は `id`、深刻度、`builtin:` または `check` | 同 |
 | BIN-04 | 検査の終了コードをコマンドがそのまま返す。設定不正は 2 | 同 |
 | BIN-05 | ディレクトリ走査は runbook 以外を飛ばす。`steps:` または `runners:` がある壊れた YAML は残す | `internal/app/contract_test.go` |
-| BIN-06 | `ignore` はディレクトリ走査で集めたファイルだけを外す。パターンがファイルパスでも、引数のファイルは検査する。リテラルは走査パスの一致とその下。末尾の `/` を除くのはその下だけで、`examples/fixtures/openapi.yml/` は `examples/fixtures/openapi.yml` に当たらない。ベース名に当たるのはパターン全体がベース名と一致するときで、`*.gen.yml` は当たり `dir/*.yml` は `dir` の直下だけ。`**` は走査パスだけ。`./` 付きや、`/` を含むパターンは、走査パスの文字列が違うと当たらない。`openapi.yml` と `*.gen.yml` は絶対パスにもベース名で当たる | `internal/app/contract_test.go`、`internal/config/config_test.go` |
+| BIN-06 | `ignore` はディレクトリ走査で集めたファイルだけを外す。パターンがファイルパスでも、引数のファイルは検査する。リテラルは走査パスの一致とその下。末尾の `/` を除くのはその下だけで、`examples/fixtures/openapi.yml/` は `examples/fixtures/openapi.yml` に当たらない。ベース名に当たるのはパターン全体がベース名と一致するときで、`*.gen.yml` は当たり `dir/*.yml` は `dir` の直下だけ。`**` は走査パスだけで、`**/` の後ろの `*` と `?` は 1 つの段の中に収まる。`./` 付きや、`/` を含むパターンは、走査パスの文字列が違うと当たらない。`openapi.yml` と `*.gen.yml` は絶対パスにもベース名で当たる | `internal/app/contract_test.go`、`internal/config/config_test.go` |
 | BIN-07 | warning だけ、info だけでは 0。error は 1。不明な出力形式と存在しないパスは 2 | 同 |
 | BIN-08 | text / github / json の形と、ファイル・行・列・ルール名での整列 | `internal/report/report_test.go` |
 | BIN-09 | 継承、`extends: none`、同一 id の上書き、検証、探索順、JSON | `internal/config/contract_test.go` |
@@ -58,5 +58,36 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-19 | `/` で始まらない HTTP の path は既定で診断しない。`options.require-leading-slash: true` のときだけ warning | 同 |
 | RULE-20 | `var-ref` は、include 元の `include.vars` で渡す変数を定義済みとする。include 元があれば `parent.vars` を外と言わない。include 元が見つからない `if: included` の runbook では `vars` を調べない | `internal/rules/includes_test.go`（`testdata/includevars`） |
 | RULE-21 | `test` と `bind` の式の中の `{{` はテンプレートにしない。値全体が1つの `{{ }}` のときは中身を式として解析し、`expr-braces` を出す。`{{` で始まるが1つに収まらないときは `expr-braces` だけで、式の解析エラーは出さない | `internal/rules/falsepositive_test.go` |
+| RULE-22 | `unused-runner` は、`runners` と step の `runner:` の runner のうち、その runbook と inline include のどの step も呼ばないものを warning で出す。予約語の名前は出さない。`require-test-step` は、トップレベルの `if` が `included` を要しない runbook に、runner の呼び出し・include・exec・`runner:` が無く `test` だけの step（`desc`・`if`・`dump`・`bind` は添えてよい）が本体にも inline include にも無いとき、`steps` の行に info で出す。`if: included` の runbook と step が無い runbook は出さない | `internal/rules/unused_test.go` |
+| RULE-23 | `expr-sharp-comment` は、`test`・`if`・`until`・`bind` などの式に括弧の外の `#` コメントがあるとき、その欄の行に info で出す。文字列の中の `#`、クロージャの `#`、`//` のコメントは出さない。YAML のコメント（空白の後の `#`）は値に含まれないので出さない | `internal/rules/sharp_comment_test.go` |
+| RULE-24 | `unused-bind` は、`bind` の名前がこのファイルの式にも、固定パスか動的パスで include するファイルや `needs` するファイルの式にも出てこないとき、キーの行に warning で出す。`if: included` で固定パスの参照元が無い runbook と、式として読めない値を持つファイルは出さない。inline include の中の bind を同じファイルが読めば出さない。`a.b` のキーは `a` の参照。mapping のキー（HTTP のパス、body の項目名）の中の `{{ }}` も式として読み、bind の参照・`var-ref`・`expr-syntax` の対象にする | `internal/rules/unused_bind_test.go`（`testdata/unusedbind`） |
+| RULE-25 | `equals: null`、`not_equals: null`、`where` の `equals: null` は書いたとおりに効く。YAML の null は decode されないので、キーが書かれたことを設定の読み込みで別に記録する | `internal/rules/declare_test.go` `TestEqualsNullIsNotIgnored` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。
+
+## ルールのバリエーション網羅
+
+各ルールの振る舞いは、因子（入力の変わり方）と水準（その値）を表にした行列テストで固定する。`internal/rules/matrix_*_test.go` がそれで、`pairwise_test.go` の生成器が、どの 2 因子の組み合わせも少なくとも 1 行に現れる行（2 因子間網羅）を作り、さらに各因子を 1 つずつ基準から動かした行（base choice）を足す。期待値は実装ではなく文書の契約から書いたオラクルで決め、行の名前は選んだ水準なので、落ちた行だけを `-run` で再実行できる。報告が出る行と出ない行の両方が一定数あることも確かめる（オラクルが退化していない保証）。
+
+| ID | ルール | 因子 | テスト |
+| --- | --- | --- | --- |
+| MAT-01 | `unused-bind` | トップレベルの `if`、bind のキーの形、同じファイルの参照箇所、呼び出し元の種類、参照元を読むか、steps の形式 | `matrix_unused_bind_test.go` |
+| MAT-02 | `unused-runner` | 定義の場所、名前（予約語）、呼び出しの場所、steps の形式、runner の種別 | `matrix_unused_runner_test.go` |
+| MAT-03 | `require-test-step` | トップレベルの `if` の形、検証 step の形、steps の有無、steps の形式 | `matrix_require_test_step_test.go` |
+| MAT-04 | `expr-sharp-comment` | 欄、コメントの位置、スカラーの書き方、step 数 | `matrix_sharp_comment_test.go` |
+| MAT-05 | キーの中の `{{ }}` | キーの深さ、中身、steps の形式 | `matrix_key_template_test.go` |
+| MAT-06 | `var-ref` | 参照箇所、定義の出どころ、`if: included`、参照元を読むか、呼び出し元の種類 | `matrix_var_ref_test.go` |
+| MAT-07 | `included-unreferenced` | `if` の形、参照元の種類、判定範囲 | `matrix_included_unreferenced_test.go` |
+| MAT-08 | `step-ref` | steps の形式、参照の形、参照先の位置、参照箇所、`defer` | `matrix_step_ref_test.go` |
+| MAT-09 | `loop-index`、`previous-step` | 参照箇所、loop の有無と場所、step の位置、識別子の形 | `matrix_loop_previous_test.go` |
+| MAT-10 | `step-shape` | main runner の数、companion、`runner:`、注釈、steps の形式 | `matrix_step_shape_test.go` |
+| MAT-11 | `http-request` | path、method、body、headers、useCookie と trace | `matrix_http_request_test.go` |
+| MAT-12 | `runner-reserved`、`runner-config`、`runner-defined` | 定義の場所、名前、値の形、呼び出し | `matrix_runner_test.go` |
+| MAT-13 | `grpc-request`、`db-request`、`exec-request`、`ssh-request`、`cdp-request`、`agent-request`、`include-request` | 形のバリエーション、未知のキー、steps の形式 | `matrix_request_shapes_test.go` |
+| MAT-14 | `book-shape`、`unknown-key`、`require-steps`、`label-format`、`duplicate-key`、`defer-experimental`、`require-desc`、`no-debug`、`loop-until-with-test` | トップレベルの欄と値の形、steps の値、ラベルの位置と値、重複の場所、`defer` の値 | `matrix_book_test.go` |
+| MAT-15 | `include-path`、`needs-path`、`local-path` | 欄、パスの書き方、ファイルの有無 | `matrix_path_test.go` |
+| MAT-16 | `expr-syntax`、`expr-braces` | 欄、式の中身、スカラーの書き方 | `matrix_expr_test.go` |
+| MAT-17 | `# runnlint disable-line`、`unused-suppression` | 位置、ルールの指定、対象の診断、理由の有無 | `matrix_suppress_test.go` |
+| MAT-18 | 宣言的ルールの判定 | 演算子、値の種類、`select` の形 | `matrix_declarative_test.go` |
+
+分岐の網羅は `cov_<ソースファイル名>_test.go` が受け持つ。到達できない行は各ファイルの先頭コメントに理由を書く。

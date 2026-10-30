@@ -180,11 +180,15 @@ rules:
 | `local-path` | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | 式として読む欄を `{{ }}` で包んでいる |
+| `expr-sharp-comment` | `test` や `if` などの式に `#` のコメントがある。runn は取り除いて動くが、非推奨の警告を出す |
 | `step-ref` | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | `vars` に無い変数を参照している |
 | `loop-index` | `loop` の外で添字 `i` を使っている |
 | `previous-step` | 直前の step が無い場所で `previous` を使っている |
 | `defer-experimental` | `defer` は実験的機能だという知らせ |
+| `unused-runner` | `runners` や `runner:` で定義した runner を、どの step も呼んでいない |
+| `unused-bind` | `bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない |
+| `require-test-step` | 単独で実行できる runbook に、`test` だけの step（このシナリオで確かめたいことを名前にした検証 step）が無い |
 | `included-unreferenced` | include されたときだけ動く runbook が、どこからも include されていない |
 | `unused-suppression` | 抑制のコメントが、診断を抑制できていない |
 

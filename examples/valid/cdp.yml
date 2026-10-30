@@ -7,3 +7,4 @@ steps:
         - title
         - navigate:
             url: https://example.com
+  - test: steps[0].title != ""

@@ -5,3 +5,4 @@ vars:
 steps:
   - exec:
       command: "echo {{ vars.password }}"
+  - test: steps[0].exit_code == 0
