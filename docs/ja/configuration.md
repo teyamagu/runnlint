@@ -159,10 +159,32 @@ rules:
 | `uses` | 組み込み実装の名前。`id` と別の名前にもできます。 |
 | `severity` | `error`、`warning`、`info`、`off`。省略すると `error`。 |
 | `message` | 宣言的ルールの診断文。 |
+| `files` | このルールを当てるファイルのパターンの配列。省略するとすべてのファイルに当てます。 |
 | `check` | 宣言的ルールの条件。`uses` と同時には書けません。 |
 | `options` | 組み込み実装へ渡す追加設定。 |
 
 `off` 以外では、`uses` か `check` のどちらかが必要です。`check.select` は空にできません。未知の `uses` は実行前に失敗し、終了コードは `2` です。
+
+### files
+
+`files` を書くと、パターンに当たるファイルにだけそのルールを当てます。組み込みルール（`uses`）にも宣言的ルール（`check`）にも効きます。継承したルールに `files` だけを書いて、範囲を狭めることもできます。
+
+```yaml
+rules:
+  - id: integrations-only-include
+    severity: error
+    files: ['integrations/**']
+    check:
+      select: 'steps.*'
+      where:
+        - path: include
+          exists: false
+      forbid: true
+  - id: require-desc
+    files: ['books/**']
+```
+
+パターンの当て方は「ignore」と同じです。走査で得たパス（スラッシュ区切り）とそのベース名に当て、`**` を含むパターンは走査で得たパスだけに当てます。違いは1つで、`ignore` は引数がディレクトリのときだけ見ますが、`files` は引数にファイルを渡したときにも見ます。`runnlint integrations/a.yml` と書けば、`integrations/**` のルールが当たります。走査で得たパスは引数のディレクトリを起点にするので、`runnlint .` では `integrations/a.yml`、`runnlint books` では `books/integrations/a.yml` です。`files: []` と、空のパターンは、設定の読み込みで失敗します。
 
 終了コードは、`error` が1件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。`warning` と `info` だけでは失敗しません。コマンドに `--strict` を付けると `warning` でも `1` になります。`info` は失敗しません。ルールファイルにこの設定はありません。
 
@@ -287,7 +309,7 @@ rules:
 
 ### select
 
-どの値に条件を当てるかです。ドット区切りです。`*` は mapping の各値、または sequence の各要素です。`steps` が list でも map でも `steps.*` で各 step を指します。
+どの値に条件を当てるかです。ドット区切りです。`*` は mapping の各値、または sequence の各要素で、1段だけ降ります。`**` は 0 段以上の任意の段で、mapping の値と sequence の要素を深さを問わず辿ります。`steps` が list でも map でも `steps.*` で各 step を指します。
 
 | select | 指すもの |
 | --- | --- |
@@ -295,8 +317,15 @@ rules:
 | `vars.password` | `vars` の `password` |
 | `steps.*` | 各 step |
 | `steps.*.test` | 各 step の `test` |
+| `steps.*.**.query` | どの runner 名、どの path やメソッドの下にあっても、step の中の `query` |
+| `vars.**` | `vars` の下にあるスカラーすべて。深さは問いません |
+| `steps.*.req."/v1/{id}.json".get` | `.` を含むキー `/v1/{id}.json` を1つの段として辿る |
 
-list の要素を選んだときの `key` は `0` から始まる番号、map のときの `key` はキー名です。`path` は `steps[0]` や `steps.login` のような位置です。
+`**` が途中にあるときは、その後ろの段が見つかるまで何段でも降ります。0 段も含むので、`vars.**.flat` は `vars.flat` にも当たります。`**` が最後にあるときは、そこから下のスカラーをすべて選びます。選んだ値自身がスカラーなら、それを選びます。mapping や sequence そのものは選びません。
+
+キーに `.` が含まれるときは、その段を二重引用符で囲みます。囲んだ段は `*`、`**`、`$` を書いても文字どおりのキーとして扱います。`vars."*"` はキー `*` の値です。閉じていない引用符と、閉じ引用符の直後に `.` 以外が続く書き方は、設定の読み込みで失敗します。囲んだ中の `"` はエスケープできません。
+
+list の要素を選んだときの `key` は `0` から始まる番号、map のときの `key` はキー名です。`path` は `steps[0]` や `steps.login` のような位置です。`.` を含むキーは、`path` でも `steps[0].req."/v1/{id}.json".get` のように二重引用符で囲んで出します。
 
 ### 判定
 
@@ -304,8 +333,9 @@ list の要素を選んだときの `key` は `0` から始まる番号、map �
 
 | 条件 | 診断になるとき |
 | --- | --- |
-| `exists: true` | パスが1件も無い。このときは他の条件を見ません |
-| `exists: false` | パスが1件以上ある。このときは他の条件を見ません |
+| `exists: true` | `where` に合う値が1件も無い。このときは他の条件を見ません |
+| `exists: false` | `where` に合う値が1件以上ある。このときは他の条件を見ません |
+| `kind` | 値の型が違う。`mapping`、`sequence`、`string`、`number`、`bool`、`null` のどれかを書きます。他の条件より先に見ます |
 | `equals` | 値が違う。`null` は YAML の null と比較できます |
 | `not_equals` | 値が同じ |
 | `matches` | 文字列か数値が、正規表現に一致しない |
@@ -319,6 +349,17 @@ list の要素を選んだときの `key` は `0` から始まる番号、map �
 
 正規表現は Go の RE2 です。壊れていると、その runbook のルートに診断を出します。
 
+`kind` は、選んだ値の型を固定します。list 形式の `steps` を禁じるには、`select: steps` と `kind: mapping` を書きます。`steps` が無いときは何も選ばないので、診断になりません。`steps` が無いことは `require-steps` が知らせます。`kind` の既定の文は「値の型が sequence で、mapping ではありません」のように、実際の型と期待した型を出します。未知の型名は設定の読み込みで失敗します。
+
+```yaml
+rules:
+  - id: steps-must-be-map
+    severity: error
+    check:
+      select: steps
+      kind: mapping
+```
+
 `key_matches` と `key_not_matches` は、選んだ値のキーを見ます。map の `steps.*` では step 名、list の `steps.*` では `0` から始まる番号です。診断の位置はキーの行です。list にはキーのノードが無いので、値の行になります。既定のルールに step 名の規約はありません。必要なプロジェクトが書きます。既存の step 名は baseline で許容できます。
 
 ```yaml
@@ -331,7 +372,7 @@ rules:
       key_matches: '^[a-z][a-z0-9-]*$'
 ```
 
-`where` は、判定の前に値を絞ります。一覧でも、mapping 1件でも書けます。複数あるときはすべてに合う値だけを残します。`where` に書けるのは `path`、`exists`、`equals`、`matches` です。`path` は、選んだ値からの相対パスです。
+`where` は、判定の前に値を絞ります。一覧でも、mapping 1件でも書けます。複数あるときはすべてに合う値だけを残します。`where` に書けるのは `path`、`exists`、`kind`、`equals`、`matches` です。`path` は、選んだ値からの相対パスです。`select` と同じく、`.` を含むキーは二重引用符で囲みます。`path` に `*` と `**` は書けません。`exists`、`forbid`、通常の判定のどれでも、`where` で残った値だけを見ます。
 
 ```yaml
 rules:
@@ -356,6 +397,28 @@ where:
   exists: true
 ```
 
+`path` を `$.if` のように `$.` から始めると、選んだ値からの相対ではなく、runbook のルートから辿ります。`$` だけならルートそのものです。選んだ値によらない条件なので、runbook ごとに1回だけ見る門として働きます。1つでも合わないと、そのルールはその runbook に何も出しません。合えば、相対パスの条件で値を絞り、判定に進みます。`exists: true` と組み合わせると、「トップレベルの `if` が無いのに `labels` が無い」のような、runbook の種類で変わる必須項目が書けます。
+
+```yaml
+rules:
+  - id: included-vars-have-no-id-default
+    severity: warning
+    check:
+      select: 'vars.*'
+      where:
+        - path: $.if
+          matches: included
+      not_matches: '^[0-9A-Za-z]{26}$|^[0-9a-fA-F-]{36}$'
+  - id: standalone-needs-labels
+    severity: warning
+    check:
+      select: labels
+      where:
+        - path: $.if
+          exists: false
+      exists: true
+```
+
 ### message
 
 診断に出す文です。空なら、条件に応じた文を出します。書いた場合は [Go の text/template](https://pkg.go.dev/text/template) です。使えるデータは次の4つです。未知の名前は空文字になります。
@@ -367,4 +430,4 @@ where:
 | `{{ .value }}` | スカラーの文字列。mapping や sequence は空 |
 | `{{ .rule }}` | ルールの `id` |
 
-`exists: true` でパスが無いときの `path` は、存在する最も深い親です。トップレベルが無いときは空です。
+`exists: true` でパスが無いときの `path` は、存在する最も深い親です。`*` と `**` の手前で止まるので、`steps.*.**.timeout` が無いときは `steps` です。トップレベルが無いときは空です。このとき `value` は `null` です。

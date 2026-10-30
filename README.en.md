@@ -134,9 +134,9 @@ rules:
 
 ### Declarative rules
 
-`check.select` is dot-separated. `*` is each value of a mapping, or each element of a sequence. `steps.*` means each step whether `steps` is a list or a map.
+`check.select` is dot-separated. `*` is each value of a mapping, or each element of a sequence. `**` is any number of levels, so `steps.*.**.query` selects `query` under any runner. `steps.*` means each step whether `steps` is a list or a map. A key that contains a dot is wrapped in double quotes, as in `req."/v1/{id}.json"`.
 
-The conditions are `exists`, `equals`, `not_equals`, `matches`, `not_matches`, `key_matches`, `key_not_matches`, `one_of`, `min_len`, `max_len`, and `forbid`. `key_matches` looks at the key name. It can express a convention for map step names. `where` narrows the values before the check. `message` can use `{{ .path }}`, `{{ .key }}`, `{{ .value }}`, and `{{ .rule }}`.
+The conditions are `exists`, `kind`, `equals`, `not_equals`, `matches`, `not_matches`, `key_matches`, `key_not_matches`, `one_of`, `min_len`, `max_len`, and `forbid`. `kind` fixes the type of the value, and `key_matches` looks at the key name. It can express a convention for map step names. `where` narrows the values before the check. A `where` `path` that starts with `$.`, as in `$.if`, is read from the runbook root. `files` applies the rule only to files that match its patterns. `message` can use `{{ .path }}`, `{{ .key }}`, `{{ .value }}`, and `{{ .rule }}`.
 
 ```yaml
 rules:

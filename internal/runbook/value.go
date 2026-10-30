@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/teyamagu/runnlint/internal/message"
 	"gopkg.in/yaml.v3"
 )
 
@@ -54,17 +55,23 @@ func (v Value) Get(key string) (Value, bool) {
 	return Value{}, false
 }
 
-// Lookup follows a relative path that contains no wildcard.
+// Lookup follows a relative path that contains no wildcard. A path that cannot be parsed finds nothing.
 func (v Value) Lookup(path string) (Value, bool) {
-	cur := v
-	if path == "" {
-		return cur, true
+	segs, err := ParsePath(path)
+	if err != nil {
+		return Value{}, false
 	}
-	for _, seg := range strings.Split(path, ".") {
+	return v.LookupSegs(segs)
+}
+
+// LookupSegs follows segs as plain keys. * and ** are not wildcards here.
+func (v Value) LookupSegs(segs []Seg) (Value, bool) {
+	cur := v
+	for _, seg := range segs {
 		if cur.Kind != KindMap {
 			return Value{}, false
 		}
-		next, ok := cur.Get(seg)
+		next, ok := cur.Get(seg.Key)
 		if !ok {
 			return Value{}, false
 		}
@@ -72,6 +79,73 @@ func (v Value) Lookup(path string) (Value, bool) {
 	}
 	return cur, true
 }
+
+// Seg is one dot-separated segment of a select or where path.
+// Quoted means the segment was written in double quotes, so it is a literal key even when it is *, **, or $.
+type Seg struct {
+	Key    string
+	Quoted bool
+}
+
+// ParsePath splits a dot-separated path. A segment in double quotes is one key and may contain dots.
+// A quote that is not closed, or text after a closing quote, is an error.
+func ParsePath(path string) ([]Seg, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, nil
+	}
+	var out []Seg
+	var cur strings.Builder
+	quoted := false
+	flush := func() {
+		out = append(out, Seg{Key: cur.String(), Quoted: quoted})
+		cur.Reset()
+		quoted = false
+	}
+	for i := 0; i < len(path); i++ {
+		ch := path[i]
+		switch {
+		case ch == '"' && cur.Len() == 0 && !quoted:
+			end := strings.IndexByte(path[i+1:], '"')
+			if end < 0 {
+				return nil, message.New(message.QuoteOpen)
+			}
+			cur.WriteString(path[i+1 : i+1+end])
+			quoted = true
+			i += end + 1
+			if i+1 < len(path) && path[i+1] != '.' {
+				return nil, message.New(message.QuoteTail)
+			}
+		case ch == '.':
+			flush()
+		default:
+			cur.WriteByte(ch)
+		}
+	}
+	flush()
+	return out, nil
+}
+
+// KindName is the name of k used in kind conditions: mapping, sequence, string, number, bool, or null.
+func KindName(k Kind) string {
+	switch k {
+	case KindMap:
+		return "mapping"
+	case KindSeq:
+		return "sequence"
+	case KindString:
+		return "string"
+	case KindNumber:
+		return "number"
+	case KindBool:
+		return "bool"
+	default:
+		return "null"
+	}
+}
+
+// KindNames lists the names KindName returns, in the order written in the documentation.
+var KindNames = []string{"mapping", "sequence", "string", "number", "bool", "null"}
 
 // Len is the length of a string, sequence, or mapping.
 func (v Value) Len() int {

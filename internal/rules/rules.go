@@ -94,7 +94,7 @@ func lintDocument(doc *runbook.Document, cfg *config.Config, refs *Refs) []findi
 	sites := analyze(doc.Book)
 	ctx := &Context{Doc: doc, Sites: sites, Refs: refs, Lang: displayLang(cfg)}
 	for _, rule := range cfg.Rules {
-		if rule.Severity == finding.Off {
+		if rule.Severity == finding.Off || !rule.AppliesTo(doc.Book.File) {
 			continue
 		}
 		ctx.Rule = rule

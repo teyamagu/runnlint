@@ -12,6 +12,7 @@ import (
 
 	"github.com/teyamagu/runnlint/internal/finding"
 	"github.com/teyamagu/runnlint/internal/message"
+	"github.com/teyamagu/runnlint/internal/runbook"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,13 +54,16 @@ type Rule struct {
 	Uses     string           `yaml:"uses"`
 	Severity finding.Severity `yaml:"severity"`
 	Message  string           `yaml:"message"`
-	Check    *Check           `yaml:"check"`
-	Options  map[string]any   `yaml:"options"`
+	// Files limits the rule to files whose path matches one of the patterns. Nil applies to every file.
+	Files   []string       `yaml:"files"`
+	Check   *Check         `yaml:"check"`
+	Options map[string]any `yaml:"options"`
 }
 
 // Check is the condition of a declarative rule.
 type Check struct {
 	Select      string    `yaml:"select"`
+	Kind        string    `yaml:"kind"`
 	Exists      *bool     `yaml:"exists"`
 	Equals      *Any      `yaml:"equals"`
 	NotEquals   *Any      `yaml:"not_equals"`
@@ -74,9 +78,10 @@ type Check struct {
 	Where       WhereList `yaml:"where"`
 }
 
-// Cond filters select results. path is relative to the selected node.
+// Cond filters select results. path is relative to the selected node, or from the root when it starts with $.
 type Cond struct {
 	Path    string `yaml:"path"`
+	Kind    string `yaml:"kind"`
 	Exists  *bool  `yaml:"exists"`
 	Equals  *Any   `yaml:"equals"`
 	Matches string `yaml:"matches"`
@@ -343,6 +348,9 @@ func overlay(base, over Rule) Rule {
 	if over.Message != "" {
 		out.Message = over.Message
 	}
+	if over.Files != nil {
+		out.Files = over.Files
+	}
 	if over.Options != nil {
 		merged := map[string]any{}
 		for k, v := range base.Options {
@@ -385,6 +393,14 @@ func (c *Config) Validate() error {
 		if rule.Severity == finding.Off {
 			continue
 		}
+		if rule.Files != nil && len(rule.Files) == 0 {
+			return message.New(message.FilesEmpty, rule.ID)
+		}
+		for _, pattern := range rule.Files {
+			if strings.TrimSpace(pattern) == "" {
+				return message.New(message.FilesBlank, rule.ID)
+			}
+		}
 		switch {
 		case rule.Uses != "" && rule.Check != nil:
 			return message.New(message.UsesAndCheck, rule.ID)
@@ -392,6 +408,11 @@ func (c *Config) Validate() error {
 			return message.New(message.UsesOrCheck, rule.ID)
 		case rule.Check != nil && strings.TrimSpace(rule.Check.Select) == "":
 			return message.New(message.SelectEmpty, rule.ID)
+		}
+		if rule.Check != nil {
+			if err := validateCheck(rule.ID, rule.Check); err != nil {
+				return err
+			}
 		}
 	}
 	if c.Yamllint.Missing != "" {
@@ -404,12 +425,55 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func validateCheck(id string, check *Check) error {
+	if _, err := runbook.ParsePath(check.Select); err != nil {
+		return message.Wrap(message.PathBad, err, id, "select", check.Select)
+	}
+	if err := validateKind(id, "kind", check.Kind); err != nil {
+		return err
+	}
+	for _, cond := range check.Where {
+		if _, err := runbook.ParsePath(cond.Path); err != nil {
+			return message.Wrap(message.PathBad, err, id, "where.path", cond.Path)
+		}
+		if err := validateKind(id, "where.kind", cond.Kind); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateKind(id, field, kind string) error {
+	if kind == "" {
+		return nil
+	}
+	for _, name := range runbook.KindNames {
+		if kind == name {
+			return nil
+		}
+	}
+	return message.New(message.KindBad, id, field, kind)
+}
+
 // Ignored reports whether a walked path (slash-separated), or its base name, matches ignore.
 // A pattern containing ** is matched only against the path. The caller decides whether to exclude a file passed as an argument.
 func (c *Config) Ignored(path string) bool {
+	return matchAny(c.Ignore, path)
+}
+
+// AppliesTo reports whether the rule runs on path. A rule without files applies to every path.
+// Patterns are matched the same way as ignore, and also apply to a file passed as an argument.
+func (r Rule) AppliesTo(path string) bool {
+	if r.Files == nil {
+		return true
+	}
+	return matchAny(r.Files, path)
+}
+
+func matchAny(patterns []string, path string) bool {
 	slash := filepath.ToSlash(path)
 	base := filepath.Base(path)
-	for _, pattern := range c.Ignore {
+	for _, pattern := range patterns {
 		if matchIgnore(pattern, slash, base) {
 			return true
 		}

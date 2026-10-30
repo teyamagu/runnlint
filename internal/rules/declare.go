@@ -21,6 +21,14 @@ type match struct {
 	path    string
 }
 
+// whereCond is one where entry with its parsed path and compiled regular expression.
+// For a path that started with $, segs holds the rest and the entry is looked up from the runbook root once per file.
+type whereCond struct {
+	cond config.Cond
+	re   *regexp.Regexp
+	segs []runbook.Seg
+}
+
 func runCheck(c *Context) {
 	check := c.Rule.Check
 	if check == nil || c.Doc == nil {
@@ -46,19 +54,47 @@ func runCheck(c *Context) {
 		c.Add(c.Doc.Root.Node, message.ReKeyNot, err.Error())
 		return
 	}
-	var whereRe []*regexp.Regexp
+	selSegs, err := runbook.ParsePath(check.Select)
+	if err != nil {
+		c.AddError(c.Doc.Root.Node, message.Wrap(message.PathBad, err, c.Rule.ID, "select", check.Select))
+		return
+	}
+	var gates, filters []whereCond
 	for _, cond := range check.Where {
 		re, err := compileRe(cond.Matches)
 		if err != nil {
 			c.Add(c.Doc.Root.Node, message.ReWhere, err.Error())
 			return
 		}
-		whereRe = append(whereRe, re)
+		segs, err := runbook.ParsePath(cond.Path)
+		if err != nil {
+			c.AddError(c.Doc.Root.Node, message.Wrap(message.PathBad, err, c.Rule.ID, "where.path", cond.Path))
+			return
+		}
+		wc := whereCond{cond: cond, re: re, segs: segs}
+		if len(segs) > 0 && !segs[0].Quoted && segs[0].Key == "$" {
+			wc.segs = segs[1:]
+			gates = append(gates, wc)
+			continue
+		}
+		filters = append(filters, wc)
 	}
 
-	found := selectPath(c.Doc.Root, check.Select)
+	root := c.Doc.Root
+	for _, wc := range gates {
+		if !condHolds(root, wc) {
+			return
+		}
+	}
+
+	var found []match
+	for _, m := range selectSegs(root, selSegs) {
+		if whereMatch(m.value, filters) {
+			found = append(found, m)
+		}
+	}
 	if check.Exists != nil && *check.Exists && len(found) == 0 {
-		node, path := deepest(c.Doc.Root, splitPath(check.Select))
+		node, path := deepest(root, selSegs)
 		c.report(node.Node, path, "", runbook.Value{}, message.PathMissing, check.Select)
 		return
 	}
@@ -70,9 +106,6 @@ func runCheck(c *Context) {
 	}
 
 	for _, m := range found {
-		if !whereMatch(m.value, check.Where, whereRe) {
-			continue
-		}
 		if check.Forbid {
 			c.report(m.value.Node, m.path, m.key, m.value, message.CondMatch)
 			continue
@@ -104,6 +137,9 @@ func compileRe(expr string) (*regexp.Regexp, error) {
 }
 
 func violate(v runbook.Value, key string, check *config.Check, matchRe, notRe, keyRe, keyNotRe *regexp.Regexp) (message.ID, []any, bool, bool) {
+	if check.Kind != "" && runbook.KindName(v.Kind) != check.Kind {
+		return message.KindMismatch, []any{runbook.KindName(v.Kind), check.Kind}, false, true
+	}
 	if check.Equals != nil && check.Equals.Set && !equalValue(v, check.Equals.Value) {
 		return message.ValueNotEq, []any{fmt.Sprint(check.Equals.Value)}, false, true
 	}
@@ -135,36 +171,42 @@ func violate(v runbook.Value, key string, check *config.Check, matchRe, notRe, k
 	return "", nil, false, false
 }
 
-func whereMatch(v runbook.Value, conds []config.Cond, res []*regexp.Regexp) bool {
-	for i, cond := range conds {
-		target := v
-		if cond.Path != "" {
-			next, ok := v.Lookup(cond.Path)
-			if cond.Exists != nil && *cond.Exists && !ok {
-				return false
-			}
-			if cond.Exists != nil && !*cond.Exists {
-				if ok {
-					return false
-				}
-				continue
-			}
-			if !ok {
-				return false
-			}
-			target = next
-		} else if cond.Exists != nil {
+func whereMatch(v runbook.Value, conds []whereCond) bool {
+	for _, wc := range conds {
+		if !condHolds(v, wc) {
 			return false
 		}
-		if cond.Equals != nil && cond.Equals.Set && !equalValue(target, cond.Equals.Value) {
+	}
+	return true
+}
+
+// condHolds reports whether one where entry holds for v. For a root entry, v is the runbook root.
+func condHolds(v runbook.Value, wc whereCond) bool {
+	cond := wc.cond
+	target := v
+	if cond.Path != "" {
+		next, ok := v.LookupSegs(wc.segs)
+		if cond.Exists != nil && *cond.Exists && !ok {
 			return false
 		}
-		if i < len(res) && res[i] != nil {
-			text := scalarText(target)
-			if !res[i].MatchString(text) {
-				return false
-			}
+		if cond.Exists != nil && !*cond.Exists {
+			return !ok
 		}
+		if !ok {
+			return false
+		}
+		target = next
+	} else if cond.Exists != nil {
+		return false
+	}
+	if cond.Kind != "" && runbook.KindName(target.Kind) != cond.Kind {
+		return false
+	}
+	if cond.Equals != nil && cond.Equals.Set && !equalValue(target, cond.Equals.Value) {
+		return false
+	}
+	if wc.re != nil && !wc.re.MatchString(scalarText(target)) {
+		return false
 	}
 	return true
 }
@@ -217,19 +259,50 @@ func scalarText(v runbook.Value) string {
 	}
 }
 
+// selectPath returns every value that the select path selects. A path that cannot be parsed selects nothing.
 func selectPath(root runbook.Value, path string) []match {
-	return walkPath(root, splitPath(path), "", "", nil)
-}
-
-func splitPath(path string) []string {
-	path = strings.TrimSpace(path)
-	if path == "" {
+	segs, err := runbook.ParsePath(path)
+	if err != nil {
 		return nil
 	}
-	return strings.Split(path, ".")
+	return selectSegs(root, segs)
 }
 
-func walkPath(v runbook.Value, segs []string, acc, key string, keyNode *yaml.Node) []match {
+// selectSegs returns every value that segs selects. A value reached twice, which is possible with repeated **, is kept once.
+func selectSegs(root runbook.Value, segs []runbook.Seg) []match {
+	all := walkPath(root, segs, "", "", nil)
+	seen := map[string]struct{}{}
+	out := all[:0]
+	for _, m := range all {
+		if _, ok := seen[m.path]; ok {
+			continue
+		}
+		seen[m.path] = struct{}{}
+		out = append(out, m)
+	}
+	return out
+}
+
+func isWild(seg runbook.Seg, name string) bool {
+	return !seg.Quoted && seg.Key == name
+}
+
+// pathKey renders a key for path. A key that contains a dot is written in double quotes, the way select would write it.
+func pathKey(key string) string {
+	if strings.Contains(key, ".") {
+		return "\"" + key + "\""
+	}
+	return key
+}
+
+func joinPath(acc, key string) string {
+	if acc == "" {
+		return pathKey(key)
+	}
+	return acc + "." + pathKey(key)
+}
+
+func walkPath(v runbook.Value, segs []runbook.Seg, acc, key string, keyNode *yaml.Node) []match {
 	if len(segs) == 0 {
 		if acc == "" {
 			acc = "$"
@@ -237,67 +310,77 @@ func walkPath(v runbook.Value, segs []string, acc, key string, keyNode *yaml.Nod
 		return []match{{value: v, key: key, keyNode: keyNode, path: acc}}
 	}
 	seg := segs[0]
-	if seg == "*" {
-		switch v.Kind {
-		case runbook.KindSeq:
-			var out []match
-			for i, el := range v.Seq {
-				next := acc + "[" + strconv.Itoa(i) + "]"
-				out = append(out, walkPath(el, segs[1:], next, strconv.Itoa(i), nil)...)
-			}
-			return out
-		case runbook.KindMap:
-			var out []match
-			for _, e := range v.Map {
-				next := e.Key
-				if acc != "" {
-					next = acc + "." + e.Key
-				}
-				out = append(out, walkPath(e.Value, segs[1:], next, e.Key, e.KeyNode)...)
-			}
-			return out
-		default:
-			return nil
+	if isWild(seg, "**") {
+		if len(segs) == 1 {
+			return leaves(v, acc, key, keyNode)
 		}
+		out := walkPath(v, segs[1:], acc, key, keyNode)
+		forEachChild(v, acc, func(child runbook.Value, childAcc, childKey string, childKeyNode *yaml.Node) {
+			out = append(out, walkPath(child, segs, childAcc, childKey, childKeyNode)...)
+		})
+		return out
+	}
+	if isWild(seg, "*") {
+		var out []match
+		forEachChild(v, acc, func(child runbook.Value, childAcc, childKey string, childKeyNode *yaml.Node) {
+			out = append(out, walkPath(child, segs[1:], childAcc, childKey, childKeyNode)...)
+		})
+		return out
 	}
 	if v.Kind != runbook.KindMap {
 		return nil
 	}
-	var entry runbook.Entry
-	found := false
 	for _, e := range v.Map {
-		if e.Key == seg {
-			entry = e
-			found = true
-			break
+		if e.Key == seg.Key {
+			return walkPath(e.Value, segs[1:], joinPath(acc, e.Key), e.Key, e.KeyNode)
 		}
 	}
-	if !found {
-		return nil
-	}
-	next := seg
-	if acc != "" {
-		next = acc + "." + seg
-	}
-	return walkPath(entry.Value, segs[1:], next, seg, entry.KeyNode)
+	return nil
 }
 
-func deepest(root runbook.Value, segs []string) (runbook.Value, string) {
+// forEachChild calls fn for each mapping value or sequence element of v. A scalar has no children.
+func forEachChild(v runbook.Value, acc string, fn func(child runbook.Value, acc, key string, keyNode *yaml.Node)) {
+	switch v.Kind {
+	case runbook.KindSeq:
+		for i, el := range v.Seq {
+			idx := strconv.Itoa(i)
+			fn(el, acc+"["+idx+"]", idx, nil)
+		}
+	case runbook.KindMap:
+		for _, e := range v.Map {
+			fn(e.Value, joinPath(acc, e.Key), e.Key, e.KeyNode)
+		}
+	}
+}
+
+// leaves returns every scalar at or below v. It is the meaning of a trailing **.
+func leaves(v runbook.Value, acc, key string, keyNode *yaml.Node) []match {
+	if v.Kind != runbook.KindSeq && v.Kind != runbook.KindMap {
+		if acc == "" {
+			acc = "$"
+		}
+		return []match{{value: v, key: key, keyNode: keyNode, path: acc}}
+	}
+	var out []match
+	forEachChild(v, acc, func(child runbook.Value, childAcc, childKey string, childKeyNode *yaml.Node) {
+		out = append(out, leaves(child, childAcc, childKey, childKeyNode)...)
+	})
+	return out
+}
+
+// deepest follows segs as far as plain keys exist. It stops before * and **. It is the position for an exists: true diagnostic.
+func deepest(root runbook.Value, segs []runbook.Seg) (runbook.Value, string) {
 	cur := root
 	acc := ""
 	for _, seg := range segs {
-		if seg == "*" || cur.Kind != runbook.KindMap {
+		if isWild(seg, "*") || isWild(seg, "**") || cur.Kind != runbook.KindMap {
 			return cur, acc
 		}
-		next, ok := cur.Get(seg)
+		next, ok := cur.Get(seg.Key)
 		if !ok {
 			return cur, acc
 		}
-		if acc == "" {
-			acc = seg
-		} else {
-			acc += "." + seg
-		}
+		acc = joinPath(acc, seg.Key)
 		cur = next
 	}
 	return cur, acc

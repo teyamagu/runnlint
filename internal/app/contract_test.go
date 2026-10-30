@@ -405,3 +405,40 @@ func TestStrictFailsOnWarning(t *testing.T) {
 		t.Fatalf("code = %d\n%s", code, out)
 	}
 }
+
+// TestRuleFilesInWalkAndArgument checks that a rule with files applies only to matching files, both when the directory is walked and when the file is passed as an argument.
+func TestRuleFilesInWalkAndArgument(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		".runnlint-runn.yaml": "extends: none\nrules:\n  - id: integrations-only-include\n    severity: error\n    files: ['integrations/**']\n    check:\n      select: 'steps.*'\n      where:\n        - path: include\n          exists: false\n      forbid: true\n",
+		"integrations/a.yml":  "desc: d\nsteps:\n  - test: \"true\"\n",
+		"books/a.yml":         "desc: d\nsteps:\n  - test: \"true\"\n",
+	})
+	var stdout bytes.Buffer
+	code, err := Run(context.Background(), Options{Paths: []string{"."}, NoYamllint: true, Stdout: &stdout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != 1 || !strings.Contains(stdout.String(), "integrations/a.yml") || strings.Contains(stdout.String(), "books/a.yml") {
+		t.Fatalf("code = %d\n%s", code, stdout.String())
+	}
+
+	stdout.Reset()
+	code, err = Run(context.Background(), Options{Paths: []string{"books/a.yml"}, NoYamllint: true, Stdout: &stdout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != 0 || stdout.Len() != 0 {
+		t.Fatalf("code = %d\n%s", code, stdout.String())
+	}
+
+	stdout.Reset()
+	code, err = Run(context.Background(), Options{Paths: []string{"integrations/a.yml"}, NoYamllint: true, Stdout: &stdout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != 1 || !strings.Contains(stdout.String(), "[integrations-only-include]") {
+		t.Fatalf("code = %d\n%s", code, stdout.String())
+	}
+}
