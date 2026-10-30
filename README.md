@@ -38,13 +38,14 @@ runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
 runnlint --baseline runnlint-baseline.json .
+runnlint --strict .
 runnlint --include-root . books/payments
 runnlint --list-rules
 runnlint --print-config > .runnlint-runn.yaml
 runnlint --version
 ```
 
-終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。
+終了コードは、error が 1 件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` です。warning と info だけでは失敗しません。`--strict` を付けると warning でも `1` になります。info は `--strict` でも失敗しません。`--baseline` で消した診断は数えないので、既存の warning を baseline に入れたまま、新しい warning だけで止められます。
 
 表示は日本語が既定です。設定の `language: en`、または `--lang en` で英語にします。`--lang` は設定より優先します。`ja` と `en` 以外を渡すと終了コード `2` です。text、github、JSON の `message`、`-h` の使い方は、選んだ言語の文だけを出します。
 

@@ -387,3 +387,21 @@ func TestLegacyConfigNameIsIgnored(t *testing.T) {
 		t.Fatalf("code = %d err = %v\n%s\n%s", code, err, stdout.String(), stderr.String())
 	}
 }
+
+// TestStrictFailsOnWarning checks that Options.Strict turns a warning-only run into exit 1 and leaves an info-only run at 0.
+func TestStrictFailsOnWarning(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"warn.yml": "steps:\n  - test: \"true\"\n",
+		"info.yml": "desc: deferred\nsteps:\n  - defer: true\n    test: \"true\"\n",
+	})
+	code, out := runText(t, Options{Paths: []string{"warn.yml"}, Strict: true})
+	if code != 1 || !strings.Contains(out, "warning: [require-desc]") {
+		t.Fatalf("code = %d\n%s", code, out)
+	}
+	code, out = runText(t, Options{Paths: []string{"info.yml"}, Strict: true})
+	if code != 0 || !strings.Contains(out, "info: [defer-experimental]") {
+		t.Fatalf("code = %d\n%s", code, out)
+	}
+}

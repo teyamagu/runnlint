@@ -6,6 +6,12 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Added
+
+- `--strict`. Exits 1 on warnings as well. Info does not count, and diagnostics hidden by `--baseline` are not counted.
+
+### Changed
+
 - Japanese documents live in `docs/ja/`.
 
 ## [0.2.0]

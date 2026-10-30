@@ -8,7 +8,7 @@ From here on, add a failing test before implementing a change. The existing cont
 
 ## Binary foundation
 
-The command parses flags and passes them to `app.Run`. The exit code is `1` when there is at least one `error`, `2` when configuration or execution fails, and `0` otherwise. `warning` and `info` alone do not fail the run.
+The command parses flags and passes them to `app.Run`. The exit code is `1` when there is at least one `error`, `2` when configuration or execution fails, and `0` otherwise. `warning` and `info` alone do not fail the run. With `--strict`, a `warning` also exits `1`.
 
 | ID | Contract | Test |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ The command parses flags and passes them to `app.Run`. The exit code is `1` when
 | BIN-14 | The product version is semver. `--version` prints `runnlint X.Y.Z`. `CHANGELOG.md` and `CHANGELOG.en.md` have the same `## [X.Y.Z]` headings, including a section for the current version | `internal/version`, `cmd/runnlint/main_test.go` |
 | BIN-15 | `--write-baseline` writes every diagnostic and exits 0. `--baseline` matches by count of file, rule, and message, and does not print an existing diagnostic when lines shift. The exit code is decided only by new diagnostics. Built-in diagnostic messages are recorded in English and matched against that English text even when the display is Japanese. A declarative sentence is stored as written. The format is version 2, and version 1 fails with exit code 2. An unreadable baseline is 2 | `internal/baseline`, `internal/app/contract_test.go`, `cmd/runnlint/main_test.go` |
 | BIN-16 | Discovery selects only `.runnlint-runn.yaml`, then `.runnlint-runn.yml`. It does not read `.runnlint.yaml` and similar names, and it does not warn. A found file whose shape is wrong is 2. An unknown key below the top level is warned about and still read. `--config` warns about unknown keys and still reads | `internal/config/contract_test.go`, `internal/app/contract_test.go` |
+| BIN-17 | `--strict` exits 1 on warnings alone. Info alone stays 0. Warnings hidden by `--baseline` do not count | `cmd/runnlint/main_test.go`, `internal/app/contract_test.go` |
 
 BIN-12 and BIN-13 fix this repository's update policy, not a product execution path. Importing a notation difference and turning it into a PR is `.github/workflows/runn-follow.yml` and `cmd/runnfollow`. Whether there is a difference is decided by `internal/runnspec.Changed`.
 

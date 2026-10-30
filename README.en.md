@@ -38,13 +38,14 @@ runnlint -f json .
 runnlint -f github .
 runnlint --no-yamllint .
 runnlint --baseline runnlint-baseline.json .
+runnlint --strict .
 runnlint --include-root . books/payments
 runnlint --list-rules
 runnlint --print-config > .runnlint-runn.yaml
 runnlint --version
 ```
 
-The exit code is `1` when there is at least one error, `2` when configuration or execution fails, and `0` otherwise. Warnings and info alone do not fail the run.
+The exit code is `1` when there is at least one error, `2` when configuration or execution fails, and `0` otherwise. Warnings and info alone do not fail the run. With `--strict`, a warning also exits `1`. Info never fails, even with `--strict`. Diagnostics hidden by `--baseline` do not count, so existing warnings can stay in the baseline while new warnings stop the run.
 
 The display language defaults to Japanese. Set `language: en` in the config, or pass `--lang en`, to show English. `--lang` overrides the config. Any other value exits with code `2`. text, github, the JSON `message`, and `-h` usage print only the selected language.
 

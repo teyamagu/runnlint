@@ -30,6 +30,8 @@ type Options struct {
 	WriteBaseline string
 	// IncludeRoots are extra directories searched for include referrers. Files in them are also subject to included-unreferenced.
 	IncludeRoots []string
+	// Strict makes warnings fail the run as well. The exit code is 1 when a warning remains after the baseline filter. Info never fails.
+	Strict bool
 	// Lang overrides the config language. Empty keeps the config value, which defaults to ja.
 	Lang   string
 	Stdout io.Writer
@@ -134,7 +136,7 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	if err := report.Write(opt.Stdout, opt.Format, findings); err != nil {
 		return 2, present(cfg.Language, err)
 	}
-	if report.HasError(findings) {
+	if report.HasError(findings) || opt.Strict && report.HasWarning(findings) {
 		return 1, nil
 	}
 	return 0, nil

@@ -164,7 +164,7 @@ rules:
 
 Other than `off`, either `uses` or `check` is required. `check.select` cannot be empty. An unknown `uses` fails before the run, and the exit code is `2`.
 
-The exit code is `1` when there is at least one `error`, `2` when configuration or execution fails, and `0` otherwise. `warning` and `info` alone do not fail the run.
+The exit code is `1` when there is at least one `error`, `2` when configuration or execution fails, and `0` otherwise. `warning` and `info` alone do not fail the run. With the `--strict` command flag, a `warning` also exits `1`. `info` never fails. The rules file has no setting for this.
 
 ## Built-in rules
 
