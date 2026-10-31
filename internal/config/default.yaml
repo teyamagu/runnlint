@@ -156,13 +156,17 @@ rules:
 
   # A runbook that can run on its own has no step with only test. Tests attached to requests check one response; a step with only test names what the scenario verifies.
   # Runbooks with if: included are verified by their caller.
+  # Off by default. Set severity to info, warning, or error in .runnlint-runn.yaml to enable it.
   - id: require-test-step
     uses: require-test-step
-    severity: info
+    severity: off
 
   # --- suppression comments ---
-  # Among "# runnlint disable-line": an unknown rule, a comment that suppresses nothing,
-  # a comment inside a multiline scalar, and a directive other than disable-line.
+  # "# runnlint disable-line" means "do not report problems on this line."
+  # This rule is the problem for that comment when it applied to no problem:
+  # an unknown rule name, a yamllint problem named in a runnlint comment,
+  # a directive other than disable-line, a line that has no problem,
+  # and a comment inside a | or > value.
   - id: unused-suppression
     uses: unused-suppression
     severity: warning

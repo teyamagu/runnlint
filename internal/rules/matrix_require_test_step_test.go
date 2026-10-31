@@ -7,9 +7,9 @@ import (
 	"github.com/teyamagu/runnlint/internal/finding"
 )
 
-// Every pair of levels of the require-test-step factors behaves as documented: a runbook is reported on its steps line only when it has
-// steps, its top-level if does not require included, and no step of the book or its inline includes has test without a runner call,
-// include, exec, or runner:, whatever the step style.
+// Every pair of levels of the require-test-step factors behaves as documented when the rule is enabled at info: a runbook is reported on
+// its steps line only when it has steps, its top-level if does not require included, and no step of the book or its inline includes has
+// test without a runner call, include, exec, or runner:, whatever the step style. The default config leaves the rule off.
 func TestRequireTestStepPairwise(t *testing.T) {
 	factors := []factor{
 		{"cond", []string{"none", "included", "included == true", "included && vars.flag", "included || vars.flag", "!included", "bool", "template", "env"}},
@@ -83,7 +83,7 @@ func TestRequireTestStepPairwise(t *testing.T) {
 			}
 		}
 		src := b.String()
-		got := lint(t, src)
+		got := lintRequireTestStep(t, src)
 		found := findRule(got, "require-test-step")
 		requires := p["cond"] == "included" || p["cond"] == "included == true" || p["cond"] == "included && vars.flag"
 		verified := p["verify"] == "test-only" || p["verify"] == "test-with-companions" || p["verify"] == "test-with-loop" || p["verify"] == "inline-child"

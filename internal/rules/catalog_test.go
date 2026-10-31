@@ -40,6 +40,9 @@ func TestDefaultConfigMatchesRegistry(t *testing.T) {
 			t.Fatalf("宣言的ルール %s がデフォルトにありません: %+v", id, rule)
 		}
 	}
+	if seen["require-test-step"].Severity != "off" {
+		t.Fatalf("require-test-step のデフォルトは off です: %s", seen["require-test-step"].Severity)
+	}
 }
 
 // CheckConfig fails when an unknown uses is passed at error. The same uses succeeds when severity is off.

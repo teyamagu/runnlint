@@ -66,6 +66,7 @@ func collectCalledRunners(b *runbook.Book, used map[string]struct{}) {
 // requireTestStep reports a runbook that can run on its own but has no step with only test.
 // A step that attaches test to a request checks one response. A step with only test names what the scenario verifies.
 // Runbooks whose top-level if is true only when included are verified by their caller. Runbooks without steps are left to require-steps.
+// The default config leaves this rule off. A project enables it by setting severity in .runnlint-runn.yaml.
 func requireTestStep(c *Context) {
 	if c.Doc == nil || c.Doc.Book == nil {
 		return

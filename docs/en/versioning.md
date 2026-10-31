@@ -6,11 +6,11 @@ The runnlint product version is [Semantic Versioning 2.0.0](https://semver.org/)
 
 `version: 1` in a rules file is the number of the configuration shape. It is separate from the product version.
 
-The baseline file `version` is also separate. The current format is `2`. Built-in diagnostics are recorded in English. A version `1` file cannot be loaded, so rewrite it with `--write-baseline`. Before `1.0.0`, changing diagnostic wording does not bump the product version. Record the change in the changelog, and rewrite existing baselines.
+The baseline file `version` is also separate. The current format is `2`. Built-in problems are recorded in English. A version `1` file cannot be loaded, so rewrite it with `--write-baseline`. Before `1.0.0`, changing problem wording does not bump the product version. Record the change in the changelog, and rewrite existing baselines.
 
 ## How to bump
 
-During `0.y.z`, compatibility after publication is not yet promised. A breaking change may be a MINOR. Write what breaks in the changelog.
+During `0.y.z`, compatibility after publication is not yet promised. A breaking change may be a MINOR. What breaks is written in the changelog.
 
 From `1.0.0` on, split changes as follows.
 
@@ -18,7 +18,7 @@ From `1.0.0` on, split changes as follows.
 | --- | --- |
 | MAJOR | Change a flag, the meaning of an exit code, how a config file is read, or an existing output field. Add a rule that is error by default |
 | MINOR | Add a rule whose default is warning or info. Add an item that works with an existing config |
-| PATCH | Fix a false positive, change diagnostic wording, or update a dependency |
+| PATCH | Fix a false positive, change problem wording, or update a dependency |
 
 Adding a rule that is error by default after `1.0.0` changes the exit code of a runbook that used to pass from `0` to `1`. That is a MAJOR.
 

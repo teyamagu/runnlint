@@ -8,9 +8,9 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ### Added
 
-- `--strict`. Exits 1 on warnings as well. Info does not count, and diagnostics hidden by `--baseline` are not counted.
+- `--strict`. Exits 1 on warnings as well. Info does not count, and problems hidden by `--baseline` are not counted.
 - `unused-runner` (warning). Reports a runner defined in `runners` or in a step's `runner:` that no step calls. A runner called by a step inside an inline include counts as used.
-- `require-test-step` (info). Reports a runbook that can run on its own but has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks with `if: included` are not reported.
+- `require-test-step`. Reports a runbook that can run on its own but has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks with `if: included` are not reported. The default severity is `off`. Setting `severity` to `info` or another level in `.runnlint-runn.yaml` enables the check.
 - `expr-sharp-comment` (info). Reports an expression such as `test` or `if` that has a `#` comment outside brackets. runn strips it but prints a deprecation warning asking for `//`.
 - `unused-bind` (warning). Reports a name given by `bind` that neither this file's expressions nor any file that includes or needs this runbook reads. A runbook with `if: included` and no fixed-path referrer is not judged.
 - `**` in a declarative rule's `select`, matching any depth. `steps.*.**.query` selects `query` under any runner, and `vars.**` selects every scalar under `vars`.
@@ -21,6 +21,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ### Changed
 
+- `require-test-step` is not checked by default. Setting `severity` to `info`, `warning`, or `error` in `.runnlint-runn.yaml` enables the check.
 - A declarative rule's `exists` and `forbid` look only at the values that `where` keeps. `exists` used to ignore `where`.
 - Japanese documents live in `docs/ja/`.
 - `{{ }}` inside mapping keys (an HTTP path, a body field name) is read as an expression, because runn expands keys too. `expr-syntax`, `var-ref`, `step-ref`, and `unused-bind` see references in keys.
@@ -40,7 +41,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ### Changed
 
-- Baseline matching for built-in diagnostics uses the English sentence regardless of the display language. A declarative rule's `message` is stored as written. The baseline file format is now version 2. Version 1 cannot be loaded, so rewrite it with `--write-baseline`.
+- Baseline matching for built-in problems uses the English sentence regardless of the display language. A declarative rule's `message` is stored as written. The baseline file format is now version 2. Version 1 cannot be loaded, so rewrite it with `--write-baseline`.
 - Code comments are in English.
 
 ## [0.1.4]
@@ -53,7 +54,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 ### Changed
 
 - Config discovery looks only for `.runnlint-runn.yaml` and `.runnlint-runn.yml`. It does not read `.runnlint.yaml`, `.runnlint.yml`, `runnlint.yaml`, or `runnlint.yml`.
-- Describe built-in rules by the failure the diagnostic reports.
+- Describe built-in rules by the failure the problem reports.
 - Build the test-duration badge from the duration of the CI `テスト` step.
 - Document config `version`, `{{ .rule }}`, `trace` on `db-request`, `${...}` and line comments in expressions, and the shape of `bind` values. Document the command that reproduces the `included-unreferenced` example.
 
@@ -71,7 +72,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ### Added
 
-- `--write-baseline FILE` and `--baseline FILE`. Record existing diagnostics and print only those that are new. Matching is by count of file, rule ID, and message, and is not affected by shifted lines.
+- `--write-baseline FILE` and `--baseline FILE`. Record existing problems and print only those that are new. Matching is by count of file, rule ID, and message, and is not affected by shifted lines.
 - Inline suppression `# runnlint disable-line [rule:<id>...] [-- reason]`. A trailing comment suppresses that line. A comment line suppresses the next line. An unused suppression is reported as `unused-suppression` (warning).
 - `included-unreferenced` (warning). It reports an `if: included` runbook that is not included from anywhere in the walked scope. `--include-root DIR` adds a directory to search for referrers.
 - The dedicated config names `.runnlint-runn.yaml` and `.runnlint-runn.yml`. They are searched before the older names.
