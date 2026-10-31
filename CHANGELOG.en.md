@@ -6,6 +6,8 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+## [0.3.0]
+
 ### Added
 
 - `--strict`. Exits 1 on warnings as well. Info does not count, and problems hidden by `--baseline` are not counted.
