@@ -2,26 +2,27 @@
 
 [English](CHANGELOG.en.md)
 
-バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) です。上げ方は [docs/ja/versioning.md](docs/ja/versioning.md) に書いてあります。
+バージョンは [Semantic Versioning 2.0.0](https://semver.org/lang/ja/) である。上げ方は [docs/ja/versioning.md](docs/ja/versioning.md) に書いてある。
 
 ## [Unreleased]
 
 ### 追加
 
-- `--strict`。warning でも終了コードを 1 にする。info は対象外。`--baseline` で消した診断は数えない。
-- `unused-runner`（warning）。`runners` や step の `runner:` で定義した runner を、どの step も呼んでいないことを知らせる。inline include の中の step が呼ぶものは使っているとみなす。
-- `require-test-step`（info）。単独で実行できる runbook に `test` だけの step が無いことを知らせる。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にする。`if: included` の runbook は対象外。
-- `expr-sharp-comment`（info）。`test` や `if` などの式に括弧の外の `#` コメントがあることを知らせる。runn は取り除いて動くが、非推奨の警告を出して `//` を求める。
-- `unused-bind`（warning）。`bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいないことを知らせる。`if: included` で固定パスの参照元が無い runbook は判定しない。
-- 宣言的ルールの `select` に、深さを問わない `**` を足しました。`steps.*.**.query` はどの runner の下にある `query` でも選び、`vars.**` は `vars` の下のスカラーをすべて選びます。
-- `where` の `path` を `$.if` のように `$.` から始めると、runbook のルートから辿ります。合わないとそのルールはその runbook に何も出しません。
-- ルールの `files`。glob の配列で、当たるファイルにだけそのルールを当てます。組み込みルールにも宣言的ルールにも効き、引数に直接渡したファイルにも当たります。
-- `check` と `where` の `kind`。値の型が `mapping`、`sequence`、`string`、`number`、`bool`、`null` のどれかであることを求めます。
-- `select` と `where.path` で、`req."/v1/{id}.json".get` のように二重引用符で囲んだ段は `.` を含む1つのキーです。
+- `--strict`。warning でも終了コードを 1 にする。info は対象外。`--baseline` で外した問題は数えない。
+- `unused-runner`（warning）。`runners` や step の `runner:` で定義した runner を、どの step も呼んでいない問題を報告する。inline include の中の step が呼ぶものは使っているとみなす。
+- `require-test-step`。単独で実行できる runbook に `test` だけの step が無い問題を報告する。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にする。`if: included` の runbook は対象外。デフォルトは `severity: off` で、`.runnlint-runn.yaml` で `severity` を `info` などにすると検査する。
+- `expr-sharp-comment`（info）。`test` や `if` などの式に括弧の外の `#` コメントがある問題を報告する。runn は取り除いて動くが、非推奨の警告を出して `//` を求める。
+- `unused-bind`（warning）。`bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない問題を報告する。`if: included` で固定パスの参照元が無い runbook は判定しない。
+- 宣言的ルールの `select` に、深さを問わない `**` を足した。`steps.*.**.query` はどの runner の下にある `query` でも選び、`vars.**` は `vars` の下のスカラーをすべて選ぶ。
+- `where` の `path` を `$.if` のように `$.` から始めると、runbook のルートから辿る。合わないとそのルールはその runbook に何も出さない。
+- ルールの `files`。glob の配列で、当たるファイルにだけそのルールを当てる。組み込みルールにも宣言的ルールにも効き、引数に直接渡したファイルにも当たる。
+- `check` と `where` の `kind`。値の型が `mapping`、`sequence`、`string`、`number`、`bool`、`null` のどれかであることを求める。
+- `select` と `where.path` で、`req."/v1/{id}.json".get` のように二重引用符で囲んだ段は `.` を含む1つのキーである。
 
 ### 変更
 
-- 宣言的ルールの `exists` と `forbid` は、`where` で残った値だけを見ます。これまで `exists` は `where` を無視していました。
+- `require-test-step` はデフォルトでは検査しない。`.runnlint-runn.yaml` で `severity` を `info`、`warning`、`error` のいずれかにすると検査する。
+- 宣言的ルールの `exists` と `forbid` は、`where` で残った値だけを見る。これまで `exists` は `where` を無視していた。
 - 日本語の文書を `docs/ja/` に置く。
 - mapping のキー（HTTP のパス、body の項目名）の中の `{{ }}` も式として読む。runn はキーも展開するため。`expr-syntax`、`var-ref`、`step-ref`、`unused-bind` がキーの中の参照を見る。
 - `examples` の runbook に、確かめたいことを名前にした `test` だけの step を足した。
@@ -35,13 +36,13 @@
 
 ### 追加
 
-- 表示言語。設定の `language` は `ja` または `en` で、省略すると日本語です。`--lang` は設定より優先します。text、github、JSON の `message` と使い方は、選んだ言語だけを出します。
+- 表示言語。設定の `language` は `ja` または `en` で、省略すると日本語である。`--lang` は設定より優先する。text、github、JSON の `message` と使い方は、選んだ言語だけを出す。
 - README、ルールファイル、バージョン、テスト設計、runn への追従、変更履歴の英語版。
 
 ### 変更
 
-- 組み込み診断の baseline 照合は、表示言語にかかわらず英語の文です。宣言的ルールの `message` は書いた文のままです。baseline ファイルの形式を version 2 にしました。version 1 は読み込めないので、`--write-baseline` で書き直してください。
-- コード内のコメントを英語にしました。
+- 組み込みルールの問題の baseline 照合は、表示言語にかかわらず英語の文である。宣言的ルールの `message` は書いた文のままである。baseline ファイルの形式を version 2 にした。version 1 は読み込めないので、`--write-baseline` で書き直す。
+- コード内のコメントを英語にした。
 
 ## [0.1.4]
 
@@ -53,7 +54,7 @@
 ### 変更
 
 - 設定ファイルの探索は `.runnlint-runn.yaml` と `.runnlint-runn.yml` だけにする。`.runnlint.yaml`、`.runnlint.yml`、`runnlint.yaml`、`runnlint.yml` は読まない。
-- 組み込みルールの説明を、診断が知らせる失敗に合わせる。
+- 組み込みルールの説明を、問題が知らせる失敗に合わせる。
 - テスト時間のバッジは、CI の `テスト` ステップの実行時間から作る。
 - 設定の `version`、`{{ .rule }}`、`db-request` の `trace`、式の `${...}` と行コメント、`bind` の値の形を文書に書く。`included-unreferenced` の検出例を再現するコマンドを書く。
 
@@ -71,8 +72,8 @@
 
 ### 追加
 
-- `--write-baseline FILE` と `--baseline FILE`。既存の診断を記録し、新しく増えた診断だけを出す。照合はファイル・ルール ID・メッセージの件数で、行のずれに影響されない。
-- インライン抑制 `# runnlint disable-line [rule:<id>...] [-- 理由]`。行末ならその行、コメント行なら次の行の診断を消す。使われない抑制は `unused-suppression`（warning）で知らせる。
+- `--write-baseline FILE` と `--baseline FILE`。既存の問題を記録し、新しく増えた問題だけを出す。照合はファイル・ルール ID・メッセージの件数で、行のずれに影響されない。
+- インライン抑制 `# runnlint disable-line [rule:<id>...] [-- 理由]`。行末ならその行、コメント行なら次の行の問題を消す。使われない抑制は `unused-suppression`（warning）で知らせる。
 - `included-unreferenced`（warning）。`if: included` の runbook が、走査した範囲のどこからも include されていないことを指摘する。参照元を探す範囲を足す `--include-root DIR`。
 - 設定ファイルの固有の名前 `.runnlint-runn.yaml` / `.runnlint-runn.yml`。従来の名前より先に探す。
 - `http-request` の `options.require-leading-slash`。
@@ -93,4 +94,4 @@
 
 ## [0.1.0]
 
-最初のリリースです。runn の runbook について、runn 固有の記法を検査します。
+最初のリリースである。runn の runbook について、runn 固有の記法を検査する。

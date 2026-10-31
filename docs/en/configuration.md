@@ -2,11 +2,11 @@
 
 [日本語](../ja/configuration.md)
 
-The settings runnlint uses when it checks a runbook. Write them in YAML. The same content can be passed as JSON. JSON is not discovered, so pass the path with `-c`.
+These are the settings runnlint uses when it checks a runbook. A check looks at a runbook. A problem is one thing the check finds. The check reports that problem. The settings are written in YAML, and the same content can be passed as JSON. JSON is not discovered, so the path is passed with `-c`.
 
 ## Discovery
 
-Which file names are read as configuration.
+These are the file names read as configuration.
 
 When `-c` / `--config` is absent, runnlint walks from the current directory toward the parent and, in each directory, uses the first file it finds in this order.
 
@@ -17,7 +17,7 @@ A file that is found is not skipped. If its shape is wrong, runnlint fails with 
 
 A file passed with `--config` is loaded with a `warning:` even when it has unknown keys or a `version` other than `1`.
 
-If nothing is found, runnlint uses the default embedded in the binary. Print it with:
+If nothing is found, runnlint uses the default embedded in the binary. The contents can be printed with:
 
 ```console
 runnlint --print-config
@@ -28,7 +28,7 @@ runnlint --list-rules
 
 ## Top level
 
-Fields written at the top level.
+These are the fields written at the top level.
 
 ```yaml
 version: 1
@@ -56,10 +56,10 @@ rules:
 | Field | Meaning |
 | --- | --- |
 | `version` | The rules-file version. Only `1` is accepted now. Omitting it leaves `1` after inheritance. A value other than `1` is handled as described under Discovery. |
-| `language` | Display language for diagnostics, load errors, and `-h`. `ja` or `en`. Omitting it means Japanese. `--lang` overrides this field. Any other value exits with code `2`. Display prints only the selected language. Built-in diagnostics written to a baseline are English regardless of this setting. |
+| `language` | Display language for problems, load errors, and `-h`. `ja` or `en`. Omitting it means Japanese. `--lang` overrides this field. Any other value exits with code `2`. Display prints only the selected language. Built-in problems written to a baseline are English regardless of this setting. |
 | `extends` | `default`, or omitting the field, inherits the default. `none` (case-insensitive) does not inherit. Any other string currently inherits as well. |
 | `ignore` | Paths to skip during a directory walk. It does not apply when a file is passed as a command argument. Specifying it appends to the default list. Omitting the key keeps the default. |
-| `yamllint` | Where general YAML checks are delegated. Only the fields you write are overridden. |
+| `yamllint` | Where general YAML checks are delegated. Only the fields that are written are overridden. |
 | `rules` | The rule list. The same `id` is merged. An unknown `id` is appended. |
 
 ## Inheritance
@@ -69,7 +69,7 @@ The usual way to write a config is to keep the default rules and change only som
 Entries with the same `id` overlay by these rules.
 
 - Writing `severity` replaces that value.
-- Writing `message` replaces that string. A built-in rule produces its own diagnostic text, so `message` applies only to declarative rules.
+- Writing `message` replaces that string. A built-in rule produces its own problem text, so `message` applies only to declarative rules.
 - `options` is overridden per key. List contents are not concatenated.
 - Writing `check` and not writing `uses` removes the built-in implementation and replaces it with a declarative rule.
 - Writing `uses` replaces the rule with that built-in implementation. If `check` is not written at the same time, the existing `check` is removed.
@@ -97,7 +97,7 @@ rules:
 
 ## ignore
 
-Paths, among the files collected by walking a directory, that are not checked. A pattern may be a directory or a file path.
+These are the paths, among the files collected by walking a directory, that are not checked. A pattern may be a directory or a file path.
 
 Patterns are consulted only when the argument is a directory. A file written as an argument is checked even when it matches a pattern.
 
@@ -126,7 +126,7 @@ A file excluded from checking by `ignore` is still read as an include referrer. 
 
 ## yamllint
 
-Settings for passing general YAML checks to the external yamllint command.
+These are the settings for passing general YAML checks to the external yamllint command.
 
 | Field | Meaning |
 | --- | --- |
@@ -135,13 +135,13 @@ Settings for passing general YAML checks to the external yamllint command.
 | `config` | yamllint's own config file. A relative path is resolved from the directory that contains the rules file. |
 | `missing` | Severity when the command is absent. `error`, `warning`, `info`, or `off`. `warning` when omitted. |
 
-When `config` is not written, runnlint passes a built-in config loosened for runbooks. Print it with `runnlint --print-yamllint-config`. Even with `extends: none`, leaving `bin` and `missing` empty makes them `yamllint` and `warning`. To stop yamllint, write `enabled: false`.
+When `config` is not written, runnlint passes a built-in config loosened for runbooks. It is printed with `runnlint --print-yamllint-config`. Even with `extends: none`, leaving `bin` and `missing` empty makes them `yamllint` and `warning`. yamllint stops when `enabled: false` is set.
 
-A diagnostic's rule ID is the yamllint rule name with a prefix, such as `yamllint/trailing-spaces`. yamllint is a GPL-3.0 external command and is not included in this module. Pass `--no-yamllint` to skip it for one run.
+A problem's rule ID is the yamllint rule name with a prefix, such as `yamllint/trailing-spaces`. yamllint is a GPL-3.0 external command and is not included in this module. Pass `--no-yamllint` to skip it for one run.
 
 ## Fields common to every rule
 
-Fields for one rule. Write them both when changing a built-in severity and when adding a rule in YAML alone.
+These are the fields for one rule. They are written both when changing a built-in severity and when adding a rule in YAML alone.
 
 ```yaml
 rules:
@@ -155,10 +155,10 @@ rules:
 
 | Field | Meaning |
 | --- | --- |
-| `id` | The name printed in a diagnostic. Unique within the config. |
+| `id` | The name printed in a problem. Unique within the config. |
 | `uses` | The built-in implementation name. It may differ from `id`. |
 | `severity` | `error`, `warning`, `info`, or `off`. `error` when omitted. |
-| `message` | The diagnostic text of a declarative rule. |
+| `message` | The problem text of a declarative rule. |
 | `files` | An array of patterns for the files this rule applies to. When omitted, the rule applies to every file. |
 | `check` | The condition of a declarative rule. It cannot be written together with `uses`. |
 | `options` | Extra settings passed to a built-in implementation. |
@@ -190,9 +190,9 @@ The exit code is `1` when there is at least one `error`, `2` when configuration 
 
 ## Built-in rules
 
-Names that can be written in `uses`, their initial severity, and the failure that name reports. The usual change is to keep `id` equal to that name and change only `severity`.
+Names that can be written in `uses`, their initial severity, and the problem. The usual change is to keep `id` equal to that name and change only `severity`.
 
-| uses | Default | Failure it reports |
+| uses | Default | Problem |
 | --- | --- | --- |
 | `duplicate-key` | error | The same key is written twice in one mapping |
 | `unknown-key` | error | A top-level key is not a runbook field, does not start with `x-`, and is not `<<` |
@@ -221,12 +221,20 @@ Names that can be written in `uses`, their initial severity, and the failure tha
 | `var-ref` | warning | A variable that is not in `vars` is referenced |
 | `loop-index` | warning | The index `i` is used outside `loop` |
 | `previous-step` | warning | `previous` is used where there is no previous step |
-| `defer-experimental` | info | Notice that `defer` is experimental |
+| `defer-experimental` | info | `defer` is experimental |
 | `unused-runner` | warning | A runner defined in `runners` or `runner:` is not called by any step. A runner called by a step inside an inline include counts as used. Reserved names are left to `runner-reserved` |
 | `unused-bind` | warning | A name given by `bind` is read neither by this file's expressions nor by any file that includes or needs this runbook. See "Scope of unused-bind" |
-| `require-test-step` | info | A runbook that can run on its own has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks whose top-level `if` requires `included` are verified by their caller and are not reported. Runbooks without steps are left to `require-steps` |
+| `require-test-step` | off | A runbook that can run on its own has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks whose top-level `if` requires `included` are verified by their caller and are not reported. Runbooks without steps are left to `require-steps`. It is not checked by default |
 | `included-unreferenced` | warning | A runbook that runs only when included is not included from anywhere |
-| `unused-suppression` | warning | A suppression comment does not suppress a diagnostic |
+| `unused-suppression` | warning | `# runnlint disable-line` means "do not report problems on this line," the same comment yamllint uses. This rule reports that comment when it stopped no problem from being reported, as ESLint does for an unused disable directive. An unknown rule name, a yamllint problem named in a runnlint comment (stop those with `# yamllint disable-line`), a directive other than `disable-line`, a line that has no problem, or a comment inside a `|` or `>` value. A comment that names a rule whose `severity` is `off` is left alone, because that rule reports no problem |
+
+To check `require-test-step`, set its severity in `.runnlint-runn.yaml`. `info`, `warning`, and `error` all enable the check. Omitting the entry, or leaving it `off`, does not.
+
+```yaml
+rules:
+  - id: require-test-step
+    severity: info
+```
 
 The built-in rules that read `options` are `var-ref` and `http-request`.
 
@@ -268,7 +276,7 @@ In `step-ref`, a step may reference itself.
 
 ### Scope of unused-bind
 
-A name given by `bind` can be read by name in the same runbook, as `steps.<n>.<name>` or `previous.<name>` by a file that includes it, and as `needs.<name>.<bind>` by a file that lists it in `needs`. This rule treats a bind as read in the following cases and reports the rest.
+A name given by `bind` can be read by name in the same runbook, as `steps.<n>.<name>` or `previous.<name>` by a file that includes it, and as `needs.<name>.<bind>` by a file that lists it in `needs`. This rule treats a bind as read in the following cases. The rest is reported.
 
 - Some expression in this file (`test`, `if`, `until`, `dump`, `bind` values, `{{ }}`) mentions the name as an identifier or a member name
 - Some expression in a file that includes this file by a fixed path, that may include it by a path containing `{{ }}` or `${...}`, or that lists it in `needs` mentions the name. runn evaluates an `include.vars` value as an expression in the caller, so a value that parses as one counts even without `{{ }}`. Referrers are read in the same scope as "Scope of included-unreferenced"
@@ -329,13 +337,13 @@ When a list element is selected, `key` is an index starting at `0`. When a map v
 
 ### Conditions
 
-When a selected value becomes a diagnostic. Every written condition is applied, and a diagnostic is reported when any one of them fails.
+When a selected value is reported as a problem. Every written condition is applied, and any one that fails makes it a problem.
 
-| Condition | When it reports |
+| Condition | When a problem is reported |
 | --- | --- |
 | `exists: true` | No value passes `where`. Other conditions are not looked at |
 | `exists: false` | At least one value passes `where`. Other conditions are not looked at |
-| `kind` | The value has another type. Write one of `mapping`, `sequence`, `string`, `number`, `bool`, or `null`. It is checked before the other conditions |
+| `kind` | The value has another type. One of `mapping`, `sequence`, `string`, `number`, `bool`, or `null` is written. It is checked before the other conditions |
 | `equals` | The value differs. `null` can be compared with YAML null |
 | `not_equals` | The value is the same |
 | `matches` | A string or number does not match the regular expression |
@@ -347,7 +355,7 @@ When a selected value becomes a diagnostic. Every written condition is applied, 
 | `max_len` | The same, and it is larger |
 | `forbid: true` | A value matches `where`. Other conditions are not looked at |
 
-Regular expressions are Go RE2. A broken expression reports a diagnostic at the runbook root.
+Regular expressions are Go RE2. A broken expression is reported at the runbook root.
 
 `kind` fixes the type of the selected value. To forbid list-style `steps`, write `select: steps` with `kind: mapping`. When `steps` is absent nothing is selected, so nothing is reported. A missing `steps` is reported by `require-steps`. The built-in sentence for `kind` names the actual and the expected type, as in "value kind is sequence, not mapping". An unknown type name fails when the config is loaded.
 
@@ -360,7 +368,7 @@ rules:
       kind: mapping
 ```
 
-`key_matches` and `key_not_matches` look at the key of the selected value. For a map's `steps.*` that is the step name. For a list's `steps.*` it is an index starting at `0`. The diagnostic is placed on the key line. A list has no key node, so it is placed on the value line. The default rules have no step-name convention. A project that needs one writes it. Existing step names can be accepted with a baseline.
+`key_matches` and `key_not_matches` look at the key of the selected value. For a map's `steps.*` that is the step name. For a list's `steps.*` it is an index starting at `0`. The problem is placed on the key line. A list has no key node, so it is placed on the value line. The default rules have no step-name convention. A project that needs one writes it. Existing step names can be accepted with a baseline.
 
 ```yaml
 rules:
@@ -397,7 +405,7 @@ where:
   exists: true
 ```
 
-When `path` starts with `$.`, as in `$.if`, it is resolved from the runbook root instead of relative to the selected value. `$` alone is the root itself. Such a condition does not depend on the selected value, so it acts as a gate that is evaluated once per runbook. When any gate fails, the rule reports nothing for that runbook. When every gate holds, the relative conditions narrow the values and the check proceeds. Combined with `exists: true`, this expresses a required field that depends on the kind of runbook, such as "no top-level `if` but no `labels` either".
+When `path` starts with `$.`, as in `$.if`, it is resolved from the runbook root instead of relative to the selected value. `$` alone is the root itself. Such a condition does not depend on the selected value, so it acts as a gate that is evaluated once per runbook. When any gate fails, the rule reports no problem for that runbook. When every gate holds, the relative conditions narrow the values and the check proceeds. Combined with `exists: true`, this expresses a required field that depends on the kind of runbook, such as "no top-level `if` but no `labels` either".
 
 ```yaml
 rules:
@@ -421,7 +429,7 @@ rules:
 
 ### message
 
-The text printed in the diagnostic. When it is empty, a sentence that depends on the condition is printed. When it is written, it is a [Go text/template](https://pkg.go.dev/text/template). The four available values are below. An unknown name becomes an empty string.
+The message reported with the problem. When it is empty, a sentence that depends on the condition is printed. When it is written, it is a [Go text/template](https://pkg.go.dev/text/template). The four available values are below. An unknown name becomes an empty string.
 
 | Name | Contents |
 | --- | --- |

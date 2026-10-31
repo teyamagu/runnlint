@@ -1,4 +1,6 @@
-# Example of a suppression comment that names a nonexistent rule, and one that suppresses nothing.
+# "# runnlint disable-line" means "do not report problems on this line."
+# These comments apply to no problem.
+# The desc line names a rule that does not exist. The test line has no expr-syntax problem.
 desc: unused suppression # runnlint disable-line rule:no-such-rule
 steps:
   - test: "true" # runnlint disable-line rule:expr-syntax

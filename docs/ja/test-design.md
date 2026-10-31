@@ -26,15 +26,15 @@
 | BIN-12 | スキーマと `cdpfn.go` からキーと CDP アクションを読む。最新リリースとの差で失敗する | `internal/runnspec` |
 | BIN-13 | Go の最新安定版と、依存ライセンス | `internal/gotoolchain`、`internal/license` |
 | BIN-14 | 製品バージョンは semver。`--version` は `runnlint X.Y.Z`。`CHANGELOG.md` と `CHANGELOG.en.md` の `## [X.Y.Z]` が見出しとして一致し、現行版の節がある | `internal/version`、`cmd/runnlint/main_test.go` |
-| BIN-15 | `--write-baseline` は全診断を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の診断を出さない。新しい診断だけで終了コードを決める。組み込み診断のメッセージは英語で記録し、表示が日本語でもその英語で照合する。宣言的ルールの文は書いたまま。形式は version 2 で、version 1 は 2 で失敗する。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
+| BIN-15 | `--write-baseline` はすべての問題を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の問題を報告しない。新しい問題だけで終了コードを決める。組み込みルールの問題のメッセージは英語で記録し、表示が日本語でもその英語で照合する。宣言的ルールの文は書いたまま。形式は version 2 で、version 1 は 2 で失敗する。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
 | BIN-16 | 探索は `.runnlint-runn.yaml`、次に `.runnlint-runn.yml` だけを選ぶ。`.runnlint.yaml` などは読まず、警告も出さない。見つけたファイルは形が違えば 2。下の階層の未知のキーは警告して読む。`--config` は未知のキーを警告して読む | `internal/config/contract_test.go`、`internal/app/contract_test.go` |
 | BIN-17 | `--strict` は warning だけでも 1 にする。info だけは 0 のまま。`--baseline` で消した warning は数えない | `cmd/runnlint/main_test.go`、`internal/app/contract_test.go` |
 
-BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。記法定義の差を取り込んで PR にする処理は `.github/workflows/runn-follow.yml` と `cmd/runnfollow` です。差の有無は `internal/runnspec.Changed` が決めます。
+BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。記法定義の差を取り込んで PR にする処理は `.github/workflows/runn-follow.yml` と `cmd/runnfollow` である。差の有無は `internal/runnspec.Changed` が決める。
 
 ## 組み込みルールと独自ルール
 
-デフォルト設定は、登録された組み込みルールをすべて有効にする。宣言的ルールは `uses` を持たない。`severity: off` のルールは診断を出さない。`var-ref` の `options.ignore` と `http-request` の `options.require-leading-slash` が組み込みルールの追加設定である。
+デフォルト設定は、登録された組み込みルールを有効にする。`require-test-step` だけは `severity: off` で、設定が `info`・`warning`・`error` のいずれかを付けたときだけ問題を報告する。宣言的ルールは `uses` を持たない。`severity: off` のルールは問題を報告しない。`var-ref` の `options.ignore` と `http-request` の `options.require-leading-slash` が組み込みルールの追加設定である。
 
 | ID | 契約 | テスト |
 | --- | --- | --- |
@@ -47,19 +47,19 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-07 | 宣言的ルールの `exists`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`where`、`forbid`、メッセージ、`steps.*`、壊れた正規表現 | `internal/rules/declare_test.go` `lint_test.go` `TestCustomRule` |
 | RULE-08 | `{{ }}` は引用符の中を式の終わりにしない。時間の数値とテンプレート | `internal/rules/expr_test.go` |
 | RULE-09 | 各検査関数の分岐。HTTP の media type、gRPC の `message` / `messages`、DB、exec、SSH、CDP の引数、agent、include、runner 設定、book の型、step 参照の可視性、`parent.vars`、`i` と `previous` | `internal/rules/branch_test.go` |
-| RULE-10 | yamllint が無いとき、`missing` の深刻度で診断する。`off` と無効化では診断しない | `internal/yamllint/yamllint_test.go` |
-| RULE-11 | `examples/bad/<ルール id>.yml` は、その既定ルールの診断を出す。`examples/valid` は診断を出さない | `internal/rules/examples_test.go` |
+| RULE-10 | yamllint が無いとき、`missing` の深刻度で問題を報告する。`off` と無効化では問題を報告しない | `internal/yamllint/yamllint_test.go` |
+| RULE-11 | `examples/bad/<ルール id>.yml` は、その既定ルールの問題を報告する。デフォルトが `off` のルールは `info` にしてから出す。`examples/valid` は問題を報告しない | `internal/rules/examples_test.go` |
 | RULE-12 | 式は、runn と同じく値の `${...}` を展開してから解析する。未設定の環境変数でも `expr-syntax`、`var-ref`、`step-ref` を出さない | `internal/rules/falsepositive_test.go` |
 | RULE-13 | `test` や `if` などの式は、括弧の外の `#` から行末をコメントとして取り除いてから解析する。文字列リテラルとクロージャの `#` は残す。`{{ }}` の中は取り除かない | 同 |
 | RULE-14 | `{{ }}` は式の `( )` `[ ]` `{ }` の中の `}}` を終わりにしない。括弧が釣り合わないときは引用符の外で最初の `}}` で切る | 同 |
 | RULE-15 | `bind` の値は mapping、配列、数値も受ける。中の文字列は式として検査する | 同 |
 | RULE-16 | `included-unreferenced` は、走査範囲か `--include-root` の中にある `if: included`（`included == true`、`included && ...` を含む）の runbook が、どこからも include されていないときだけ出す。`||`、`!`、`if` 無し、動的な参照で照合しうるもの、直接渡しただけのファイルは出さない。ignore したファイルも参照元に数える | `internal/rules/includes_test.go`（`testdata/included`）、`internal/app/contract_test.go` |
-| RULE-17 | `# runnlint disable-line` は行末ならその行、コメント行なら次の空でもコメントでもない行の診断を、全ルール共通の層で消す。複数行スカラーの診断はキーの行で消せる。引用符とブロックの中の `#` は抑制ではない。未知のルール、yamllint のルール、未知の指示、何も消さない抑制は `unused-suppression`。off のルールは除く。baseline より先に効く | `internal/rules/suppress_test.go`、`internal/app/contract_test.go` |
+| RULE-17 | `# runnlint disable-line` は行末ならその行、コメント行なら次の空でもコメントでもない行の問題を、全ルール共通の層で報告しない。複数行スカラーの問題はキーの行で報告しないようにできる。引用符とブロックの中の `#` は、問題を報告しない印ではない。`unused-suppression` は、「この行の問題は報告しない」という印がどの問題の報告も止めなかったときに出す。存在しないルール名、yamllint の問題を runnlint の印で止めようとした、`disable-line` 以外、その行には問題が無い、`|` や `>` の中に書いた。`severity: off` のルールを名指しした印は出さない。baseline より先に効く | `internal/rules/suppress_test.go`、`internal/app/contract_test.go` |
 | RULE-18 | HTTP と gRPC の空の `headers`（`{}` と null）は受ける | `internal/rules/falsepositive_test.go` |
-| RULE-19 | `/` で始まらない HTTP の path は既定で診断しない。`options.require-leading-slash: true` のときだけ warning | 同 |
+| RULE-19 | `/` で始まらない HTTP の path は既定で問題を報告しない。`options.require-leading-slash: true` のときだけ warning | 同 |
 | RULE-20 | `var-ref` は、include 元の `include.vars` で渡す変数を定義済みとする。include 元があれば `parent.vars` を外と言わない。include 元が見つからない `if: included` の runbook では `vars` を調べない | `internal/rules/includes_test.go`（`testdata/includevars`） |
 | RULE-21 | `test` と `bind` の式の中の `{{` はテンプレートにしない。値全体が1つの `{{ }}` のときは中身を式として解析し、`expr-braces` を出す。`{{` で始まるが1つに収まらないときは `expr-braces` だけで、式の解析エラーは出さない | `internal/rules/falsepositive_test.go` |
-| RULE-22 | `unused-runner` は、`runners` と step の `runner:` の runner のうち、その runbook と inline include のどの step も呼ばないものを warning で出す。予約語の名前は出さない。`require-test-step` は、トップレベルの `if` が `included` を要しない runbook に、runner の呼び出し・include・exec・`runner:` が無く `test` だけの step（`desc`・`if`・`dump`・`bind` は添えてよい）が本体にも inline include にも無いとき、`steps` の行に info で出す。`if: included` の runbook と step が無い runbook は出さない | `internal/rules/unused_test.go` |
+| RULE-22 | `unused-runner` は、`runners` と step の `runner:` の runner のうち、その runbook と inline include のどの step も呼ばないものを warning で出す。予約語の名前は出さない。`require-test-step` はデフォルトでは出さない。設定で `severity` を `info` などにすると、トップレベルの `if` が `included` を要しない runbook に、runner の呼び出し・include・exec・`runner:` が無く `test` だけの step（`desc`・`if`・`dump`・`bind` は添えてよい）が本体にも inline include にも無いとき、`steps` の行にその深刻度で出す。`if: included` の runbook と step が無い runbook は出さない | `internal/rules/unused_test.go` |
 | RULE-23 | `expr-sharp-comment` は、`test`・`if`・`until`・`bind` などの式に括弧の外の `#` コメントがあるとき、その欄の行に info で出す。文字列の中の `#`、クロージャの `#`、`//` のコメントは出さない。YAML のコメント（空白の後の `#`）は値に含まれないので出さない | `internal/rules/sharp_comment_test.go` |
 | RULE-24 | `unused-bind` は、`bind` の名前がこのファイルの式にも、固定パスか動的パスで include するファイルや `needs` するファイルの式にも出てこないとき、キーの行に warning で出す。`if: included` で固定パスの参照元が無い runbook と、式として読めない値を持つファイルは出さない。inline include の中の bind を同じファイルが読めば出さない。`a.b` のキーは `a` の参照。mapping のキー（HTTP のパス、body の項目名）の中の `{{ }}` も式として読み、bind の参照・`var-ref`・`expr-syntax` の対象にする | `internal/rules/unused_bind_test.go`（`testdata/unusedbind`） |
 | RULE-25 | `equals: null`、`not_equals: null`、`where` の `equals: null` は書いたとおりに効く。YAML の null は decode されないので、キーが書かれたことを設定の読み込みで別に記録する | `internal/rules/declare_test.go` `TestEqualsNullIsNotIgnored` |
@@ -91,7 +91,7 @@ RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は
 | MAT-14 | `book-shape`、`unknown-key`、`require-steps`、`label-format`、`duplicate-key`、`defer-experimental`、`require-desc`、`no-debug`、`loop-until-with-test` | トップレベルの欄と値の形、steps の値、ラベルの位置と値、重複の場所、`defer` の値 | `matrix_book_test.go` |
 | MAT-15 | `include-path`、`needs-path`、`local-path` | 欄、パスの書き方、ファイルの有無 | `matrix_path_test.go` |
 | MAT-16 | `expr-syntax`、`expr-braces` | 欄、式の中身、スカラーの書き方 | `matrix_expr_test.go` |
-| MAT-17 | `# runnlint disable-line`、`unused-suppression` | 位置、ルールの指定、対象の診断、理由の有無 | `matrix_suppress_test.go` |
+| MAT-17 | `# runnlint disable-line`、`unused-suppression` | 位置、ルールの指定、対象の問題、理由の有無 | `matrix_suppress_test.go` |
 | MAT-18 | 宣言的ルールの判定 | 演算子、値の種類、`select` の形 | `matrix_declarative_test.go` |
 
 分岐の網羅は `cov_<ソースファイル名>_test.go` が受け持つ。到達できない行は各ファイルの先頭コメントに理由を書く。
