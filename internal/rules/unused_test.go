@@ -85,10 +85,44 @@ steps:
 	}
 }
 
-// A runbook that can run on its own and has no step with only test reports require-test-step as info on the steps line.
+// The default config leaves require-test-step off, so a runbook with no step of only test is not reported.
+func TestRequireTestStepDefaultOff(t *testing.T) {
+	got := lint(t, `
+desc: x
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /health:
+        get:
+          body: null
+    test: current.res.status == 200
+`)
+	if hasRule(got, "require-test-step") {
+		t.Fatalf("%+v", got)
+	}
+}
+
+// Setting severity to info, warning, or error in the config reports require-test-step at that severity. severity off reports nothing.
+func TestRequireTestStepFollowsConfiguredSeverity(t *testing.T) {
+	const src = "desc: x\nsteps:\n  - exec:\n      command: echo ok\n"
+	for _, sev := range []finding.Severity{finding.Info, finding.Warning, finding.Error} {
+		got := lintConfig(t, "version: 1\nrules:\n  - id: require-test-step\n    severity: "+string(sev)+"\n", src)
+		found := findRule(got, "require-test-step")
+		if len(found) != 1 || found[0].Severity != sev {
+			t.Fatalf("%s: %+v", sev, got)
+		}
+	}
+	off := lintConfig(t, "version: 1\nrules:\n  - id: require-test-step\n    severity: off\n", src)
+	if hasRule(off, "require-test-step") {
+		t.Fatalf("%+v", off)
+	}
+}
+
+// With require-test-step set to info, a runbook that can run on its own and has no step with only test reports it as info on the steps line.
 // Tests attached to request steps do not count as a verification step.
 func TestRequireTestStep(t *testing.T) {
-	got := lint(t, `
+	got := lintRequireTestStep(t, `
 desc: x
 runners:
   req: https://example.com
@@ -111,7 +145,7 @@ steps:
 // A step with only test, with or without desc, if, dump, or bind, is a verification step, so the runbook is not reported.
 // A verification step inside an inline include also counts.
 func TestRequireTestStepSatisfied(t *testing.T) {
-	mapped := lint(t, `
+	mapped := lintRequireTestStep(t, `
 desc: x
 runners:
   req: https://example.com
@@ -129,7 +163,7 @@ steps:
 	if hasRule(mapped, "require-test-step") {
 		t.Fatalf("%+v", mapped)
 	}
-	inline := lint(t, `
+	inline := lintRequireTestStep(t, `
 desc: inline include
 steps:
   - include:
@@ -147,12 +181,12 @@ steps:
 // A runbook with no steps is left to require-steps.
 func TestRequireTestStepSkipsIncludedAndEmpty(t *testing.T) {
 	for _, cond := range []string{"included", "included == true", "included && vars.ready"} {
-		got := lint(t, "desc: part\nif: "+cond+"\nvars:\n  ready: true\nsteps:\n  - exec:\n      command: echo ok\n")
+		got := lintRequireTestStep(t, "desc: part\nif: "+cond+"\nvars:\n  ready: true\nsteps:\n  - exec:\n      command: echo ok\n")
 		if hasRule(got, "require-test-step") {
 			t.Fatalf("if: %s\n%+v", cond, got)
 		}
 	}
-	either := lint(t, `
+	either := lintRequireTestStep(t, `
 desc: either
 if: included || true
 steps:
@@ -162,7 +196,7 @@ steps:
 	if !hasRule(either, "require-test-step") {
 		t.Fatalf("%+v", either)
 	}
-	empty := lint(t, `
+	empty := lintRequireTestStep(t, `
 desc: empty
 steps: []
 `)

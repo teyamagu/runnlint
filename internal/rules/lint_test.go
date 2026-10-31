@@ -30,6 +30,12 @@ func lint(t *testing.T, src string) []finding.Finding {
 	return got
 }
 
+// lintRequireTestStep lints with the default rules and require-test-step set to info, the same overlay a project writes in .runnlint-runn.yaml.
+func lintRequireTestStep(t *testing.T, src string) []finding.Finding {
+	t.Helper()
+	return lintConfig(t, "version: 1\nrules:\n  - id: require-test-step\n    severity: info\n", src)
+}
+
 func errorsOf(findings []finding.Finding) []finding.Finding {
 	var out []finding.Finding
 	for _, f := range findings {

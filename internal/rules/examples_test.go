@@ -10,7 +10,9 @@ import (
 	"github.com/teyamagu/runnlint/internal/finding"
 )
 
-// Linting each file in examples/bad with the default rules reports the rule named by the file. A default rule with no corresponding file fails the test.
+// Linting each file in examples/bad with the default rules reports the rule named by the file.
+// A rule whose default severity is off, such as require-test-step, is linted with that rule set to info.
+// A default rule that is not off and has no corresponding file fails the test.
 func TestBadExamplesCoverDefaultRules(t *testing.T) {
 	root := moduleRoot(t)
 	t.Chdir(root)
@@ -36,7 +38,14 @@ func TestBadExamplesCoverDefaultRules(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, is := LintWith(rel, src, cfg, refs)
+		active := cfg
+		for _, rule := range cfg.Rules {
+			if rule.ID == id && rule.Severity == finding.Off {
+				active = withSeverity(cfg, id, finding.Info)
+				break
+			}
+		}
+		got, is := LintWith(rel, src, active, refs)
 		if !is {
 			t.Fatalf("%s は runbook ではありません: %+v", rel, got)
 		}
@@ -90,6 +99,17 @@ func TestValidExamplesAreClean(t *testing.T) {
 			t.Fatalf("%s: runbook=%v findings=%+v", rel, is, got)
 		}
 	}
+}
+
+func withSeverity(cfg *config.Config, id string, sev finding.Severity) *config.Config {
+	out := *cfg
+	out.Rules = append([]config.Rule(nil), cfg.Rules...)
+	for i := range out.Rules {
+		if out.Rules[i].ID == id {
+			out.Rules[i].Severity = sev
+		}
+	}
+	return &out
 }
 
 func moduleRoot(t *testing.T) string {
