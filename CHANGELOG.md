@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.3.0]
+
 ### 追加
 
 - `--strict`。warning でも終了コードを 1 にする。info は対象外。`--baseline` で外した問題は数えない。
