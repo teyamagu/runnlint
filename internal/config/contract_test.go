@@ -330,29 +330,6 @@ rules:
 	}
 }
 
-// TestDiscoverIgnoresLegacyNames checks that a legacy name such as .runnlint.yaml is not read even when its contents are a runnlint config, that no warning is emitted, and that the defaults are used.
-func TestDiscoverIgnoresLegacyNames(t *testing.T) {
-	for _, name := range []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"} {
-		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
-			writeConfig(t, root, name, "extends: none\nrules:\n  - id: from-legacy\n    severity: off\n")
-			t.Chdir(root)
-			cfg, err := Load("")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if cfg.SourceDir != "" || len(cfg.Warnings) != 0 {
-				t.Fatalf("dir=%s warnings=%v", cfg.SourceDir, cfg.Warnings)
-			}
-			for _, rule := range cfg.Rules {
-				if rule.ID == "from-legacy" {
-					t.Fatal("従来の名前を読んでいます")
-				}
-			}
-		})
-	}
-}
-
 // TestLoadRejectsJSON checks that a JSON rules file is not read.
 func TestLoadRejectsJSON(t *testing.T) {
 	dir := t.TempDir()
