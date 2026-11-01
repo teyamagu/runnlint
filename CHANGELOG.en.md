@@ -6,6 +6,10 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Changed
+
+- A rules file is YAML only.
+
 ## [0.3.0]
 
 ### Added

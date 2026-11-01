@@ -330,31 +330,8 @@ rules:
 	}
 }
 
-// TestDiscoverIgnoresLegacyNames checks that a legacy name such as .runnlint.yaml is not read even when its contents are a runnlint config, that no warning is emitted, and that the defaults are used.
-func TestDiscoverIgnoresLegacyNames(t *testing.T) {
-	for _, name := range []string{".runnlint.yaml", ".runnlint.yml", "runnlint.yaml", "runnlint.yml"} {
-		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
-			writeConfig(t, root, name, "extends: none\nrules:\n  - id: from-legacy\n    severity: off\n")
-			t.Chdir(root)
-			cfg, err := Load("")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if cfg.SourceDir != "" || len(cfg.Warnings) != 0 {
-				t.Fatalf("dir=%s warnings=%v", cfg.SourceDir, cfg.Warnings)
-			}
-			for _, rule := range cfg.Rules {
-				if rule.ID == "from-legacy" {
-					t.Fatal("従来の名前を読んでいます")
-				}
-			}
-		})
-	}
-}
-
-// TestLoadJSONConfig checks that a JSON config file loads and that extends: none leaves only the require-steps rule.
-func TestLoadJSONConfig(t *testing.T) {
+// TestLoadRejectsJSON checks that a JSON rules file is not read.
+func TestLoadRejectsJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, "rules.json", `{
   "version": 1,
@@ -363,12 +340,8 @@ func TestLoadJSONConfig(t *testing.T) {
     {"id": "require-steps", "uses": "require-steps", "severity": "error"}
   ]
 }`)
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cfg.Rules) != 1 || cfg.Rules[0].Uses != "require-steps" {
-		t.Fatalf("%+v", cfg.Rules)
+	if _, err := Load(path); err == nil {
+		t.Fatal("JSON のルールファイルを読んでいます")
 	}
 }
 

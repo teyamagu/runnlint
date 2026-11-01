@@ -40,6 +40,7 @@ var (
 	DefaultRulesRead  = spec("default-rules-read", "デフォルトルールを読めません: %s", "cannot read the default rules: %s")
 	DefaultRulesBad   = spec("default-rules-bad", "デフォルトルールが不正です: %s", "default rules are invalid: %s")
 	RulesFileRead     = spec("rules-file-read", "ルールファイルを読めません: %s", "cannot read the rules file: %s")
+	RulesYAML         = spec("rules-yaml", "ルールファイルは YAML です", "a rules file is YAML")
 	YAMLRead          = spec("yaml-read", "YAML として読めません: %s", "cannot read YAML: %s")
 	TopNotMap         = spec("top-not-map", "トップレベルが mapping ではありません", "the top level is not a mapping")
 	UnknownTopKey     = spec("unknown-top-key", "runnlint のルールファイルに無いキー %s があります (行 %d)", "key %s is not part of a runnlint rules file (line %d)")

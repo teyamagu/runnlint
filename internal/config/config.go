@@ -4,6 +4,7 @@ package config
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -199,6 +200,9 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, message.Wrap(message.RulesFileRead, err)
 	}
+	if jsonObject(raw) {
+		return nil, message.Prefix(path, message.New(message.RulesYAML))
+	}
 	foreign, nested := checkShape(raw)
 	if foreign != nil {
 		if !explicit {
@@ -228,6 +232,12 @@ func Load(path string) (*Config, error) {
 }
 
 var topLevelKeys = map[string]struct{}{"version": {}, "extends": {}, "language": {}, "ignore": {}, "yamllint": {}, "rules": {}}
+
+// jsonObject reports whether raw is a JSON object. yaml.v3 accepts JSON, so this keeps a rules file in YAML.
+func jsonObject(raw []byte) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && trimmed[0] == '{' && json.Valid(trimmed)
+}
 
 // checkShape reports whether raw has the shape of a runnlint rules file.
 // foreign means the file looks like another tool's config: unreadable YAML, an unknown top-level key, a wrong type, or a version other than 1.

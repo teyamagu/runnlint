@@ -9,13 +9,11 @@
 
 [runn](https://github.com/k1LoW/runn) の runbook を検査する linter である。
 
-言葉は yamllint と ESLint に揃えている。**検査**（check）は runbook を見ること、**問題**（problem）は検査が見つけた1件、**報告**（report）はその問題を結果に載せることである。
-
 インデント、重複キー、行長といった一般的な YAML の検査は [yamllint](https://yamllint.readthedocs.io/) に任せる。runn 固有の runner、step、`{{ }}`、`steps` の参照は、このツールが検査する。ルールの有効化、深刻度、追加は YAML で記述する。
 
 ## 必要環境
 
-Go は最新安定版を使う。採用中のバージョンは `.go-version` と `go.mod` の `go` 行に書き、[Go の最新安定版](https://go.dev/dl/) と一致させる。GitHub Actions はその最新安定版で `go test ./...` を実行する。宣言が古いとき、またはその Go でテストが失敗したときに CI が失敗する。コードの変更が無い週も、新しい安定版が出ていないかを確認する。
+Go は最新安定版を使う。
 
 一般的な YAML lint には yamllint を入れる。
 
@@ -74,7 +72,7 @@ steps:
 - ルールは `rule:<id>` か `<id>` を、空白かカンマで区切って並べる。`--` から後ろは理由として読み飛ばす。ルールを省くと、その行のすべてのルールの問題を報告しない。範囲が広くなるので、理由を書く。
 - 組み込みルール、YAML だけで書いたルール、`included-unreferenced`、`parse` のすべてに効く。行の無い、ファイル全体の問題は対象外である。yamllint の問題は `# yamllint disable-line` で報告しないようにする。
 - 複数行のスカラー（`|` や `>`）の中の式の問題は、キーの行に報告される。報告しない印はキーの行の行末（`test: | # runnlint disable-line rule:expr-syntax`）か、その前の行に書く。ブロックの中に書いたコメントは値の一部なので、問題を報告しない印にならない。なお、`test` などの式の中の `# ...` は、runn と同じくコメントとして取り除いてから検査する。
-- `unused-suppression`（warning）は、`# runnlint disable-line`（この行の問題は報告しない、という印）が、どの問題の報告も止めなかったときに報告する。ESLint が unused disable directive を報告するのと同じである。止められないのは、存在しないルール名（`rule:no-such-rule`）、yamllint の問題を runnlint の印で止めようとしたとき（`# yamllint disable-line rule:line-length` と書く）、`# runnlint disable` のように `disable-line` 以外を書いたとき、その行にはもともと問題が無いとき、`|` や `>` のブロックの中に書いたとき、である。`severity: off` のルールを名指しした印は対象外である。そのルールは問題を報告しないためである。
+- `unused-suppression`（warning）は、`# runnlint disable-line` が、どの問題の報告も止めなかったときに報告する。止められないのは、存在しないルール名（`rule:no-such-rule`）、yamllint の問題を runnlint の印で止めようとしたとき（`# yamllint disable-line rule:line-length` と書く）、`# runnlint disable` のように `disable-line` 以外を書いたとき、その行にはもともと問題が無いとき、`|` や `>` のブロックの中に書いたとき、である。`severity: off` のルールを名指しした印は対象外である。
 
 このコメントは baseline より先に効く。報告しないようにした問題は baseline に書かれず、`--baseline` で照合する前に取り除かれる。`unused-suppression` は普通の問題なので、baseline に入れることも、`severity: off` で止めることもできる。
 
@@ -97,7 +95,7 @@ runnlint --baseline runnlint-baseline.json .
 
 フィールドの意味、継承、宣言的ルールの書き方は [docs/ja/configuration.md](docs/ja/configuration.md) にまとめている。runn の更新への追従は [docs/ja/runn-follow.md](docs/ja/runn-follow.md) である。
 
-カレントディレクトリから親へ `.runnlint-runn.yaml`、`.runnlint-runn.yml` の順に探す。ファイルが無ければ組み込みのデフォルトを使う。`--config` でパスを直接指定することもできる。
+カレントディレクトリから親へ設定を探し、無ければ組み込みのデフォルトを使い、パスは `--config` で直接指定できる。
 
 `extends` を省略するとデフォルトを継承し、同じ `id` のルールだけを上書きする。同じ `id` を繰り返すと、後ろの項目が前の項目を上書きする。
 
@@ -136,8 +134,6 @@ rules:
 
 ### 宣言的ルール
 
-`check.select` はドット区切りである。`*` は mapping の各値、または sequence の各要素である。`**` は深さを問わない任意の段で、`steps.*.**.query` はどの runner の下にある `query` でも選ぶ。`steps` が list でも map でも `steps.*` で各 step を指す。`.` を含むキーは `req."/v1/{id}.json"` のように二重引用符で囲む。
-
 使える条件は `exists`、`kind`、`equals`、`not_equals`、`matches`、`not_matches`、`key_matches`、`key_not_matches`、`one_of`、`min_len`、`max_len`、`forbid` である。`kind` は値の型を固定し、`key_matches` はキー名を見る。map の step 名の規約に使える。`where` で絞り込んでから問題を報告する。`where` の `path` を `$.if` のように `$.` から始めると、runbook のルートから見る。`files` を書くと、そのパターンに当たるファイルにだけルールを当てる。`message` では `{{ .path }}`、`{{ .key }}`、`{{ .value }}`、`{{ .rule }}` を使える。
 
 ```yaml
@@ -157,43 +153,7 @@ rules:
 
 ### 組み込みルール
 
-各 id が報告する問題である。初期の深刻度、`uses`、オプション、式の検査範囲は [docs/ja/configuration.md](docs/ja/configuration.md#組み込みルール) に書いてある。
-
-| id | 問題 |
-| --- | --- |
-| `duplicate-key` | 同じ mapping に、同じキーが2回書いてある |
-| `unknown-key` | トップレベルに、runbook のフィールドでも `x-` 始まりでも `<<` でもないキーがある |
-| `book-shape` | runbook 直下のフィールドの値が、runn の形になっていない |
-| `require-steps` | 実行する step が無い |
-| `label-format` | label が空であるか、runn が受け付けない文字を含んでいる |
-| `runner-reserved` | runner の名前に、`test` や `exec` などの予約語を使っている |
-| `runner-config` | runner の種別が分からない、またはその種別の設定が runn の形になっていない |
-| `runner-defined` | step が、定義されていない runner を呼んでいる |
-| `step-shape` | 1つの step で、実行する処理が1つに決まっていない |
-| `http-request` | HTTP の呼び出しが runn の形になっていない |
-| `grpc-request` | gRPC の呼び出しが runn の形になっていない |
-| `db-request` | DB の step に、実行する SQL が無い |
-| `exec-request` | exec に、実行するコマンドが無い、または付随する項目の形が違う |
-| `ssh-request` | SSH の step に `command` 以外が書いてある、または `command` が無い |
-| `cdp-request` | ブラウザ操作の `actions` が、runn の操作として成り立っていない |
-| `agent-request` | agent への依頼文が無い、または形が違う |
-| `include-request` | include が、取り込む runbook を1つに決めていない |
-| `include-path` | include の参照先ファイルが無い |
-| `needs-path` | `needs` の参照先ファイルが無い |
-| `local-path` | runner が参照する証明書や proto などのファイルが無い |
-| `expr-syntax` | `{{ }}` や `test` などの式が、式として読めない |
-| `expr-braces` | 式として読む欄を `{{ }}` で包んでいる |
-| `expr-sharp-comment` | `test` や `if` などの式に `#` のコメントがある。runn は取り除いて動くが、非推奨の警告を出す |
-| `step-ref` | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
-| `var-ref` | `vars` に無い変数を参照している |
-| `loop-index` | `loop` の外で添字 `i` を使っている |
-| `previous-step` | 直前の step が無い場所で `previous` を使っている |
-| `defer-experimental` | `defer` は実験的機能である |
-| `unused-runner` | `runners` や `runner:` で定義した runner を、どの step も呼んでいない |
-| `unused-bind` | `bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない |
-| `require-test-step` | 単独で実行できる runbook に、`test` だけの step（このシナリオで確かめたいことを名前にした検証 step）が無い。デフォルトでは検査せず、設定で `severity` を付けると検査する |
-| `included-unreferenced` | include されたときだけ動く runbook が、どこからも include されていない |
-| `unused-suppression` | 「この行の問題は報告しない」という印 `# runnlint disable-line` が、どの問題の報告も止めなかった。ルール名が違う、その行に問題が無い、`|` や `>` の中に書いた、`disable-line` 以外を書いた |
+各 id が報告する問題、初期の深刻度、`uses`、オプション、式の検査範囲は [docs/ja/configuration.md](docs/ja/configuration.md#組み込みルール) に書いてある。
 
 デフォルトには宣言的ルールも入っている。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることの問題を報告する。`test` は繰り返す前に評価されるので、リトライが始まる前に失敗する。
 
@@ -214,7 +174,7 @@ go run ./cmd/runnlint --no-yamllint --include-root examples examples/bad/include
 - そのバージョンが Go の最新安定版であること
 - 依存ライブラリのライセンスが MIT、BSD、ISC、Apache-2.0 のいずれかであること
 
-新しい安定版が出ると、`.go-version` と `go.mod` を上げるまでこのテストが失敗する。CI は先にその Go でテスト一式を実行するので、宣言を上げる前に互換性を確認できる。
+コードの変更が無い週も、新しい安定版が出ていないかを確認する。新しい安定版が出ると、`.go-version` と `go.mod` を上げるまでこのテストが失敗する。CI は先にその Go でテスト一式を実行するので、宣言を上げる前に互換性を確認できる。
 
 `examples/valid` は通る runbook である。HTTP と DB は `examples/valid/http.yml` である。`examples/bad` は既定ルールごとに1ファイルの報告例で、ファイル名がルール id である。ディレクトリ走査では `examples/bad` を無視する。引数にファイルを書くと検査する。`included-unreferenced` だけは、ファイルを引数に書いただけでは検査しない。上の `--include-root examples` を付けたコマンドで報告する。`require-test-step` はデフォルトでは検査しないので、`severity: info` を付けた設定で `examples/bad/require-test-step.yml` を渡すと問題を報告する。
 
