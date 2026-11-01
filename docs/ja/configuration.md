@@ -2,11 +2,9 @@
 
 [English](../en/configuration.md)
 
-runnlint が runbook を検査するときの設定である。検査（check）は runbook を見ること、問題（problem）は検査が見つけた1件、報告（report）はその問題を結果に載せることである。YAML で書き、同じ内容を JSON で渡すこともできる。JSON は探索対象にならないので、`-c` でパスを指定する。
+runnlint が runbook を検査するときの設定である。YAML で書く。
 
 ## 探索
-
-どの名前のファイルを設定として読むかである。
 
 `-c` / `--config` が無いとき、カレントディレクトリから親へ、各ディレクトリで次の順に探して最初の1件を使う。
 
@@ -27,8 +25,6 @@ runnlint --list-rules
 `--list-rules` は、読み込んだ結果の `id`、`severity`、種別（`builtin:名前` または `check`）を出す。
 
 ## 全体
-
-トップレベルに書くフィールドである。
 
 ```yaml
 version: 1
@@ -57,7 +53,7 @@ rules:
 | --- | --- |
 | `version` | ルールファイルの版。いま受け付けるのは `1` だけである。省略すると、継承後に `1` が残る。`1` でないときの扱いは「探索」のとおりである。 |
 | `language` | 問題、読み込みエラー、`-h` の表示言語。`ja` または `en`。省略すると日本語である。`--lang` を付けると、こちらが優先する。それ以外の値は終了コード `2` である。表示は選んだ言語の文だけである。baseline に書く組み込みルールの問題は、この設定にかかわらず英語である。 |
-| `extends` | `default` または省略でデフォルトを継承する。`none`（大文字小文字を問わない）で継承しない。それ以外の文字列も、いまは継承と同じである。 |
+| `extends` | `default` または省略でデフォルトを継承する。`none`（大文字小文字を問わない）で継承しない。 |
 | `ignore` | ディレクトリ走査で読み飛ばすパス。コマンドの引数にファイルを渡したときは適用しない。指定するとデフォルトの一覧の後ろに足す。キーを省略するとデフォルトのままである。 |
 | `yamllint` | 一般的な YAML 検査の委譲先。書いた項目だけを上書きする。 |
 | `rules` | ルールの一覧。同じ `id` はマージされ、未知の `id` は末尾に足される。 |
@@ -101,17 +97,6 @@ rules:
 
 パターンを見るのは、引数がディレクトリのときだけである。引数にファイルを書いたときは、パターンに一致していても検査する。
 
-```console
-runnlint .
-runnlint examples/fixtures/openapi.yml
-```
-
-`ignore` に `examples/fixtures/openapi.yml` があるとき、カレントディレクトリに `examples/` があれば、1つ目は走査でそのパスに当たったファイルを外す。2つ目は引数がファイルなので、同じパターンがあっても検査する。
-
-パターンは、走査で得たパス（スラッシュ区切り）と、そのベース名の両方に当てる。走査で得たパスは、引数のディレクトリを起点に連結したパスである。引数が `.` のときは `examples/fixtures/openapi.yml`、引数が `books` のときは `books/a.yml` である。設定ファイルがあるディレクトリからの相対パスには揃えない。引数が絶対パスのときは、走査で得たパスも絶対パスである。`**` を含むパターンは、走査で得たパスだけに当てる。
-
-`*`、`?`、`[` を含まないパターンは、走査で得たパスがパターンと一致するときと、その下にあるときに当たる。末尾の `/` を除くのは、その下を見るときだけである。`examples/bad` と `examples/bad/` は、どちらも `examples/bad/...` に当たる。`examples/fixtures/openapi.yml/` は、走査パス `examples/fixtures/openapi.yml` には当たらない。パターンに `/` が無いときは、ベース名が一致するファイルにも当たる。`./examples/bad` のように `./` を付けると、走査で得た `examples/bad/...` とは別の文字列なので当たらない。
-
 | 書き方 | 例 |
 | --- | --- |
 | ファイルのパス | `examples/fixtures/openapi.yml` は、走査で得たパスがこれと一致するファイル。`examples/valid/openapi.yml` はこのパターンに当たらない |
@@ -137,11 +122,11 @@ runnlint examples/fixtures/openapi.yml
 
 `config` を書かないときは、runbook 向けに緩めた組み込み設定を渡す。内容は `runnlint --print-yamllint-config` で見られる。`extends: none` でも、`bin` と `missing` を空のままにすると、それぞれ `yamllint` と `warning` になる。yamllint を止めるには `enabled: false` を書く。
 
-問題のルール ID は `yamllint/trailing-spaces` のように、yamllint のルール名に接頭辞を付けたものである。yamllint は GPL-3.0 の外部コマンドで、このモジュールには含めない。実行時に外すには `--no-yamllint` を使う。
+問題のルール ID は `yamllint/trailing-spaces` のように、yamllint のルール名に接頭辞を付けたものである。実行時に外すには `--no-yamllint` を使う。
 
 ## ルールの共通項目
 
-ルールを1件書くときのフィールドである。組み込みの深刻度を変えるときも、YAML だけでルールを足すときも、ここを書く。
+組み込みの深刻度を変えるときも、YAML だけでルールを足すときも、ここを書く。
 
 ```yaml
 rules:
@@ -186,8 +171,6 @@ rules:
 
 パターンの当て方は「ignore」と同じである。走査で得たパス（スラッシュ区切り）とそのベース名に当て、`**` を含むパターンは走査で得たパスだけに当てる。違いは1つで、`ignore` は引数がディレクトリのときだけ見るが、`files` は引数にファイルを渡したときにも見る。`runnlint integrations/a.yml` と書けば、`integrations/**` のルールが当たる。走査で得たパスは引数のディレクトリを起点にするので、`runnlint .` では `integrations/a.yml`、`runnlint books` では `books/integrations/a.yml` である。`files: []` と、空のパターンは、設定の読み込みで失敗する。
 
-終了コードは、`error` が1件でもあれば `1`、設定や実行の失敗は `2`、それ以外は `0` である。`warning` と `info` だけでは失敗しない。コマンドに `--strict` を付けると `warning` でも `1` になる。`info` は失敗しない。ルールファイルにこの設定はない。
-
 ## 組み込みルール
 
 `uses` に書ける名前、初期の深刻度、その問題である。`id` を同じ名前にして `severity` だけ変えるのが通常である。
@@ -226,9 +209,7 @@ rules:
 | `unused-bind` | warning | `bind` で付けた名前を、このファイルの式も、この runbook を include・needs するファイルの式も読んでいない。範囲は「unused-bind の検査範囲」 |
 | `require-test-step` | off | 単独で実行できる runbook に、`test` だけの step が無い。リクエストに付けた `test` は1つの応答の確認で、`test` だけの step はシナリオで確かめたいことを名前にする。トップレベルの `if` が `included` を要する runbook は呼び出し側が確かめるので対象外である。step が無い runbook は `require-steps` に任せる。デフォルトでは検査しない |
 | `included-unreferenced` | warning | include されたときだけ動く runbook が、どこからも include されていない |
-| `unused-suppression` | warning | `# runnlint disable-line` は「この行の問題は報告しない」という印である。yamllint の disable-line と同じである。このルールは、その印がどの問題の報告も止めなかったときに報告する。ESLint の unused disable directive と同じである。存在しないルール名、yamllint の問題を runnlint の印で止めようとした（yamllint の問題は `# yamllint disable-line` で止める）、`disable-line` 以外の指示、その行には問題が無い、`|` や `>` の値の中に書いた。`severity: off` のルールを名指しした印は対象外である。そのルールは問題を報告しないためである |
-
-`require-test-step` を検査するときは、`.runnlint-runn.yaml` で深刻度を付ける。`info`、`warning`、`error` のどれでも検査する。項目を書かないときと `off` のときは検査しない。
+| `unused-suppression` | warning | `# runnlint disable-line` が、どの問題の報告も止めなかった |
 
 ```yaml
 rules:
@@ -317,7 +298,7 @@ rules:
 
 ### select
 
-どの値に条件を当てるかである。ドット区切りである。`*` は mapping の各値、または sequence の各要素で、1段だけ降りる。`**` は 0 段以上の任意の段で、mapping の値と sequence の要素を深さを問わず辿る。`steps` が list でも map でも `steps.*` で各 step を指す。
+ドット区切りである。`*` は mapping の各値、または sequence の各要素で、1段だけ降りる。`**` は 0 段以上の任意の段で、mapping の値と sequence の要素を深さを問わず辿る。`steps` が list でも map でも `steps.*` で各 step を指す。
 
 | select | 指すもの |
 | --- | --- |
@@ -337,7 +318,7 @@ list の要素を選んだときの `key` は `0` から始まる番号、map �
 
 ### 条件
 
-選んだ値を、どんなときに問題として報告するかである。書いた条件をすべて当て、1つでも外れると問題を報告する。
+書いた条件をすべて当て、1つでも外れると問題を報告する。
 
 | 条件 | 問題を報告するとき |
 | --- | --- |
@@ -429,7 +410,7 @@ rules:
 
 ### message
 
-報告する文である。空なら、条件に応じた文を報告する。書いた場合は [Go の text/template](https://pkg.go.dev/text/template) である。使えるデータは次の4つである。未知の名前は空文字になる。
+空なら、条件に応じた文を報告する。書いた場合は [Go の text/template](https://pkg.go.dev/text/template) である。使えるデータは次の4つである。未知の名前は空文字になる。
 
 | 名前 | 中身 |
 | --- | --- |

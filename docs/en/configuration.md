@@ -2,11 +2,9 @@
 
 [日本語](../ja/configuration.md)
 
-These are the settings runnlint uses when it checks a runbook. A check looks at a runbook. A problem is one thing the check finds. The check reports that problem. The settings are written in YAML, and the same content can be passed as JSON. JSON is not discovered, so the path is passed with `-c`.
+These are the settings runnlint uses when it checks a runbook. They are written in YAML.
 
 ## Discovery
-
-These are the file names read as configuration.
 
 When `-c` / `--config` is absent, runnlint walks from the current directory toward the parent and, in each directory, uses the first file it finds in this order.
 
@@ -27,8 +25,6 @@ runnlint --list-rules
 `--list-rules` prints the loaded `id`, `severity`, and kind (`builtin:name` or `check`).
 
 ## Top level
-
-These are the fields written at the top level.
 
 ```yaml
 version: 1
@@ -57,7 +53,7 @@ rules:
 | --- | --- |
 | `version` | The rules-file version. Only `1` is accepted now. Omitting it leaves `1` after inheritance. A value other than `1` is handled as described under Discovery. |
 | `language` | Display language for problems, load errors, and `-h`. `ja` or `en`. Omitting it means Japanese. `--lang` overrides this field. Any other value exits with code `2`. Display prints only the selected language. Built-in problems written to a baseline are English regardless of this setting. |
-| `extends` | `default`, or omitting the field, inherits the default. `none` (case-insensitive) does not inherit. Any other string currently inherits as well. |
+| `extends` | `default`, or omitting the field, inherits the default. `none` (case-insensitive) does not inherit. |
 | `ignore` | Paths to skip during a directory walk. It does not apply when a file is passed as a command argument. Specifying it appends to the default list. Omitting the key keeps the default. |
 | `yamllint` | Where general YAML checks are delegated. Only the fields that are written are overridden. |
 | `rules` | The rule list. The same `id` is merged. An unknown `id` is appended. |
@@ -101,17 +97,6 @@ These are the paths, among the files collected by walking a directory, that are 
 
 Patterns are consulted only when the argument is a directory. A file written as an argument is checked even when it matches a pattern.
 
-```console
-runnlint .
-runnlint examples/fixtures/openapi.yml
-```
-
-When `ignore` contains `examples/fixtures/openapi.yml` and the current directory contains `examples/`, the first command drops the file whose walked path matches. The second command's argument is a file, so it checks that file even with the same pattern.
-
-A pattern is matched against both the walked path (slash-separated) and its base name. The walked path is joined from the argument directory. When the argument is `.`, it is `examples/fixtures/openapi.yml`. When the argument is `books`, it is `books/a.yml`. It is not rewritten to be relative to the directory that contains the config file. When the argument is an absolute path, the walked path is absolute too. A pattern that contains `**` is matched only against the walked path.
-
-A pattern that contains none of `*`, `?`, or `[` matches when the walked path equals the pattern and when the file is under it. A trailing `/` is stripped only when looking underneath. Both `examples/bad` and `examples/bad/` match `examples/bad/...`. `examples/fixtures/openapi.yml/` does not match the walked path `examples/fixtures/openapi.yml`. When the pattern contains no `/`, it also matches a file whose base name equals the pattern. A prefix such as `./examples/bad` is a different string from the walked `examples/bad/...`, so it does not match.
-
 | Form | Example |
 | --- | --- |
 | File path | `examples/fixtures/openapi.yml` is a file whose walked path equals this. `examples/valid/openapi.yml` does not match this pattern |
@@ -137,11 +122,11 @@ These are the settings for passing general YAML checks to the external yamllint 
 
 When `config` is not written, runnlint passes a built-in config loosened for runbooks. It is printed with `runnlint --print-yamllint-config`. Even with `extends: none`, leaving `bin` and `missing` empty makes them `yamllint` and `warning`. yamllint stops when `enabled: false` is set.
 
-A problem's rule ID is the yamllint rule name with a prefix, such as `yamllint/trailing-spaces`. yamllint is a GPL-3.0 external command and is not included in this module. Pass `--no-yamllint` to skip it for one run.
+A problem's rule ID is the yamllint rule name with a prefix, such as `yamllint/trailing-spaces`. Pass `--no-yamllint` to skip it for one run.
 
 ## Fields common to every rule
 
-These are the fields for one rule. They are written both when changing a built-in severity and when adding a rule in YAML alone.
+They are written both when changing a built-in severity and when adding a rule in YAML alone.
 
 ```yaml
 rules:
@@ -186,8 +171,6 @@ rules:
 
 Patterns are matched the same way as `ignore`: against the walked path (slash-separated) and its base name, and a pattern that contains `**` only against the walked path. There is one difference. `ignore` is consulted only when the argument is a directory, while `files` is also consulted for a file passed as an argument. `runnlint integrations/a.yml` applies the `integrations/**` rules. The walked path starts from the argument directory, so it is `integrations/a.yml` for `runnlint .` and `books/integrations/a.yml` for `runnlint books`. `files: []` and a blank pattern fail when the config is loaded.
 
-The exit code is `1` when there is at least one `error`, `2` when configuration or execution fails, and `0` otherwise. `warning` and `info` alone do not fail the run. With the `--strict` command flag, a `warning` also exits `1`. `info` never fails. The rules file has no setting for this.
-
 ## Built-in rules
 
 Names that can be written in `uses`, their initial severity, and the problem. The usual change is to keep `id` equal to that name and change only `severity`.
@@ -226,9 +209,7 @@ Names that can be written in `uses`, their initial severity, and the problem. Th
 | `unused-bind` | warning | A name given by `bind` is read neither by this file's expressions nor by any file that includes or needs this runbook. See "Scope of unused-bind" |
 | `require-test-step` | off | A runbook that can run on its own has no step with only `test`. A `test` on a request checks one response; a step with only `test` names what the scenario verifies. Runbooks whose top-level `if` requires `included` are verified by their caller and are not reported. Runbooks without steps are left to `require-steps`. It is not checked by default |
 | `included-unreferenced` | warning | A runbook that runs only when included is not included from anywhere |
-| `unused-suppression` | warning | `# runnlint disable-line` means "do not report problems on this line," the same comment yamllint uses. This rule reports that comment when it stopped no problem from being reported, as ESLint does for an unused disable directive. An unknown rule name, a yamllint problem named in a runnlint comment (stop those with `# yamllint disable-line`), a directive other than `disable-line`, a line that has no problem, or a comment inside a `|` or `>` value. A comment that names a rule whose `severity` is `off` is left alone, because that rule reports no problem |
-
-To check `require-test-step`, set its severity in `.runnlint-runn.yaml`. `info`, `warning`, and `error` all enable the check. Omitting the entry, or leaving it `off`, does not.
+| `unused-suppression` | warning | A `# runnlint disable-line` comment stopped no problem from being reported |
 
 ```yaml
 rules:
@@ -317,7 +298,7 @@ rules:
 
 ### select
 
-Which values the conditions apply to. It is dot-separated. `*` is each value of a mapping, or each element of a sequence, and descends exactly one level. `**` is zero or more levels of any kind. It descends through mapping values and sequence elements at any depth. `steps.*` means each step whether `steps` is a list or a map.
+It is dot-separated. `*` is each value of a mapping, or each element of a sequence, and descends exactly one level. `**` is zero or more levels of any kind. It descends through mapping values and sequence elements at any depth. `steps.*` means each step whether `steps` is a list or a map.
 
 | select | What it means |
 | --- | --- |
@@ -337,7 +318,7 @@ When a list element is selected, `key` is an index starting at `0`. When a map v
 
 ### Conditions
 
-When a selected value is reported as a problem. Every written condition is applied, and any one that fails makes it a problem.
+Every written condition is applied, and any one that fails makes it a problem.
 
 | Condition | When a problem is reported |
 | --- | --- |
@@ -429,7 +410,7 @@ rules:
 
 ### message
 
-The message reported with the problem. When it is empty, a sentence that depends on the condition is printed. When it is written, it is a [Go text/template](https://pkg.go.dev/text/template). The four available values are below. An unknown name becomes an empty string.
+When it is empty, a sentence that depends on the condition is printed. When it is written, it is a [Go text/template](https://pkg.go.dev/text/template). The four available values are below. An unknown name becomes an empty string.
 
 | Name | Contents |
 | --- | --- |

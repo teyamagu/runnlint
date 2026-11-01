@@ -20,15 +20,16 @@
 | BIN-06 | `ignore` はディレクトリ走査で集めたファイルだけを外す。パターンがファイルパスでも、引数のファイルは検査する。リテラルは走査パスの一致とその下。末尾の `/` を除くのはその下だけで、`examples/fixtures/openapi.yml/` は `examples/fixtures/openapi.yml` に当たらない。ベース名に当たるのはパターン全体がベース名と一致するときで、`*.gen.yml` は当たり `dir/*.yml` は `dir` の直下だけ。`**` は走査パスだけで、`**/` の後ろの `*` と `?` は 1 つの段の中に収まる。`./` 付きや、`/` を含むパターンは、走査パスの文字列が違うと当たらない。`openapi.yml` と `*.gen.yml` は絶対パスにもベース名で当たる | `internal/app/contract_test.go`、`internal/config/config_test.go` |
 | BIN-07 | warning だけ、info だけでは 0。error は 1。不明な出力形式と存在しないパスは 2 | 同 |
 | BIN-08 | text / github / json の形と、ファイル・行・列・ルール名での整列 | `internal/report/report_test.go` |
-| BIN-09 | 継承、`extends: none`、同一 id の上書き、検証、探索順、JSON。`files` と `kind` は警告なく読み、継承したルールに `files` だけを足せる。未知の `kind`、空の `files`、空のパターン、閉じていない引用符の段は読み込みで失敗する | `internal/config/contract_test.go` |
+| BIN-09 | 継承、`extends: none`、同一 id の上書き、検証、探索順。`files` と `kind` は警告なく読み、継承したルールに `files` だけを足せる。未知の `kind`、空の `files`、空のパターン、閉じていない引用符の段は読み込みで失敗する。JSON のルールファイルは読まない | `internal/config/contract_test.go` |
 | BIN-10 | yamllint の parsable 出力と、設定パスの解決 | `internal/yamllint/yamllint_test.go` |
 | BIN-11 | YAML の重複キー、alias、merge、複数 document、runner 種別 | `internal/runbook/parse_test.go` |
 | BIN-12 | スキーマと `cdpfn.go` からキーと CDP アクションを読む。最新リリースとの差で失敗する | `internal/runnspec` |
 | BIN-13 | Go の最新安定版と、依存ライセンス | `internal/gotoolchain`、`internal/license` |
 | BIN-14 | 製品バージョンは semver。`--version` は `runnlint X.Y.Z`。`CHANGELOG.md` と `CHANGELOG.en.md` の `## [X.Y.Z]` が見出しとして一致し、現行版の節がある | `internal/version`、`cmd/runnlint/main_test.go` |
 | BIN-15 | `--write-baseline` はすべての問題を書いて 0。`--baseline` はファイル・ルール・メッセージの件数で照合し、行がずれても既存の問題を報告しない。新しい問題だけで終了コードを決める。組み込みルールの問題のメッセージは英語で記録し、表示が日本語でもその英語で照合する。宣言的ルールの文は書いたまま。形式は version 2 で、version 1 は 2 で失敗する。読めない baseline は 2 | `internal/baseline`、`internal/app/contract_test.go`、`cmd/runnlint/main_test.go` |
-| BIN-16 | 探索は `.runnlint-runn.yaml`、次に `.runnlint-runn.yml` だけを選ぶ。`.runnlint.yaml` などは読まず、警告も出さない。見つけたファイルは形が違えば 2。下の階層の未知のキーは警告して読む。`--config` は未知のキーを警告して読む | `internal/config/contract_test.go`、`internal/app/contract_test.go` |
+| BIN-16 | 探索は `.runnlint-runn.yaml`、次に `.runnlint-runn.yml` だけを選ぶ。見つけたファイルは形が違えば 2。下の階層の未知のキーは警告して読む。`--config` は未知のキーを警告して読む | `internal/config/contract_test.go`、`internal/app/contract_test.go` |
 | BIN-17 | `--strict` は warning だけでも 1 にする。info だけは 0 のまま。`--baseline` で消した warning は数えない | `cmd/runnlint/main_test.go`、`internal/app/contract_test.go` |
+| BIN-18 | `--lang en` は英語で表示する。`ja` と `en` 以外は終了コード `2` である | `cmd/runnlint/main_test.go` |
 
 BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリポジトリの更新方針を固定する。記法定義の差を取り込んで PR にする処理は `.github/workflows/runn-follow.yml` と `cmd/runnfollow` である。差の有無は `internal/runnspec.Changed` が決める。
 
