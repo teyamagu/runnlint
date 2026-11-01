@@ -353,8 +353,8 @@ func TestDiscoverIgnoresLegacyNames(t *testing.T) {
 	}
 }
 
-// TestLoadJSONConfig checks that a JSON config file loads and that extends: none leaves only the require-steps rule.
-func TestLoadJSONConfig(t *testing.T) {
+// TestLoadRejectsJSON checks that a JSON rules file is not read.
+func TestLoadRejectsJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := writeConfig(t, dir, "rules.json", `{
   "version": 1,
@@ -363,12 +363,8 @@ func TestLoadJSONConfig(t *testing.T) {
     {"id": "require-steps", "uses": "require-steps", "severity": "error"}
   ]
 }`)
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cfg.Rules) != 1 || cfg.Rules[0].Uses != "require-steps" {
-		t.Fatalf("%+v", cfg.Rules)
+	if _, err := Load(path); err == nil {
+		t.Fatal("JSON のルールファイルを読んでいます")
 	}
 }
 
