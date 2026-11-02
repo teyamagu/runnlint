@@ -280,7 +280,7 @@ include 元が走査範囲の外にあるときは、親ディレクトリを `-
 runnlint --include-root . books/payments
 ```
 
-デフォルトには、宣言的ルールも入っている。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることの問題を報告する。`test` は繰り返す前に評価されるので、リトライが始まる前に失敗する。これらに `uses` はない。
+デフォルトには、宣言的ルールも入っている。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることの問題を報告する。`test` は毎周評価されるので、リトライが始まる前に失敗する。これらに `uses` はない。
 
 ## 宣言的ルール
 
