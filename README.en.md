@@ -155,7 +155,7 @@ rules:
 
 The problem each id reports, its initial severity, `uses`, options, and the range of expression checks are in [Built-in rules](docs/en/configuration.md#built-in-rules).
 
-The default config also contains declarative rules. `require-desc` reports a missing `desc`, `no-debug` reports that `debug` is enabled, and `loop-until-with-test` reports a step that has both `loop.until` and `test`. `test` is evaluated before the repeat, so the step fails before the retry starts.
+The default config also contains declarative rules. `require-desc` reports a missing `desc`, `no-debug` reports that `debug` is enabled, and `loop-until-with-test` reports a step that has both `loop.until` and `test`. `test` is evaluated on every iteration, so the step fails before the retry starts.
 
 ## Development
 

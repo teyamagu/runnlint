@@ -155,7 +155,7 @@ rules:
 
 各 id が報告する問題、初期の深刻度、`uses`、オプション、式の検査範囲は [docs/ja/configuration.md](docs/ja/configuration.md#組み込みルール) に書いてある。
 
-デフォルトには宣言的ルールも入っている。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることの問題を報告する。`test` は繰り返す前に評価されるので、リトライが始まる前に失敗する。
+デフォルトには宣言的ルールも入っている。`require-desc` は `desc` が無いこと、`no-debug` は `debug` が有効なこと、`loop-until-with-test` は同じ step に `loop.until` と `test` があることの問題を報告する。`test` は毎周評価されるので、リトライが始まる前に失敗する。
 
 ## 開発
 
