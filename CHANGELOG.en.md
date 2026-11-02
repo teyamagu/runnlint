@@ -10,6 +10,11 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 - A rules file is YAML only.
 
+### Fixed
+
+- `loop` `jitter` and `multiplier` are numbers. A string that is not a number is reported.
+- A quoted negative SSH `port` is reported as not a positive number. Baseline matching uses the English sentence, so rewrite a record of the old sentence with `--write-baseline`.
+
 ## [0.3.0]
 
 ### Added

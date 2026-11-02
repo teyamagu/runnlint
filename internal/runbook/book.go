@@ -234,12 +234,18 @@ func detectStringKind(s string) RunnerKind {
 		return KindUnknown
 	}
 	if i := strings.Index(s, "://"); i > 0 {
-		if _, ok := dbSchemes[s[:i]]; ok {
+		if DBScheme(s[:i]) {
 			return KindDB
 		}
 		return KindUnknown
 	}
 	return KindDB
+}
+
+// DBScheme reports whether scheme is a DSN scheme runn treats as a database runner.
+func DBScheme(scheme string) bool {
+	_, ok := dbSchemes[scheme]
+	return ok
 }
 
 var dbSchemes = map[string]struct{}{

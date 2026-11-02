@@ -1,8 +1,5 @@
 package rules
 
-// Lines that are not covered on purpose:
-// refs.go stepVisible returns false for a target outside the steps. Callers check the index or look the name up first, so the branch is reached only by a direct call, which TestStepVisibleOutOfRange makes.
-
 import (
 	"os"
 	"path/filepath"

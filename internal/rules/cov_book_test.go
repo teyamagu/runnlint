@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// book-shape reports needs that is not a mapping, a secrets element that is not a string, and in a loop mapping an unknown key, a negative count, and a jitter that is not a number. A loop given as an expression is accepted.
+// book-shape reports needs that is not a mapping, a secrets element that is not a string, and in a loop mapping an unknown key, a negative count, and a jitter that is not a number. A loop given as an expression is accepted. A jitter template is accepted, and a jitter that is not a number is reported.
 func TestBookShapeRemainingBranches(t *testing.T) {
 	cases := []struct {
 		name string
@@ -19,6 +19,7 @@ func TestBookShapeRemainingBranches(t *testing.T) {
 		{"loop unknown key", "loop:\n  count: 1\n  nope: 1\n", "loop にキー nope はありません"},
 		{"loop negative count", "loop:\n  count: -1\n", "loop.count は 0 以上です"},
 		{"loop jitter", "loop:\n  count: 1\n  jitter: true\n", "loop.jitter は数値です"},
+		{"loop jitter text", "loop:\n  count: 1\n  jitter: abc\n", "loop.jitter は数値です"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -26,6 +27,10 @@ func TestBookShapeRemainingBranches(t *testing.T) {
 		})
 	}
 	rejectMessage(t, "desc: d\nloop: \"{{ vars.n }}\"\nvars:\n  n: 2\nsteps:\n  - test: \"true\"\n", "book-shape", "loop")
+	rejectMessage(t, "desc: d\nloop:\n  count: 1\n  jitter: \"{{ vars.n }}\"\nvars:\n  n: 0.1\nsteps:\n  - test: \"true\"\n", "book-shape", "jitter")
+	rejectMessage(t, "desc: d\nloop:\n  count: 1\n  jitter: \"0.1\"\nsteps:\n  - test: \"true\"\n", "book-shape", "jitter")
+	rejectMessage(t, "desc: d\nloop:\n  count: 1\n  multiplier: \"1_5\"\nsteps:\n  - test: \"true\"\n", "book-shape", "multiplier")
+	requireMessage(t, "desc: d\nloop:\n  count: 1\n  jitter: \" 0.1\"\nsteps:\n  - test: \"true\"\n", "book-shape", "loop.jitter は数値です")
 }
 
 // duplicateKey does nothing without a document. nodeOf falls back to the step name's node, then to the step value's node, when the field has no node.

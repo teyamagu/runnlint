@@ -2,8 +2,8 @@ package rules
 
 // Lines that are not covered on purpose:
 // runner.go checkDBString's final RunnerScheme: a string runner with :// and an unknown scheme is detected as kind unknown, never as DB, so the DB check never sees it.
-// runner.go RunnerEpString: a mapping runner is detected as HTTP only when endpoint is a non-empty string, so endpoint can never be a non-string there.
-// runner.go RunnerHost: a mapping runner is detected as SSH only when host or hostname is a non-empty string, so neither can be missing there.
+// runner.go checkHTTPRunner RunnerEpString: a mapping runner is detected as HTTP only when endpoint is a non-empty string, so endpoint can never be a non-string there.
+// runner.go checkSSHRunner RunnerHost: a mapping runner is detected as SSH only when host or hostname is a non-empty string, so neither can be missing there.
 
 import (
 	"testing"

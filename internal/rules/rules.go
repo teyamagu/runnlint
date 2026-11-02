@@ -227,3 +227,12 @@ func optionBool(opts map[string]any, key string) bool {
 	v, ok := opts[key].(bool)
 	return ok && v
 }
+
+// here is the node of child when the key is present, otherwise the parent node.
+// runn reports a missing key against the whole mapping. The finding uses that same node.
+func here(parent, child runbook.Value, present bool) *yaml.Node {
+	if present {
+		return child.Node
+	}
+	return parent.Node
+}
