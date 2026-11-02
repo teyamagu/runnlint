@@ -1,7 +1,9 @@
 package rules
 
 import (
+	"math"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/teyamagu/runnlint/internal/message"
@@ -19,14 +21,6 @@ func init() {
 func reservedRunner(name string) bool {
 	_, ok := runnspec.DefKeys(runnspec.DefStep)[name]
 	return ok
-}
-
-var dbSchemes = map[string]struct{}{
-	"postgres": {}, "postgresql": {}, "pg": {},
-	"mysql": {}, "my": {},
-	"sqlite": {}, "sqlite3": {}, "sq": {},
-	"spanner": {}, "sp": {},
-	"file": {},
 }
 
 func runnerReserved(c *Context) {
@@ -142,15 +136,13 @@ func checkDBString(c *Context, r runbook.Runner) {
 	if runbook.ContainsTemplate(s) || strings.Contains(s, "@tcp(") || strings.Contains(s, "@") && !strings.Contains(s, "://") {
 		return
 	}
-	if i := strings.Index(s, "://"); i > 0 {
-		scheme := s[:i]
-		if _, ok := dbSchemes[scheme]; ok {
-			return
-		}
+	if i := strings.Index(s, "://"); i > 0 && runbook.DBScheme(s[:i]) {
+		return
 	}
 	c.Add(r.Value.Node, message.RunnerScheme, r.Name)
 }
 
+// checkRunnerMap follows the order of book.parseRunner: schema keys first, then the kind runn detected.
 func checkRunnerMap(c *Context, r runbook.Runner) {
 	if def := runnerDef(r.Kind); def != "" {
 		allowKeys(c, r.Value, "runner "+r.Name, runnspec.DefKeys(def))
@@ -158,59 +150,92 @@ func checkRunnerMap(c *Context, r runbook.Runner) {
 	}
 	switch r.Kind {
 	case runbook.KindHTTP:
-		if ep, ok := r.Value.Get("endpoint"); ok {
-			if ep.Kind == runbook.KindString {
-				checkHTTPURL(c, r.Name, ep)
-			} else {
-				c.Add(ep.Node, message.RunnerEpString, r.Name)
-			}
-		}
-		checkOptionalDuration(c, r.Value, "timeout")
-		checkTrace(c, r.Value)
-		checkBoolish(c, r.Value, "skipValidateRequest", "skipValidateResponse", "skipCircularReferenceCheck", "notFollowRedirect", "skipVerify", "useCookie")
+		checkHTTPRunner(c, r)
 	case runbook.KindGRPC:
-		checkStringList(c, r.Value, "importPaths", "protos", "bufDirs", "bufLocks", "bufConfigs", "bufModules")
-		checkBoolish(c, r.Value, "tls", "skipVerify")
-		checkTrace(c, r.Value)
+		checkGRPCRunner(c, r)
 	case runbook.KindDB:
-		checkBoolish(c, r.Value, "trace")
+		checkDBRunner(c, r)
 	case runbook.KindSSH:
-		_, host := r.Value.Get("host")
-		_, hostname := r.Value.Get("hostname")
-		if !host && !hostname {
-			c.Add(r.Value.Node, message.RunnerHost, r.Name)
-		}
-		if file, ok := r.Value.Get("identityFile"); ok && nonEmptyString(file) {
-			if key, ok := r.Value.Get("identityKey"); ok && nonEmptyString(key) {
-				c.Add(key.Node, message.RunnerIdentity, r.Name)
-			}
-		}
-		if port, ok := r.Value.Get("port"); ok {
-			checkPort(c, port)
-		}
-		checkBoolish(c, r.Value, "keepSession")
-		checkKeyboard(c, r.Value)
+		checkSSHRunner(c, r)
 	case runbook.KindCDP:
-		checkOptionalDuration(c, r.Value, "timeout")
-		if flags, ok := r.Value.Get("flags"); ok && flags.Kind != runbook.KindMap {
-			c.Add(flags.Node, message.RunnerFlags, r.Name)
-		}
+		checkCDPRunner(c, r)
 	case runbook.KindInclude:
-		if params, ok := r.Value.Get("params"); ok && params.Kind != runbook.KindMap {
-			c.Add(params.Node, message.RunnerParams, r.Name)
-		}
+		checkIncludeRunner(c, r)
 	case runbook.KindAgent:
-		// The schema allows agent to be any string. Accepted values follow the runn implementation.
-		if agent, ok := r.Value.Get("agent"); ok && agent.Kind == runbook.KindString && !runbook.ContainsTemplate(agent.String) {
-			switch agent.String {
-			case "claude", "copilot", "codex":
-			default:
-				c.Add(agent.Node, message.AgentName)
-			}
-		}
-		checkStringList(c, r.Value, "tools", "permissions")
-		checkBoolish(c, r.Value, "interactive")
+		checkAgentRunner(c, r)
 	}
+}
+
+func checkHTTPRunner(c *Context, r runbook.Runner) {
+	if ep, ok := r.Value.Get("endpoint"); ok {
+		if ep.Kind == runbook.KindString {
+			checkHTTPURL(c, r.Name, ep)
+		} else {
+			c.Add(ep.Node, message.RunnerEpString, r.Name)
+		}
+	}
+	// Checked fields follow httpRunnerConfig: the skipValidate bools, skipVerify, timeout, useCookie, then trace.
+	checkBoolish(c, r.Value, "skipValidateRequest", "skipValidateResponse", "skipCircularReferenceCheck", "notFollowRedirect")
+	checkBoolish(c, r.Value, "skipVerify")
+	checkOptionalDuration(c, r.Value, "timeout")
+	checkBoolish(c, r.Value, "useCookie")
+	checkTrace(c, r.Value)
+}
+
+func checkGRPCRunner(c *Context, r runbook.Runner) {
+	// Checked fields follow grpcRunnerConfig: tls, skipVerify, the string lists, then trace.
+	checkBoolish(c, r.Value, "tls")
+	checkBoolish(c, r.Value, "skipVerify")
+	checkStringList(c, r.Value, "importPaths", "protos", "bufDirs", "bufLocks", "bufConfigs", "bufModules")
+	checkTrace(c, r.Value)
+}
+
+func checkDBRunner(c *Context, r runbook.Runner) {
+	checkBoolish(c, r.Value, "trace")
+}
+
+func checkSSHRunner(c *Context, r runbook.Runner) {
+	_, host := r.Value.Get("host")
+	_, hostname := r.Value.Get("hostname")
+	if !host && !hostname {
+		c.Add(r.Value.Node, message.RunnerHost, r.Name)
+	}
+	if port, ok := r.Value.Get("port"); ok {
+		checkPort(c, port)
+	}
+	if file, ok := r.Value.Get("identityFile"); ok && nonEmptyString(file) {
+		if key, ok := r.Value.Get("identityKey"); ok && nonEmptyString(key) {
+			c.Add(key.Node, message.RunnerIdentity, r.Name)
+		}
+	}
+	checkBoolish(c, r.Value, "keepSession")
+	checkKeyboard(c, r.Value)
+}
+
+func checkCDPRunner(c *Context, r runbook.Runner) {
+	if flags, ok := r.Value.Get("flags"); ok && flags.Kind != runbook.KindMap {
+		c.Add(flags.Node, message.RunnerFlags, r.Name)
+	}
+	checkOptionalDuration(c, r.Value, "timeout")
+}
+
+func checkIncludeRunner(c *Context, r runbook.Runner) {
+	if params, ok := r.Value.Get("params"); ok && params.Kind != runbook.KindMap {
+		c.Add(params.Node, message.RunnerParams, r.Name)
+	}
+}
+
+func checkAgentRunner(c *Context, r runbook.Runner) {
+	// The schema allows agent to be any string. Accepted values follow the runn implementation.
+	if agent, ok := r.Value.Get("agent"); ok && agent.Kind == runbook.KindString && !runbook.ContainsTemplate(agent.String) {
+		switch agent.String {
+		case "claude", "copilot", "codex":
+		default:
+			c.Add(agent.Node, message.AgentName)
+		}
+	}
+	checkStringList(c, r.Value, "tools", "permissions")
+	checkBoolish(c, r.Value, "interactive")
 }
 
 func runnerDef(kind runbook.RunnerKind) string {
@@ -252,11 +277,7 @@ func allowKeys(c *Context, v runbook.Value, what string, allowed map[string]stru
 func checkRequiredString(c *Context, v runbook.Value, key, what string) {
 	child, ok := v.Get(key)
 	if !ok || !nonEmptyString(child) {
-		node := v.Node
-		if ok {
-			node = child.Node
-		}
-		c.Add(node, message.NeedKey, what, key)
+		c.Add(here(v, child, ok), message.NeedKey, what, key)
 	}
 }
 
@@ -328,10 +349,18 @@ func checkPort(c *Context, v runbook.Value) {
 			c.Add(v.Node, message.PortPositive)
 		}
 	case runbook.KindString:
-		if runbook.ContainsTemplate(v.String) || numOnlyRe.MatchString(strings.TrimSpace(v.String)) {
+		if runbook.ContainsTemplate(v.String) {
 			return
 		}
-		c.Add(v.Node, message.PortNumber)
+		// goccy unmarshals a numeric string into int, truncating a fraction, and rejects a negative, NaN, Inf, or surrounding space.
+		n, err := strconv.ParseFloat(strings.ReplaceAll(v.String, "_", ""), 64)
+		if err != nil || math.IsNaN(n) || math.IsInf(n, 0) {
+			c.Add(v.Node, message.PortNumber)
+			return
+		}
+		if n < 0 {
+			c.Add(v.Node, message.PortPositive)
+		}
 	default:
 		c.Add(v.Node, message.PortNumber)
 	}
@@ -355,11 +384,7 @@ func checkKeyboard(c *Context, v runbook.Value) {
 		for _, key := range []string{"match", "answer"} {
 			field, ok := el.Get(key)
 			if !ok || field.Kind != runbook.KindString {
-				node := el.Node
-				if ok {
-					node = field.Node
-				}
-				c.Add(node, message.KbdString, key)
+				c.Add(here(el, field, ok), message.KbdString, key)
 			}
 		}
 	}

@@ -57,11 +57,7 @@ func requireSteps(c *Context) {
 	for _, b := range c.Books() {
 		steps, ok := b.Root.Get("steps")
 		if !ok || b.Style == runbook.StyleMissing || len(b.Steps) == 0 {
-			node := b.Root.Node
-			if ok {
-				node = steps.Node
-			}
-			c.Add(node, message.StepsMissing)
+			c.Add(here(b.Root, steps, ok), message.StepsMissing)
 		}
 	}
 }
@@ -93,6 +89,7 @@ func deferExperimental(c *Context) {
 	}
 }
 
+// bookShape follows the runbook struct. steps is require-steps, not this rule.
 func bookShape(c *Context) {
 	for _, b := range c.Books() {
 		checkStringField(c, b.Root, "desc")
@@ -103,19 +100,19 @@ func bookShape(c *Context) {
 		checkSecrets(c, b.Root)
 		checkMapStrings(c, b.Root, "hostRules")
 		checkBoolOrString(c, b.Root, "debug")
-		checkBoolOrString(c, b.Root, "skipTest")
-		checkBoolOrString(c, b.Root, "force")
-		checkBoolOrString(c, b.Root, "trace")
-		checkBoolOrString(c, b.Root, "if")
 		if v, ok := b.Root.Get("interval"); ok && !validDuration(v) {
 			c.Add(v.Node, message.IntervalDur)
 		}
+		checkBoolOrString(c, b.Root, "if")
+		checkBoolOrString(c, b.Root, "skipTest")
 		if v, ok := b.Root.Get("loop"); ok {
 			checkLoop(c, v, false)
 		}
 		if v, ok := b.Root.Get("concurrency"); ok {
 			checkConcurrency(c, v)
 		}
+		checkBoolOrString(c, b.Root, "force")
+		checkBoolOrString(c, b.Root, "trace")
 	}
 }
 
@@ -214,55 +211,6 @@ func checkConcurrency(c *Context, v runbook.Value) {
 		}
 	default:
 		c.Add(v.Node, message.ConcType)
-	}
-}
-
-func checkLoop(c *Context, v runbook.Value, step bool) {
-	switch v.Kind {
-	case runbook.KindNumber:
-		if strings.HasPrefix(v.Number, "-") {
-			c.Add(v.Node, message.LoopCountNeg)
-		}
-	case runbook.KindString:
-		return
-	case runbook.KindMap:
-		allowed := runnspec.DefKeys(runnspec.DefLoop)
-		if _, ok := v.Get("count"); !ok {
-			c.Add(v.Node, message.LoopCountMiss)
-		}
-		for _, e := range v.Map {
-			if _, ok := allowed[e.Key]; !ok {
-				c.Add(e.KeyNode, message.LoopUnknownKey, e.Key)
-				continue
-			}
-			switch e.Key {
-			case "count":
-				if e.Value.Kind == runbook.KindNumber && strings.HasPrefix(e.Value.Number, "-") {
-					c.Add(e.Value.Node, message.LoopCountMin)
-				}
-				if e.Value.Kind != runbook.KindNumber && e.Value.Kind != runbook.KindString {
-					c.Add(e.Value.Node, message.LoopCountType)
-				}
-			case "interval", "minInterval", "maxInterval":
-				if !validDuration(e.Value) {
-					c.Add(e.Value.Node, message.LoopDuration, e.Key)
-				}
-			case "jitter", "multiplier":
-				if e.Value.Kind != runbook.KindNumber && e.Value.Kind != runbook.KindString {
-					c.Add(e.Value.Node, message.LoopNumber, e.Key)
-				}
-			case "until":
-				if e.Value.Kind != runbook.KindString {
-					c.Add(e.Value.Node, message.LoopUntil)
-				}
-			}
-		}
-	default:
-		where := "runbook"
-		if step {
-			where = "step"
-		}
-		c.Add(v.Node, message.LoopType, where)
 	}
 }
 

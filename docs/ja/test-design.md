@@ -22,7 +22,7 @@
 | BIN-08 | text / github / json の形と、ファイル・行・列・ルール名での整列 | `internal/report/report_test.go` |
 | BIN-09 | 継承、`extends: none`、同一 id の上書き、検証、探索順。`files` と `kind` は警告なく読み、継承したルールに `files` だけを足せる。未知の `kind`、空の `files`、空のパターン、閉じていない引用符の段は読み込みで失敗する。JSON のルールファイルは読まない | `internal/config/contract_test.go` |
 | BIN-10 | yamllint の parsable 出力と、設定パスの解決 | `internal/yamllint/yamllint_test.go` |
-| BIN-11 | YAML の重複キー、alias、merge、複数 document、runner 種別 | `internal/runbook/parse_test.go` |
+| BIN-11 | YAML の重複キー、alias、merge、複数 document、runner 種別。DB の DSN スキームは `postgres`、`postgresql`、`pg`、`mysql`、`my`、`sqlite`、`sqlite3`、`sq`、`spanner`、`sp`、`file` である。`http`、`https`、`grpc`、`ssh`、`cdp`、`chrome` と空文字は DB ではない | `internal/runbook/parse_test.go`、`internal/runbook/kind_test.go` |
 | BIN-12 | スキーマと `cdpfn.go` からキーと CDP アクションを読む。最新リリースとの差で失敗する | `internal/runnspec` |
 | BIN-13 | Go の最新安定版と、依存ライセンス | `internal/gotoolchain`、`internal/license` |
 | BIN-14 | 製品バージョンは semver。`--version` は `runnlint X.Y.Z`。`CHANGELOG.md` と `CHANGELOG.en.md` の `## [X.Y.Z]` が見出しとして一致し、現行版の節がある | `internal/version`、`cmd/runnlint/main_test.go` |
@@ -67,8 +67,11 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-26 | `select` の `**` は 0 段以上で、mapping の値と sequence の要素を深さを問わず辿る。末尾の `**` はスカラーだけを選ぶ。`*` は1段のまま。`exists: true` の位置は `*` と `**` の手前の親。二重引用符で囲んだ段は `.` を含む1つのキーで、`*` と `$` の意味を消す。`.` を含むキーは `path` でも引用符付き | `internal/rules/declare_test.go`、`internal/runbook/path_test.go` |
 | RULE-27 | `where` の `$.` はルートから辿る門で、合わなければそのルールは何も出さない。`exists` と `forbid` も `where` で残った値だけを見る。`kind` は `check` でも `where` でも6種の型名を受け、違えば実際の型と期待した型を文に出す | `internal/rules/declare_test.go` |
 | RULE-28 | `files` は `ignore` と同じ当て方で、`uses` にも `check` にも効き、直接渡したファイルにも当たる。受け入れ条件の6ルール（UUID 直書き、`if: included` の ID 既定値、`labels` 必須、`integrations/**` は include だけ、list 形式の `steps` 禁止、`__typename` 禁止）が正例と負例で固定されている | `internal/rules/declare_test.go`、`internal/config/contract_test.go`、`internal/app/contract_test.go` |
+| RULE-29 | 無いキーの診断は親の行に付く。あるが型が違う値の診断は、その値の行に付く。`query`、`command`、`prompt`、`actions`、HTTP の body、`steps` を見る。数値の DB リクエストも、その値の行に付く | `internal/rules/shape_test.go` |
+| RULE-30 | runn の parse は最初の問題で戻る。linter は同じキーを同じ順で読んだあと、残りのキーも見る。1つの step から、gRPC の `timeout` と `message`、DB の `query` と `trace`、exec の `command` と `shell` と `background`、include の `path` と `steps`、HTTP runner の `timeout` と `skipVerify`、step の `desc` と `if` と `test` の診断が残る | `internal/rules/layout_test.go` |
+| RULE-31 | 1つの検査関数が積む診断の順は、runn が読むキー順である。YAML ではキーを逆順に書き、`Lint` の行と列の整列を通さない。HTTP runner は `endpoint`、`skipValidateRequest`、`skipValidateResponse`、`skipCircularReferenceCheck`、`notFollowRedirect`、`skipVerify`、`timeout`、`useCookie`、`trace`。gRPC runner は `tls`、`skipVerify`、文字列リスト、`trace`。SSH は `port`、identity、`keepSession`、`keyboardInteractive`。CDP は `flags`、`timeout`。agent は `agent`、`tools`、`permissions`、`interactive`。HTTP と gRPC と DB と exec と include のリクエスト、step の `if` から `bind` まで、book の `desc` から `trace` までもこの順である | `internal/rules/order_test.go` |
 
-RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。
+RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。RULE-29 は診断の行を固定する。RULE-30 は、1つの step で後のキーの診断も残ることを固定する。RULE-31 は、検査関数が積む順を固定する。
 
 ## ルールのバリエーション網羅
 
@@ -95,4 +98,4 @@ RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は
 | MAT-17 | `# runnlint disable-line`、`unused-suppression` | 位置、ルールの指定、対象の問題、理由の有無 | `matrix_suppress_test.go` |
 | MAT-18 | 宣言的ルールの判定 | 演算子、値の種類、`select` の形 | `matrix_declarative_test.go` |
 
-分岐の網羅は `cov_<ソースファイル名>_test.go` が受け持つ。到達できない行は各ファイルの先頭コメントに理由を書く。
+分岐の網羅は `cov_<ソースファイル名>_test.go` が受け持つ。`parse.go`、`dump.go`、`bind.go` の残りの分岐は `cov_step_test.go` が、`loop.go` の book 側の残りの分岐は `cov_book_test.go` が実行する。到達できない行は各ファイルの先頭コメントに理由を書く。
