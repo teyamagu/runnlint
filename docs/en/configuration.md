@@ -199,6 +199,7 @@ Names that can be written in `uses`, their initial severity, and the problem. Th
 | `local-path` | warning | A file a runner references, such as a certificate or proto, does not exist |
 | `expr-syntax` | error | An expression in `{{ }}`, `test`, or a similar field cannot be parsed as an expression |
 | `expr-braces` | warning | A field that is read as an expression is wrapped in `{{ }}` |
+| `unexpanded-ref` | warning | A reference such as `vars.` or `steps.` is written outside `{{ }}` in a value that runn expands only inside `{{ }}`, such as a request body, headers, an HTTP path, `exec`'s `command`, or `include.vars`. runn does not expand it and sends the literal string. The scope is in "Scope of unexpanded-ref" |
 | `expr-sharp-comment` | info | An expression such as `test`, `if`, `until`, or `bind` has a `#` comment outside brackets. runn strips it but warns "`#` comment is deprecated. Use `//` instead." A `#` inside a string literal or the closure `#` inside `( )` or `{ }` is not reported. The inside of `{{ }}` is not inspected |
 | `step-ref` | error | An array step is referenced by name, a named step is referenced by index, or a step that has not run yet is referenced |
 | `var-ref` | warning | A variable that is not in `vars` is referenced |
@@ -254,6 +255,27 @@ rules:
 For `test` and `bind`, `expr-braces` is reported only when the whole value is `{{ }}`. `{{` inside a string is not looked at.
 
 In `step-ref`, a step may reference itself.
+
+### Scope of unexpanded-ref
+
+runn evaluates `test`, `if`, `bind`, `dump` (a string and `dump.expr`), and `loop`'s `until` and `count` as expressions. Other values expand only the inside of `{{ }}`. For example, the `username` below is passed as the string `vars.username`, not as the variable's value.
+
+```yaml
+- include:
+    path: child.yml
+    vars:
+      username: vars.username        # the string "vars.username" is passed
+      # write username: '{{ vars.username }}'
+```
+
+This rule reports a reference to `vars`, `steps`, `current`, `previous`, `parent`, or `needs` outside `{{ }}` in values and mapping keys, except expression fields, `desc`, `labels`, and include's `skipTest` and `force`. A reference is the name followed by `.` and a letter or `_`, or by `[` and a digit or a quote. The following are not references.
+
+- Text right after a letter, a digit, `_`, `.`, `$`, or `-`. These are host names (`api.vars.example.com`), jq paths (`.vars.x`), and shell variables (`$vars.x`)
+- A file name followed only by an extension, such as `vars.yml` or `steps.json`
+- An e-mail address, which contains `@`
+- A string whose `{{` is not closed. `expr-syntax` reports it
+
+Other names such as `included`, `env`, and `cookies` are not looked at, because they are also written as ordinary words.
 
 ### Scope of unused-bind
 
