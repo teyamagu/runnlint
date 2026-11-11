@@ -277,12 +277,28 @@ This rule reports a reference to `vars`, `steps`, `current`, `previous`, `parent
 
 Other names such as `included`, `env`, and `cookies` are not looked at, because they are also written as ordinary words.
 
-A name set by `bind` is read without a prefix, as in `{{ token }}`. So a name bound by a step that runs earlier is also reported in a step's values in the two forms below. Whether a step runs earlier is decided the same way as `step-ref`, including `defer`. A step's own bind runs after its request, so it does not count. Root `vars` and `runners` are read before any step, so bind names are not looked at there.
+A name set by `bind` is read without a prefix, as in `{{ example }}`. This rule also reports a name bound by an earlier step that is written outside `{{ }}`. When an earlier step binds as below, values in later steps are treated as in the table.
 
-- The whole value is the name. `token: token` passes the string `token`
-- The name is followed by a member, the same as above, such as `user.id` or `user[0]`
+```yaml
+- bind:
+    example: current.res.body.example
+    user: current.res.body.user
+```
 
-A name alone in the middle of text, such as `Bearer token`, is not reported, because it cannot be told apart from an ordinary word.
+| Value written | Reported | Why |
+| --- | --- | --- |
+| `example` | yes | The value is only the name, with nothing before or after it |
+| `user.id` | yes | `.id` comes right after the name |
+| `user[0]` | yes | `[0]` comes right after the name |
+| `echo user.id` | yes | Even inside text, `.id` comes right after the name |
+| `Bearer example` | no | The name stands alone inside text and cannot be told apart from an ordinary word |
+| `{{ example }}` | no | It is wrapped in `{{ }}` |
+
+Bind names are not looked at in the following places.
+
+- The step that binds the name, and steps that run before it. The name has no value yet. Which step runs first is decided the same way as `step-ref`, including `defer`
+- Root `vars` and `runners`. They are read before any step
+- Mapping keys. `example:` is taken as a field name
 
 ### Scope of unused-bind
 

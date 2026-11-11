@@ -277,12 +277,28 @@ runn が式として評価するのは、`test`、`if`、`bind`、`dump`（文�
 
 `included`、`env`、`cookies` などほかの名前は、普通の語としても書かれるので見ない。
 
-`bind` で付けた名前は、接頭辞なしで `{{ token }}` のように読む。そのため、前に動く step が bind した名前も、step の値で次の2つの形のときに報告する。前に動くかは `step-ref` と同じく `defer` を含めて決める。step 自身の bind はリクエストの後に動くので数えない。ルートの `vars` や `runners` は step より前に読むので、bind の名前は見ない。
+`bind` で付けた名前は、`{{ example }}` のように接頭辞なしで読む。このルールは、前に動く step が bind した名前を `{{ }}` の外に書いたものも報告する。前の step で次のように bind したときの、後ろの step の値での扱いは表のとおりである。
 
-- 値全体がその名前であるもの。`token: token` は文字列 `token` が渡る
-- その名前の直後に、上と同じくメンバーが続くもの。`user.id` や `user[0]` である
+```yaml
+- bind:
+    example: current.res.body.example
+    user: current.res.body.user
+```
 
-`Bearer token` のように文の途中に名前だけがある形は、普通の語と区別できないので報告しない。
+| 書いた値 | 報告 | 理由 |
+| --- | --- | --- |
+| `example` | する | 値が名前だけで、前後に何も無い |
+| `user.id` | する | 名前のすぐ後に `.id` が付いている |
+| `user[0]` | する | 名前のすぐ後に `[0]` が付いている |
+| `echo user.id` | する | 文の中でも、名前のすぐ後に `.id` が付いている |
+| `Bearer example` | しない | 文の中に名前だけがあり、普通の語と区別できない |
+| `{{ example }}` | しない | `{{ }}` で囲んである |
+
+次の場所では、bind の名前を見ない。
+
+- その名前を bind した step 自身と、それより前に動く step。まだ値が入っていない。前後は `step-ref` と同じく `defer` を含めて決める
+- ルートの `vars` と `runners`。step より前に読む
+- mapping のキー。`example:` は項目名とみなす
 
 ### unused-bind の検査範囲
 
