@@ -8,7 +8,7 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ### Added
 
-- `unexpanded-ref` (warning). Reports a reference such as `vars.` or `steps.` written outside `{{ }}` in a value that runn expands only inside `{{ }}`, such as a request body, headers, an HTTP path, `exec`'s `command`, or `include.vars`. runn does not expand it and sends a literal string such as `vars.username`.
+- `unexpanded-ref` (warning). Reports a reference such as `vars.` or `steps.` written outside `{{ }}` in a value that runn expands only inside `{{ }}`, such as a request body, headers, an HTTP path, `exec`'s `command`, or `include.vars`. runn does not expand it and sends a literal string such as `vars.username`. A name bound by an earlier step is also reported when it is the whole value or is followed by a member, as in `user.id`.
 
 ### Changed
 

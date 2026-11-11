@@ -8,13 +8,19 @@ import (
 	"github.com/teyamagu/runnlint/internal/message"
 )
 
-// unexpandedValue writes a reference to root in the chosen form. ref is the reference unexpanded-ref names, or "" when none is expected.
+// unexpandedValue writes a reference to root in the chosen form. token is a name bound by the first step. ref is the reference unexpanded-ref names, or "" when none is expected.
 func unexpandedValue(root, form string) (value, ref string) {
 	switch form {
 	case "braced":
 		return "{{ " + root + ".a }}", ""
 	case "bare":
 		return root + ".a", root + ".a"
+	case "whole":
+		// Only a bound name is a reference on its own. vars alone is not.
+		if root == "token" {
+			return root, root
+		}
+		return root, ""
 	case "after-template":
 		return "{{ vars.x }}/" + root + ".a", root + ".a"
 	case "env":
@@ -34,11 +40,12 @@ func unexpandedValue(root, form string) (value, ref string) {
 // Every pair of levels of the unexpanded-ref factors behaves as documented: a reference outside {{ }} in include.vars, a request
 // body, a path key, a header, exec.command, dump.out, or root vars reports warning on that line, naming the reference; the same text in
 // test, if, bind, a dump expression, loop.until, or desc is not reported; a reference inside {{ }}, a file name, and a dotted host are not reported.
+// A name bound by the first step is also reported as the whole value, but not in root vars, which are read before any step runs.
 func TestUnexpandedRefPairwise(t *testing.T) {
 	factors := []factor{
 		{"field", []string{"include-vars", "body", "path-key", "header", "exec-command", "dump-out", "root-vars", "test", "if", "bind", "dump-expr", "loop-until", "desc"}},
-		{"form", []string{"bare", "braced", "after-template", "env", "index", "file-name", "dotted"}},
-		{"root", []string{"vars", "steps", "current", "previous", "parent", "needs"}},
+		{"form", []string{"bare", "whole", "braced", "after-template", "env", "index", "file-name", "dotted"}},
+		{"root", []string{"vars", "steps", "current", "previous", "parent", "needs", "token"}},
 	}
 	template := map[string]bool{"include-vars": true, "body": true, "path-key": true, "header": true, "exec-command": true, "dump-out": true, "root-vars": true}
 	expected, unexpected := 0, 0
@@ -55,7 +62,7 @@ func TestUnexpandedRefPairwise(t *testing.T) {
 		if p["field"] == "root-vars" {
 			b.WriteString("  y: " + v + "\n")
 		}
-		b.WriteString("runners:\n  req: https://example.com\nsteps:\n  - req:\n      /a:\n        get:\n          body: null\n")
+		b.WriteString("runners:\n  req: https://example.com\nsteps:\n  - req:\n      /a:\n        get:\n          body: null\n    bind:\n      token: current.res.body\n")
 		switch p["field"] {
 		case "include-vars":
 			b.WriteString("  - include:\n      path: child.yml\n      vars:\n        y: " + v + "\n")
@@ -86,7 +93,7 @@ func TestUnexpandedRefPairwise(t *testing.T) {
 		src := b.String()
 		got := lint(t, src)
 		found := findRule(got, "unexpanded-ref")
-		if !template[p["field"]] {
+		if !template[p["field"]] || p["root"] == "token" && p["field"] == "root-vars" || p["form"] == "whole" && p["field"] == "path-key" {
 			ref = ""
 		}
 		if ref == "" {

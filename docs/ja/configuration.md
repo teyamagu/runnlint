@@ -199,7 +199,7 @@ rules:
 | `local-path` | warning | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | error | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | warning | 式として読む欄を `{{ }}` で包んでいる |
-| `unexpanded-ref` | warning | リクエストの body やヘッダー、HTTP のパス、`exec` の `command`、`include.vars` など、`{{ }}` の中だけを展開する値に、`vars.` や `steps.` などの参照が `{{ }}` の外で書いてある。runn はこの値を展開せず、文字列のまま送る。範囲は「unexpanded-ref の検査範囲」 |
+| `unexpanded-ref` | warning | リクエストの body やヘッダー、HTTP のパス、`exec` の `command`、`include.vars` など、`{{ }}` の中だけを展開する値に、`vars.` や `steps.`、前の step が bind した名前などの参照が `{{ }}` の外で書いてある。runn はこの値を展開せず、文字列のまま送る。範囲は「unexpanded-ref の検査範囲」 |
 | `expr-sharp-comment` | info | `test`、`if`、`until`、`bind` などの式に、括弧の外の `#` コメントがある。runn は取り除いて動くが「`#` comment is deprecated. Use `//` instead.」と警告する。文字列の中の `#` と、`( )` や `{ }` の中のクロージャの `#` は報告しない。`{{ }}` の中は見ない |
 | `step-ref` | error | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | warning | `vars` に無い変数を参照している |
@@ -276,6 +276,13 @@ runn が式として評価するのは、`test`、`if`、`bind`、`dump`（文�
 - `{{` が閉じていない文字列。`expr-syntax` が報告する
 
 `included`、`env`、`cookies` などほかの名前は、普通の語としても書かれるので見ない。
+
+`bind` で付けた名前は、接頭辞なしで `{{ token }}` のように読む。そのため、前に動く step が bind した名前も、step の値で次の2つの形のときに報告する。前に動くかは `step-ref` と同じく `defer` を含めて決める。step 自身の bind はリクエストの後に動くので数えない。ルートの `vars` や `runners` は step より前に読むので、bind の名前は見ない。
+
+- 値全体がその名前であるもの。`token: token` は文字列 `token` が渡る
+- その名前の直後に、上と同じくメンバーが続くもの。`user.id` や `user[0]` である
+
+`Bearer token` のように文の途中に名前だけがある形は、普通の語と区別できないので報告しない。
 
 ### unused-bind の検査範囲
 

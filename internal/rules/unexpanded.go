@@ -26,17 +26,21 @@ var fileExts = map[string]struct{}{
 // unexpandedRef reports a reference such as vars.x written outside {{ }} in a value that runn expands as a template.
 // runn evaluates only test, if, bind, dump, loop.until, and loop.count as expressions. Other values, such as a request body,
 // headers, a path key, exec.command, and include.vars, expand only the inside of {{ }}. A reference outside it is passed on as the literal string.
+// A name bound by an earlier step is read without a prefix, so a step value is also checked for that name as the whole value or followed by a member.
 func unexpandedRef(c *Context) {
 	for _, b := range c.Books() {
+		root := refScan{roots: unexpandedRoots}
 		for _, e := range b.Root.Map {
 			switch e.Key {
 			case "steps", "desc", "labels", "if", "loop", "skipTest", "force":
 				// steps are read per step below. The others are text, labels, expressions, or flags.
 				continue
 			}
-			checkUnexpanded(c, e.Value)
+			root.check(c, e.Value)
 		}
+		bound := boundNames(b)
 		for i := range b.Steps {
+			scan := stepScan(b, &b.Steps[i], bound)
 			for _, e := range b.Steps[i].Value.Map {
 				switch e.Key {
 				case "desc", "if", "test", "bind", "loop":
@@ -45,23 +49,67 @@ func unexpandedRef(c *Context) {
 					// A string dump and dump.expr are expressions. dump.out is a template.
 					if e.Value.Kind == runbook.KindMap {
 						if out, ok := e.Value.Get("out"); ok {
-							checkUnexpanded(c, out)
+							scan.check(c, out)
 						}
 					}
 				case "include":
-					checkIncludeUnexpanded(c, e.Value)
+					scan.checkInclude(c, e.Value)
 				default:
-					checkUnexpanded(c, e.Value)
+					scan.check(c, e.Value)
 				}
 			}
 		}
 	}
 }
 
-// checkIncludeUnexpanded reads path and vars of an include. An inline include with steps is read as its own runbook.
-func checkIncludeUnexpanded(c *Context, v runbook.Value) {
+// boundNames returns, per step index, the names that step binds. A key such as a.b or a[0] assigns into a, so it counts as a.
+func boundNames(b *runbook.Book) map[int][]string {
+	out := map[int][]string{}
+	for _, step := range b.Steps {
+		bind, ok := step.Value.Get("bind")
+		if !ok || bind.Kind != runbook.KindMap {
+			continue
+		}
+		for _, e := range bind.Map {
+			switch {
+			case bindIdentRe.MatchString(e.Key):
+				out[step.Index] = append(out[step.Index], e.Key)
+			case bindRootRe.MatchString(e.Key):
+				out[step.Index] = append(out[step.Index], bindRootRe.FindStringSubmatch(e.Key)[1])
+			}
+		}
+	}
+	return out
+}
+
+// stepScan adds the names bound by steps that run before step. A step's own bind runs after its request, so it is not added.
+func stepScan(b *runbook.Book, step *runbook.Step, bound map[int][]string) refScan {
+	scan := refScan{roots: append([]string(nil), unexpandedRoots...), binds: map[string]struct{}{}}
+	for _, other := range b.Steps {
+		if other.Index == step.Index || !stepVisible(b, step, other.Index) {
+			continue
+		}
+		for _, name := range bound[other.Index] {
+			if _, ok := scan.binds[name]; ok {
+				continue
+			}
+			scan.binds[name] = struct{}{}
+			scan.roots = append(scan.roots, name)
+		}
+	}
+	return scan
+}
+
+// refScan looks for references to roots outside {{ }}. binds are names that are also reported when they are the whole value.
+type refScan struct {
+	roots []string
+	binds map[string]struct{}
+}
+
+// checkInclude reads path and vars of an include. An inline include with steps is read as its own runbook.
+func (r refScan) checkInclude(c *Context, v runbook.Value) {
 	if v.Kind != runbook.KindMap {
-		checkUnexpanded(c, v)
+		r.check(c, v)
 		return
 	}
 	if _, inline := v.Get("steps"); inline {
@@ -71,36 +119,50 @@ func checkIncludeUnexpanded(c *Context, v runbook.Value) {
 		if e.Key == "skipTest" || e.Key == "force" {
 			continue
 		}
-		checkUnexpanded(c, e.Value)
+		r.check(c, e.Value)
 	}
 }
 
-func checkUnexpanded(c *Context, v runbook.Value) {
+func (r refScan) check(c *Context, v runbook.Value) {
 	switch v.Kind {
 	case runbook.KindString:
-		if ref, ok := unexpandedRefIn(v.String); ok {
+		if ref, ok := r.findValue(v.String); ok {
 			c.Add(v.Node, message.RefUnexpanded, ref)
 		}
 	case runbook.KindSeq:
 		for _, el := range v.Seq {
-			checkUnexpanded(c, el)
+			r.check(c, el)
 		}
 	case runbook.KindMap:
 		for _, e := range v.Map {
 			// runn expands {{ }} in mapping keys too, such as an HTTP path or a body field name.
+			// A key equal to a bound name is a field name, so only a member reference is looked for in a key.
 			if e.KeyNode != nil {
-				if ref, ok := unexpandedRefIn(e.Key); ok {
+				if ref, ok := r.find(e.Key); ok {
 					c.Add(e.KeyNode, message.RefUnexpanded, ref)
 				}
 			}
-			checkUnexpanded(c, e.Value)
+			r.check(c, e.Value)
 		}
 	}
 }
 
-// unexpandedRefIn returns the first reference in s that is outside {{ }}.
-// A string whose {{ is not closed is left to expr-syntax.
+// unexpandedRefIn returns the first reference in s to vars, steps, current, previous, parent, or needs that is outside {{ }}.
 func unexpandedRefIn(s string) (string, bool) {
+	return refScan{roots: unexpandedRoots}.find(s)
+}
+
+// findValue returns the whole of s when it is a bound name, or else what find returns.
+func (r refScan) findValue(s string) (string, bool) {
+	if _, ok := r.binds[strings.TrimSpace(s)]; ok {
+		return strings.TrimSpace(s), true
+	}
+	return r.find(s)
+}
+
+// find returns the first reference in s that is outside {{ }}.
+// A string whose {{ is not closed is left to expr-syntax.
+func (r refScan) find(s string) (string, bool) {
 	if !strings.Contains(s, ".") && !strings.Contains(s, "[") {
 		return "", false
 	}
@@ -112,7 +174,7 @@ func unexpandedRefIn(s string) (string, bool) {
 		if i > 0 && !refBoundary(plain[i-1]) {
 			continue
 		}
-		root := refRootAt(plain, i)
+		root := refRootAt(plain, i, r.roots)
 		if root == "" {
 			continue
 		}
@@ -164,14 +226,14 @@ func refBoundary(c byte) bool {
 }
 
 // refRootAt returns the root name when a reference such as vars.x, steps[0], or steps['a'] starts at s[i:].
-func refRootAt(s string, i int) string {
-	for _, root := range unexpandedRoots {
+func refRootAt(s string, i int, roots []string) string {
+	for _, root := range roots {
 		if !strings.HasPrefix(s[i:], root) {
 			continue
 		}
 		j := i + len(root)
 		if j+1 >= len(s) {
-			return ""
+			continue
 		}
 		next := s[j+1]
 		switch s[j] {
@@ -184,7 +246,7 @@ func refRootAt(s string, i int) string {
 				return root
 			}
 		}
-		return ""
+		continue
 	}
 	return ""
 }

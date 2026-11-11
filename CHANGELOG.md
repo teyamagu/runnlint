@@ -8,7 +8,7 @@
 
 ### 追加
 
-- `unexpanded-ref`（warning）。リクエストの body やヘッダー、HTTP のパス、`exec` の `command`、`include.vars` など、`{{ }}` の中だけを展開する値に、`vars.` や `steps.` などの参照を `{{ }}` の外で書いた問題を報告する。runn はこの値を展開せず、`vars.username` のような文字列のまま送る。
+- `unexpanded-ref`（warning）。リクエストの body やヘッダー、HTTP のパス、`exec` の `command`、`include.vars` など、`{{ }}` の中だけを展開する値に、`vars.` や `steps.` などの参照を `{{ }}` の外で書いた問題を報告する。runn はこの値を展開せず、`vars.username` のような文字列のまま送る。前の step が bind した名前も、値全体がその名前のときと、`user.id` のようにメンバーが続くときに報告する。
 
 ### 変更
 

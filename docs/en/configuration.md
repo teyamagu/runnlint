@@ -199,7 +199,7 @@ Names that can be written in `uses`, their initial severity, and the problem. Th
 | `local-path` | warning | A file a runner references, such as a certificate or proto, does not exist |
 | `expr-syntax` | error | An expression in `{{ }}`, `test`, or a similar field cannot be parsed as an expression |
 | `expr-braces` | warning | A field that is read as an expression is wrapped in `{{ }}` |
-| `unexpanded-ref` | warning | A reference such as `vars.` or `steps.` is written outside `{{ }}` in a value that runn expands only inside `{{ }}`, such as a request body, headers, an HTTP path, `exec`'s `command`, or `include.vars`. runn does not expand it and sends the literal string. The scope is in "Scope of unexpanded-ref" |
+| `unexpanded-ref` | warning | A reference such as `vars.`, `steps.`, or a name bound by an earlier step is written outside `{{ }}` in a value that runn expands only inside `{{ }}`, such as a request body, headers, an HTTP path, `exec`'s `command`, or `include.vars`. runn does not expand it and sends the literal string. The scope is in "Scope of unexpanded-ref" |
 | `expr-sharp-comment` | info | An expression such as `test`, `if`, `until`, or `bind` has a `#` comment outside brackets. runn strips it but warns "`#` comment is deprecated. Use `//` instead." A `#` inside a string literal or the closure `#` inside `( )` or `{ }` is not reported. The inside of `{{ }}` is not inspected |
 | `step-ref` | error | An array step is referenced by name, a named step is referenced by index, or a step that has not run yet is referenced |
 | `var-ref` | warning | A variable that is not in `vars` is referenced |
@@ -276,6 +276,13 @@ This rule reports a reference to `vars`, `steps`, `current`, `previous`, `parent
 - A string whose `{{` is not closed. `expr-syntax` reports it
 
 Other names such as `included`, `env`, and `cookies` are not looked at, because they are also written as ordinary words.
+
+A name set by `bind` is read without a prefix, as in `{{ token }}`. So a name bound by a step that runs earlier is also reported in a step's values in the two forms below. Whether a step runs earlier is decided the same way as `step-ref`, including `defer`. A step's own bind runs after its request, so it does not count. Root `vars` and `runners` are read before any step, so bind names are not looked at there.
+
+- The whole value is the name. `token: token` passes the string `token`
+- The name is followed by a member, the same as above, such as `user.id` or `user[0]`
+
+A name alone in the middle of text, such as `Bearer token`, is not reported, because it cannot be told apart from an ordinary word.
 
 ### Scope of unused-bind
 

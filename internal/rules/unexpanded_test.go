@@ -177,3 +177,100 @@ func TestUnexpandedRefIn(t *testing.T) {
 		t.Fatal("message verb not filled")
 	}
 }
+
+// A name bound by an earlier step is read without a prefix. In a later step's template value it is reported when it is the whole value
+// or is followed by a member, including a name bound through a key such as user.name. A defer step sees the binds of ordinary steps.
+func TestUnexpandedRefBind(t *testing.T) {
+	src := `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - req:
+      /login:
+        post:
+          body: null
+    bind:
+      token: current.res.body.token
+      user.name: current.res.body.name
+      username: current.res.body.username
+  - include:
+      path: child.yml
+      vars:
+        token: token
+        id: user.id
+        name: username.first
+  - req:
+      /items/user[0]:
+        get:
+          body: null
+  - exec:
+      command: echo user.name
+    defer: true
+`
+	got := lint(t, src)
+	found := findRule(got, "unexpanded-ref")
+	want := map[int]string{
+		17: "token",
+		18: "user.id",
+		19: "username.first",
+		21: "user[0]",
+		25: "user.name",
+	}
+	if len(found) != len(want) {
+		t.Fatalf("want %d findings, got %+v", len(want), found)
+	}
+	lines := map[int]bool{}
+	for _, f := range found {
+		lines[f.Line] = true
+		if ref, ok := want[f.Line]; !ok || f.Match != message.English(message.RefUnexpanded, ref) {
+			t.Fatalf("unexpected finding %+v", f)
+		}
+	}
+	if len(lines) != len(want) {
+		t.Fatalf("findings share a line: %+v", found)
+	}
+}
+
+// A bound name is not reported inside {{ }}, as a mapping key such as a field name, in the middle of text, in the binding step itself, in a step that runs before the bind,
+// in an ordinary step that reads a defer step's bind, in root vars, as a file name, after a dot, or in an expression.
+func TestUnexpandedRefBindNotReported(t *testing.T) {
+	src := `
+desc: d
+vars:
+  copy: token.value
+runners:
+  req: https://example.com
+steps:
+  - exec:
+      command: echo later.value
+  - exec:
+      command: echo token.value
+  - req:
+      /login/token.value:
+        post:
+          body: null
+    bind:
+      token: current.res.body.token
+  - req:
+      /me:
+        get:
+          headers:
+            Authorization: 'Bearer {{ token }}'
+            token: '{{ token }}'
+            X-Note: Bearer token
+            X-File: token.json
+            X-Host: api.token.example.com
+          body: null
+    test: token != ""
+  - exec:
+      command: echo done
+    defer: true
+    bind:
+      later: current.stdout
+`
+	got := lint(t, src)
+	if found := findRule(got, "unexpanded-ref"); len(found) > 0 {
+		t.Fatalf("%+v", found)
+	}
+}

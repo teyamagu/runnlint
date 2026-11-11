@@ -121,6 +121,7 @@ rules:
 
   # A reference such as vars.x outside {{ }} in a request body, headers, a path, exec.command, include.vars, or another value runn expands
   # only inside {{ }}. runn passes it on as the literal string. test, if, bind, dump, loop.until, and loop.count are expressions and are not checked.
+  # A name bound by an earlier step is also reported when it is the whole value or is followed by a member, such as user.id.
   - id: unexpanded-ref
     uses: unexpanded-ref
     severity: warning
