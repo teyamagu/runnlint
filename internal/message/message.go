@@ -74,8 +74,9 @@ var (
 	FormatUnknown   = spec("format-unknown", "不明な出力形式です: %s", "unknown output format: %s")
 	YamllintFailed  = spec("yamllint-failed", "yamllint の実行に失敗しました: %s", "yamllint failed: %s")
 
-	ExprUnclosed = spec("expr-unclosed", "{{ が閉じられていません", "{{ is not closed")
-	ExprNotBrace = spec("expr-not-brace", "%s は式なので {{ }} で囲みません", "%s is an expression, so do not wrap it in {{ }}")
+	ExprUnclosed  = spec("expr-unclosed", "{{ が閉じられていません", "{{ is not closed")
+	ExprNotBrace  = spec("expr-not-brace", "%s は式なので {{ }} で囲みません", "%s is an expression, so do not wrap it in {{ }}")
+	RefUnexpanded = spec("ref-unexpanded", "%s が {{ }} の外にあります。runn は展開せず、この文字列のまま使います", "%s is outside {{ }}. runn does not expand it and uses the literal string")
 
 	StepsMapRef      = spec("steps-map-ref", "steps は map なので steps.%s の形で参照します", "steps is a map; refer to it as steps.%s")
 	StepsIndexMiss   = spec("steps-index-miss", "steps[%d] はこの runbook にありません", "steps[%d] is not in this runbook")

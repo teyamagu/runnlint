@@ -70,6 +70,7 @@ BIN-12 と BIN-13 は、プロダクトの実行経路ではなく、このリ�
 | RULE-29 | 無いキーの診断は親の行に付く。あるが型が違う値の診断は、その値の行に付く。`query`、`command`、`prompt`、`actions`、HTTP の body、`steps` を見る。数値の DB リクエストも、その値の行に付く | `internal/rules/shape_test.go` |
 | RULE-30 | runn の parse は最初の問題で戻る。linter は同じキーを同じ順で読んだあと、残りのキーも見る。1つの step から、gRPC の `timeout` と `message`、DB の `query` と `trace`、exec の `command` と `shell` と `background`、include の `path` と `steps`、HTTP runner の `timeout` と `skipVerify`、step の `desc` と `if` と `test` の診断が残る | `internal/rules/layout_test.go` |
 | RULE-31 | 1つの検査関数が積む診断の順は、runn が読むキー順である。YAML ではキーを逆順に書き、`Lint` の行と列の整列を通さない。HTTP runner は `endpoint`、`skipValidateRequest`、`skipValidateResponse`、`skipCircularReferenceCheck`、`notFollowRedirect`、`skipVerify`、`timeout`、`useCookie`、`trace`。gRPC runner は `tls`、`skipVerify`、文字列リスト、`trace`。SSH は `port`、identity、`keepSession`、`keyboardInteractive`。CDP は `flags`、`timeout`。agent は `agent`、`tools`、`permissions`、`interactive`。HTTP と gRPC と DB と exec と include のリクエスト、step の `if` から `bind` まで、book の `desc` から `trace` までもこの順である | `internal/rules/order_test.go` |
+| RULE-32 | `unexpanded-ref` は、`{{ }}` の中だけを展開する値とキー（`include.vars`、body、パス、ヘッダー、`exec` の `command`、`dump.out`、ルートの `vars`、inline include の step）で、`{{ }}` の外にある `vars`・`steps`・`current`・`previous`・`parent`・`needs` への参照を、その値の行に warning で出し、文に参照を出す。式の欄、`desc`、`labels`、`{{ }}` の中、ファイル名（`vars.yml`）、ドットの後の名前、`$vars.x`、メールアドレス、閉じていない `{{` は出さない。前に動く step が bind した名前は、step の値の全体か、メンバーが続くときに出す。step 自身の bind、後に動く step の bind、ルートの `vars`、文の途中の名前だけ、は出さない | `internal/rules/unexpanded_test.go` |
 
 RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は、そこから漏れていた契約をルール単位で見る。RULE-09 は、その中の分岐をメッセージまで固定する。RULE-29 は診断の行を固定する。RULE-30 は、1つの step で後のキーの診断も残ることを固定する。RULE-31 は、検査関数が積む順を固定する。
 
@@ -97,5 +98,6 @@ RULE-03 は各ルールの主経路を1件ずつ見る。RULE-04 と RULE-07 は
 | MAT-16 | `expr-syntax`、`expr-braces` | 欄、式の中身、スカラーの書き方 | `matrix_expr_test.go` |
 | MAT-17 | `# runnlint disable-line`、`unused-suppression` | 位置、ルールの指定、対象の問題、理由の有無 | `matrix_suppress_test.go` |
 | MAT-18 | 宣言的ルールの判定 | 演算子、値の種類、`select` の形 | `matrix_declarative_test.go` |
+| MAT-19 | `unexpanded-ref` | 欄、参照の書き方、参照の名前（bind の名前を含む） | `matrix_unexpanded_ref_test.go` |
 
 分岐の網羅は `cov_<ソースファイル名>_test.go` が受け持つ。`parse.go`、`dump.go`、`bind.go` の残りの分岐は `cov_step_test.go` が、`loop.go` の book 側の残りの分岐は `cov_book_test.go` が実行する。到達できない行は各ファイルの先頭コメントに理由を書く。

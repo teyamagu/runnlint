@@ -1,0 +1,7 @@
+# Example of a reference written outside {{ }}. exec.command is not an expression, so runn passes the literal string "vars.username". Write {{ vars.username }} instead.
+desc: reference outside braces
+vars:
+  username: alice
+steps:
+  - exec:
+      command: echo vars.username

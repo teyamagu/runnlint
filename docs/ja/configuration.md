@@ -199,6 +199,7 @@ rules:
 | `local-path` | warning | runner が参照する証明書や proto などのファイルが無い |
 | `expr-syntax` | error | `{{ }}` や `test` などの式が、式として読めない |
 | `expr-braces` | warning | 式として読む欄を `{{ }}` で包んでいる |
+| `unexpanded-ref` | warning | リクエストの body やヘッダー、HTTP のパス、`exec` の `command`、`include.vars` など、`{{ }}` の中だけを展開する値に、`vars.` や `steps.`、前の step が bind した名前などの参照が `{{ }}` の外で書いてある。runn はこの値を展開せず、文字列のまま送る。範囲は「unexpanded-ref の検査範囲」 |
 | `expr-sharp-comment` | info | `test`、`if`、`until`、`bind` などの式に、括弧の外の `#` コメントがある。runn は取り除いて動くが「`#` comment is deprecated. Use `//` instead.」と警告する。文字列の中の `#` と、`( )` や `{ }` の中のクロージャの `#` は報告しない。`{{ }}` の中は見ない |
 | `step-ref` | error | 配列の step を名前で参照している、名前付きの step を番号で参照している、またはまだ実行されていない step を参照している |
 | `var-ref` | warning | `vars` に無い変数を参照している |
@@ -254,6 +255,50 @@ rules:
 `expr-braces` の `test` と `bind` は、値全体が `{{ }}` のときだけ報告する。文字列の中の `{{` は見ない。
 
 `step-ref` では、自分自身の step は参照できる。
+
+### unexpanded-ref の検査範囲
+
+runn が式として評価するのは、`test`、`if`、`bind`、`dump`（文字列と `dump.expr`）、`loop` の `until` と `count` である。そのほかの値は `{{ }}` の中だけを展開する。たとえば次の `username` は、変数の値ではなく `vars.username` という文字列として渡る。
+
+```yaml
+- include:
+    path: child.yml
+    vars:
+      username: vars.username        # 文字列 "vars.username" が渡る
+      # username: '{{ vars.username }}' と書く
+```
+
+このルールは、式の欄、`desc`、`labels`、include の `skipTest` と `force` を除いた値と mapping のキーで、`{{ }}` の外にある `vars`、`steps`、`current`、`previous`、`parent`、`needs` への参照を報告する。参照は、その名前の直後に `.` と英字か `_`、または `[` と数字か引用符が続くものである。次のものは参照とみなさない。
+
+- 直前が英数字、`_`、`.`、`$`、`-` のもの。ホスト名（`api.vars.example.com`）、jq のパス（`.vars.x`）、シェルの変数（`$vars.x`）である
+- `vars.yml` や `steps.json` のような、拡張子だけが続くファイル名
+- `@` を含むメールアドレス
+- `{{` が閉じていない文字列。`expr-syntax` が報告する
+
+`included`、`env`、`cookies` などほかの名前は、普通の語としても書かれるので見ない。
+
+`bind` で付けた名前は、`{{ example }}` のように接頭辞なしで読む。このルールは、前に動く step が bind した名前を `{{ }}` の外に書いたものも報告する。前の step で次のように bind したときの、後ろの step の値での扱いは表のとおりである。
+
+```yaml
+- bind:
+    example: current.res.body.example
+    user: current.res.body.user
+```
+
+| 書いた値 | 報告 | 理由 |
+| --- | --- | --- |
+| `example` | する | 値が名前だけで、前後に何も無い |
+| `user.id` | する | 名前のすぐ後に `.id` が付いている |
+| `user[0]` | する | 名前のすぐ後に `[0]` が付いている |
+| `echo user.id` | する | 文の中でも、名前のすぐ後に `.id` が付いている |
+| `Bearer example` | しない | 文の中に名前だけがあり、普通の語と区別できない |
+| `{{ example }}` | しない | `{{ }}` で囲んである |
+
+次の場所では、bind の名前を見ない。
+
+- その名前を bind した step 自身と、それより前に動く step。まだ値が入っていない。前後は `step-ref` と同じく `defer` を含めて決める
+- ルートの `vars` と `runners`。step より前に読む
+- mapping のキー。`example:` は項目名とみなす
 
 ### unused-bind の検査範囲
 
