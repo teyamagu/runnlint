@@ -57,7 +57,7 @@ If only the tag moves and these two files are the same, the test does not fail. 
 
 The weekly [runn follow](../../.github/workflows/runn-follow.yml) does the following only when that difference exists.
 
-1. Replace `internal/runnspec/runbook.schema.yaml` and `internal/runnspec/cdpfn.src` with `runbook.schema.yaml` and `cdpfn.go` from the new tag. Set `internal/runnspec/VERSION` to that tag.
+1. Replace `internal/runnspec/runbook.schema.yaml` and `internal/runnspec/cdpfn.src` with `runbook.schema.yaml` and `cdpfn.go` from the new tag. Set `internal/runnspec/VERSION` to that tag. Set the followed release in the opening of README.md and README.en.md to that tag.
 2. Run `go test ./...` to see whether the rules and examples still pass.
 3. Open a PR whose body contains the result. A PR whose tests failed is a draft. Rules that are not in the schema are not changed automatically, so a failure means fixing a parser override or the examples by hand.
 
