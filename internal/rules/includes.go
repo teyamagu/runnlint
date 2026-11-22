@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -27,6 +28,11 @@ type Refs struct {
 	names map[string]map[string]struct{}
 	// unknown marks files with an expression that does not parse, whose references are therefore unknown.
 	unknown map[string]bool
+	// wd is the working directory captured when Refs was created. Relative paths are resolved against it.
+	wd    string
+	wdErr error
+	// exists remembers whether a path was present for this run.
+	exists map[string]bool
 }
 
 // IncludeRef is one include.
@@ -48,13 +54,37 @@ type dynamicRef struct {
 // NewRefs builds a Refs that judges files inside scopes.
 // scopes are directories or files whose callers were all read.
 func NewRefs(scopes ...string) *Refs {
-	r := &Refs{static: map[string][]IncludeRef{}, needs: map[string][]string{}, names: map[string]map[string]struct{}{}, unknown: map[string]bool{}}
+	wd, wdErr := os.Getwd()
+	r := &Refs{
+		static:  map[string][]IncludeRef{},
+		needs:   map[string][]string{},
+		names:   map[string]map[string]struct{}{},
+		unknown: map[string]bool{},
+		wd:      wd,
+		wdErr:   wdErr,
+		exists:  map[string]bool{},
+	}
 	for _, s := range scopes {
-		if abs, err := filepath.Abs(s); err == nil {
+		if abs, err := r.Abs(s); err == nil {
 			r.scopes = append(r.scopes, abs)
 		}
 	}
 	return r
+}
+
+// Abs resolves path against the working directory captured when Refs was created.
+// An absolute path is cleaned. A relative path is joined to that directory, so getcwd is not called again.
+func (r *Refs) Abs(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+	if r == nil || r.wd == "" || r.wdErr != nil {
+		if r != nil && r.wdErr != nil {
+			return "", r.wdErr
+		}
+		return filepath.Abs(path)
+	}
+	return filepath.Clean(filepath.Join(r.wd, path)), nil
 }
 
 // Add reads include references from the YAML at path. It does nothing when the file is not a runbook.
@@ -66,7 +96,7 @@ func (r *Refs) Add(path string, src []byte) {
 	if err != nil || doc.Book == nil {
 		return
 	}
-	from, err := filepath.Abs(path)
+	from, err := r.Abs(path)
 	if err != nil {
 		return
 	}
@@ -78,7 +108,7 @@ func (r *Refs) Add(path string, src []byte) {
 				continue
 			}
 			if target, ok := resolveLocal(doc.Book, e.Value.String); ok {
-				if abs, err := filepath.Abs(target); err == nil {
+				if abs, err := r.Abs(target); err == nil {
 					r.needs[abs] = append(r.needs[abs], from)
 				}
 			}
@@ -129,7 +159,7 @@ func (r *Refs) addRef(b *runbook.Book, from string, path, vars runbook.Value) {
 	}
 	target, ok := resolveLocal(b, path.String)
 	if ok {
-		if abs, err := filepath.Abs(target); err == nil {
+		if abs, err := r.Abs(target); err == nil {
 			r.static[abs] = append(r.static[abs], ref)
 		}
 		return
@@ -157,7 +187,7 @@ func (r *Refs) ReferrerNames(path string) (names map[string]struct{}, found, unk
 	if r == nil {
 		return names, false, false
 	}
-	abs, err := filepath.Abs(path)
+	abs, err := r.Abs(path)
 	if err != nil {
 		return names, false, false
 	}
@@ -188,7 +218,7 @@ func (r *Refs) InScope(path string) bool {
 	if r == nil {
 		return false
 	}
-	abs, err := filepath.Abs(path)
+	abs, err := r.Abs(path)
 	if err != nil {
 		return false
 	}
@@ -205,7 +235,7 @@ func (r *Refs) Callers(path string) []IncludeRef {
 	if r == nil {
 		return nil
 	}
-	abs, err := filepath.Abs(path)
+	abs, err := r.Abs(path)
 	if err != nil {
 		return nil
 	}

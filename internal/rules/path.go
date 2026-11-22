@@ -82,7 +82,30 @@ func checkExists(c *Context, b *runbook.Book, v runbook.Value) {
 	if !ok {
 		return
 	}
-	if _, err := os.Stat(path); err != nil {
+	if c != nil && c.Refs != nil {
+		if abs, err := c.Refs.Abs(path); err == nil {
+			path = abs
+		}
+	}
+	if !fileExists(c, path) {
 		c.Add(v.Node, message.FileMissing, strings.TrimSpace(v.String))
 	}
+}
+
+// fileExists reports whether path is present. The result is remembered for this run.
+func fileExists(c *Context, path string) bool {
+	if c != nil && c.Refs != nil {
+		if exists, ok := c.Refs.exists[path]; ok {
+			return exists
+		}
+	}
+	_, err := os.Stat(path)
+	exists := err == nil
+	if c != nil && c.Refs != nil {
+		if c.Refs.exists == nil {
+			c.Refs.exists = map[string]bool{}
+		}
+		c.Refs.exists[path] = exists
+	}
+	return exists
 }
