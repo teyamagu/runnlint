@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [0.4.1]
+
+### 変更
+
+- 合わせる runn を v1.11.2 にする。`cdpfn.go` は chromedp の呼び出し型だけが変わり、CDP のアクション名、別名、引数は v1.11.1 と同じである。スキーマとパーサ上書きは変えていない。
+
 ### 修正
 
 - `steps` の要素が mapping でないとき、名前付き step の値が mapping でないとき、`steps` が sequence でも mapping でもないときの診断を、選んだ言語で出す。baseline には英語の文を記録する。yamllint コマンドが無いときの診断も同じである。これらの文を日本語で記録した baseline は、`--write-baseline` で書き直す。
