@@ -58,7 +58,7 @@ func TestCovDeclaredErrors(t *testing.T) {
 	}
 }
 
-// Normalize rejects a version with one or four components and a non-numeric component. Compare returns 0 for equal versions and treats a missing component as 0.
+// Normalize rejects a version with one or four components, a non-numeric component, and a leading +. Compare returns 0 for equal versions and treats a missing component as 0 on either side.
 func TestCovNormalizeAndCompareEdges(t *testing.T) {
 	for _, v := range []string{"1", "1.2.3.4"} {
 		if _, err := Normalize(v); err == nil || englishOf(err) != `version "`+v+`" is not major.minor.patch` {
@@ -68,10 +68,16 @@ func TestCovNormalizeAndCompareEdges(t *testing.T) {
 	if _, err := Normalize("1.a"); err == nil || englishOf(err) != `version "1.a" is not numeric` {
 		t.Fatalf("%v", err)
 	}
+	if _, err := Normalize("+1.2.3"); err == nil || englishOf(err) != `version "" is not a stable version number` {
+		t.Fatalf("%v", err)
+	}
 	if got := Compare("1.27.3", "1.27.3"); got != 0 {
 		t.Fatalf("equal = %d", got)
 	}
 	if got := Compare("1.27", "1.27.0"); got != 0 {
 		t.Fatalf("missing patch = %d", got)
+	}
+	if got := Compare("1.27.0", "1.27"); got != 0 {
+		t.Fatalf("missing patch on the right = %d", got)
 	}
 }

@@ -94,17 +94,26 @@ func TestCovParseMergeSequence(t *testing.T) {
 	}
 }
 
-// Nesting deeper than 64 levels is rejected as too deep.
+// The root mapping is decoded at depth 0, and each nested value adds one.
+// 63 mappings put the scalar at depth 64, which is accepted. 64 mappings put it at depth 65 and are rejected.
 func TestCovParseTooDeep(t *testing.T) {
-	var b strings.Builder
-	for i := 0; i < 70; i++ {
-		b.WriteString(strings.Repeat("  ", i) + "a:\n")
+	_, err := Parse([]byte(nestedMappings(63)))
+	if err != nil {
+		t.Fatal(err)
 	}
-	b.WriteString(strings.Repeat("  ", 70) + "b: 1\n")
-	_, err := Parse([]byte(b.String()))
+	_, err = Parse([]byte(nestedMappings(64)))
 	if err == nil || englishOf(err) != "YAML alias nesting is too deep" {
 		t.Fatalf("%v", err)
 	}
+}
+
+func nestedMappings(levels int) string {
+	var b strings.Builder
+	for i := 0; i < levels; i++ {
+		b.WriteString(strings.Repeat("  ", i) + "a:\n")
+	}
+	b.WriteString(strings.Repeat("  ", levels) + "b: 1\n")
+	return b.String()
 }
 
 // decode handles a nil node as null, an alias whose target is unknown as an error, a document node with and without content, and a node of an unsupported kind as an error.

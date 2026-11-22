@@ -49,13 +49,17 @@ func TestCovRunWarningsAndCheckConfig(t *testing.T) {
 	}
 }
 
-// With no paths, the current directory is scanned.
+// With no paths, the current directory is scanned. A .yaml runbook is included. A .txt file is not, even when it contains steps.
 func TestCovRunDefaultsToCurrentDirectory(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	writeFiles(t, dir, map[string]string{"sub/a.yml": "steps:\n  - test: \"true\"\n"})
+	writeFiles(t, dir, map[string]string{
+		"sub/a.yml":     "steps:\n  - test: \"true\"\n",
+		"sub/b.yaml":    "steps:\n  - test: \"true\"\n",
+		"sub/notes.txt": "steps:\n  - test: \"true\"\n",
+	})
 	code, out := runText(t, Options{})
-	if code != 0 || !strings.Contains(out, "sub/a.yml:1:1: warning: [require-desc]") {
+	if code != 0 || !strings.Contains(out, "sub/a.yml:1:1: warning: [require-desc]") || !strings.Contains(out, "sub/b.yaml:1:1: warning: [require-desc]") || strings.Contains(out, "notes.txt") {
 		t.Fatalf("code=%d\n%s", code, out)
 	}
 }
@@ -83,7 +87,9 @@ func TestCovRunYamllint(t *testing.T) {
 	}
 }
 
-// Writing the baseline into a directory that does not exist fails with exit 2. A baseline entry that no longer occurs is reported as already fixed on stderr.
+// Writing the baseline into a directory that does not exist fails with exit 2.
+// A baseline entry that no longer occurs is reported as already fixed. An empty baseline prints nothing.
+// A baseline that matches every current finding does not say any are already fixed.
 func TestCovRunBaselineWriteErrorAndStale(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -98,6 +104,20 @@ func TestCovRunBaselineWriteErrorAndStale(t *testing.T) {
 	code, out, stderr, err := runRaw(t, Options{Paths: []string{"a.yml"}, NoYamllint: true, Baseline: "baseline.json"})
 	if code != 0 || err != nil || out != "" || !strings.Contains(stderr, "既存の 1 件") || !strings.Contains(stderr, "1 件は解消済み") {
 		t.Fatalf("code=%d err=%v out=%q\n%s", code, err, out, stderr)
+	}
+
+	writeFiles(t, dir, map[string]string{
+		"clean.yml":  "desc: a\nsteps:\n  - test: \"true\"\n",
+		"empty.json": `{"version": 2, "findings": []}`,
+		"kept.json":  `{"version": 2, "findings": [{"file": "a.yml", "rule": "require-desc", "message": "runbook に desc がありません", "count": 1}]}`,
+	})
+	code, _, stderr, err = runRaw(t, Options{Paths: []string{"clean.yml"}, NoYamllint: true, Baseline: "empty.json"})
+	if code != 0 || err != nil || stderr != "" {
+		t.Fatalf("empty baseline: code=%d err=%v\n%s", code, err, stderr)
+	}
+	code, out, stderr, err = runRaw(t, Options{Paths: []string{"a.yml"}, NoYamllint: true, Baseline: "kept.json"})
+	if code != 0 || err != nil || out != "" || !strings.Contains(stderr, "既存の 1 件") || strings.Contains(stderr, "解消済み") {
+		t.Fatalf("kept only: code=%d err=%v out=%q\n%s", code, err, out, stderr)
 	}
 }
 
@@ -140,7 +160,11 @@ func TestCovBuildRefsErrors(t *testing.T) {
 	if err := os.Mkdir(locked, 0o000); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chmod(locked, 0o755)
+	defer func() {
+		if err := os.Chmod(locked, 0o755); err != nil {
+			t.Errorf("chmod: %v", err)
+		}
+	}()
 	code, _, _, err = runRaw(t, Options{Paths: []string{"a.yml"}, NoYamllint: true, IncludeRoots: []string{"root"}})
 	if code != 2 || err == nil || !strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("code=%d err=%v", code, err)
@@ -159,7 +183,11 @@ func TestCovUnreadableInputs(t *testing.T) {
 	if err := os.Mkdir(locked, 0o000); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chmod(locked, 0o755)
+	defer func() {
+		if err := os.Chmod(locked, 0o755); err != nil {
+			t.Errorf("chmod: %v", err)
+		}
+	}()
 	code, _, _, err := runRaw(t, Options{Paths: []string{"books"}, NoYamllint: true})
 	if code != 2 || err == nil || !strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("code=%d err=%v", code, err)
@@ -167,7 +195,11 @@ func TestCovUnreadableInputs(t *testing.T) {
 	if err := os.Chmod(filepath.Join(dir, "secret.yml"), 0o000); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chmod(filepath.Join(dir, "secret.yml"), 0o644)
+	defer func() {
+		if err := os.Chmod(filepath.Join(dir, "secret.yml"), 0o644); err != nil {
+			t.Errorf("chmod: %v", err)
+		}
+	}()
 	code, _, _, err = runRaw(t, Options{Paths: []string{"secret.yml"}, NoYamllint: true})
 	if code != 2 || err == nil || !strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("code=%d err=%v", code, err)

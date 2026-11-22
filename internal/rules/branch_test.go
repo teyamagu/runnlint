@@ -191,8 +191,9 @@ func TestIncludeAndStepShapeBranches(t *testing.T) {
 func TestRunnerConfigBranches(t *testing.T) {
 	// An SSH runner whose port is -1 reports runner-config "port is a positive number".
 	requireMessage(t, "desc: x\nrunners:\n  sc:\n    host: example.com\n    port: -1\nsteps:\n  - test: \"true\"\n", "runner-config", "port は正の数")
-	// A quoted negative port is the same finding. A quoted integer, a fraction, and an underscored integer are not.
+	// A quoted negative port is the same finding. A quoted zero, a positive integer, a fraction, and an underscored integer are not.
 	requireMessage(t, "desc: x\nrunners:\n  sc:\n    host: example.com\n    port: \"-1\"\nsteps:\n  - test: \"true\"\n", "runner-config", "port は正の数")
+	rejectMessage(t, "desc: x\nrunners:\n  sc:\n    host: example.com\n    port: \"0\"\nsteps:\n  - test: \"true\"\n", "runner-config", "port")
 	rejectMessage(t, "desc: x\nrunners:\n  sc:\n    host: example.com\n    port: \"22\"\nsteps:\n  - test: \"true\"\n", "runner-config", "port")
 	rejectMessage(t, "desc: x\nrunners:\n  sc:\n    host: example.com\n    port: \"1.5\"\nsteps:\n  - test: \"true\"\n", "runner-config", "port")
 	rejectMessage(t, "desc: x\nrunners:\n  sc:\n    host: example.com\n    port: \"1_000\"\nsteps:\n  - test: \"true\"\n", "runner-config", "port")

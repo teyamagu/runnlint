@@ -46,7 +46,8 @@ func TestRefsAddSkipsUnusableInput(t *testing.T) {
 	}
 }
 
-// resolveLocal rejects a URL, keeps an absolute path, and resolves against . when the book has no directory. dynamicPattern rejects a URL and a path without a dynamic part.
+// resolveLocal rejects a URL, keeps an absolute path, and resolves against . when the book has no directory.
+// dynamicPattern rejects a URL and a path without a dynamic part. Two dynamic parts match by the text after the last one.
 func TestResolveLocalAndDynamicPattern(t *testing.T) {
 	got := lint(t, "desc: d\nsteps:\n  - include: https://example.com/x.yml\n  - test: \"true\"\n")
 	if hasRule(got, "include-path") {
@@ -68,6 +69,9 @@ func TestResolveLocalAndDynamicPattern(t *testing.T) {
 	}
 	if re := dynamicPattern("{{ vars.d }}/child.yml"); re == nil || !re.MatchString("/a/b/child.yml") {
 		t.Fatal("a dynamic path does not match by its suffix")
+	}
+	if re := dynamicPattern("{{ vars.a }}/mid/{{ vars.b }}/child.yml"); re == nil || !re.MatchString("dir/child.yml") {
+		t.Fatal("two dynamic parts match by the suffix after the last one")
 	}
 }
 
