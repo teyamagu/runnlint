@@ -51,27 +51,9 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	if opt.Format == "" {
 		opt.Format = "text"
 	}
-	cfg, err := config.Load(opt.Config)
+	cfg, lang, err := prepare(opt)
 	if err != nil {
-		return 2, present(opt.Lang, err)
-	}
-	if opt.Lang != "" {
-		cfg.Language = opt.Lang
-	}
-	switch cfg.Language {
-	case "", "ja", "en":
-	default:
-		return 2, present(opt.Lang, message.New(message.LangUnknown, cfg.Language))
-	}
-	lang := message.JA
-	if cfg.Language == "en" {
-		lang = message.EN
-	}
-	for _, w := range cfg.Warnings {
-		fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w))
-	}
-	if err := rules.CheckConfig(cfg); err != nil {
-		return 2, present(cfg.Language, err)
+		return 2, err
 	}
 	var base *baseline.Baseline
 	if opt.Baseline != "" && opt.WriteBaseline == "" {
@@ -109,7 +91,7 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		yamlFiles = append(yamlFiles, file.path)
 	}
 	if !opt.NoYamllint {
-		extra, err := yamllint.Run(ctx, cfg.Yamllint, cfg.SourceDir, yamlFiles)
+		extra, err := yamllint.Run(ctx, cfg.Yamllint, cfg.SourceDir, yamlFiles, lang)
 		if err != nil {
 			return 2, present(cfg.Language, err)
 		}
@@ -140,6 +122,55 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		return 1, nil
 	}
 	return 0, nil
+}
+
+// ListRules writes the enabled rules as id, severity, and builtin or check. It uses the same config prelude as Run.
+func ListRules(opt Options) (int, error) {
+	if opt.Stdout == nil {
+		opt.Stdout = os.Stdout
+	}
+	if opt.Stderr == nil {
+		opt.Stderr = os.Stderr
+	}
+	cfg, _, err := prepare(opt)
+	if err != nil {
+		return 2, err
+	}
+	for _, rule := range cfg.Rules {
+		kind := "check"
+		if rule.Uses != "" {
+			kind = "builtin:" + rule.Uses
+		}
+		fmt.Fprintf(opt.Stdout, "%s\t%s\t%s\n", rule.ID, rule.Severity, kind)
+	}
+	return 0, nil
+}
+
+// prepare loads the rules file, applies the language override, prints config warnings, and checks that uses names exist.
+func prepare(opt Options) (*config.Config, message.Lang, error) {
+	cfg, err := config.Load(opt.Config)
+	if err != nil {
+		return nil, "", present(opt.Lang, err)
+	}
+	if opt.Lang != "" {
+		cfg.Language = opt.Lang
+	}
+	switch cfg.Language {
+	case "", "ja", "en":
+	default:
+		return nil, "", present(opt.Lang, message.New(message.LangUnknown, cfg.Language))
+	}
+	lang := message.JA
+	if cfg.Language == "en" {
+		lang = message.EN
+	}
+	for _, w := range cfg.Warnings {
+		fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w))
+	}
+	if err := rules.CheckConfig(cfg); err != nil {
+		return nil, "", present(cfg.Language, err)
+	}
+	return cfg, lang, nil
 }
 
 type input struct {

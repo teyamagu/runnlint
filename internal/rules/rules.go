@@ -77,22 +77,25 @@ func LintWith(filename string, src []byte, cfg *config.Config, refs *Refs) ([]fi
 }
 
 func lintDocument(doc *runbook.Document, cfg *config.Config, refs *Refs) []finding.Finding {
+	lang := displayLang(cfg)
 	var out []finding.Finding
 	doc.Book.Walk(func(b *runbook.Book) {
 		for _, p := range b.Problems {
 			line, col := runbook.Pos(p.Node)
+			id, args := problemMessage(p)
 			out = append(out, finding.Finding{
 				File:     b.File,
 				Line:     line,
 				Column:   col,
 				Severity: finding.Error,
 				Rule:     "parse",
-				Message:  p.Message,
+				Message:  message.Text(lang, id, args...),
+				Match:    message.English(id, args...),
 			})
 		}
 	})
 	sites := analyze(doc.Book)
-	ctx := &Context{Doc: doc, Sites: sites, Refs: refs, Lang: displayLang(cfg)}
+	ctx := &Context{Doc: doc, Sites: sites, Refs: refs, Lang: lang}
 	for _, rule := range cfg.Rules {
 		if rule.Severity == finding.Off || !rule.AppliesTo(doc.Book.File) {
 			continue
@@ -174,6 +177,17 @@ func displayLang(cfg *config.Config) message.Lang {
 		return message.EN
 	}
 	return message.JA
+}
+
+func problemMessage(p runbook.Problem) (message.ID, []any) {
+	switch p.Kind {
+	case runbook.ProblemStepValue:
+		return message.StepValue, []any{p.Name}
+	case runbook.ProblemStepsKind:
+		return message.StepsKind, nil
+	default:
+		return message.StepsElem, nil
+	}
 }
 
 func parseFinding(filename string, lang message.Lang, id message.ID) finding.Finding {

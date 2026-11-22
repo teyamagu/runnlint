@@ -42,10 +42,24 @@ type Book struct {
 	Problems      []Problem
 }
 
+// ProblemKind identifies a structural problem found while building a book.
+// The display sentence is chosen later, when the language is known.
+type ProblemKind int
+
+const (
+	// ProblemStepsElem means a list element of steps is not a mapping.
+	ProblemStepsElem ProblemKind = iota + 1
+	// ProblemStepValue means a named step's value is not a mapping. Name is the step name.
+	ProblemStepValue
+	// ProblemStepsKind means steps is neither a sequence nor a mapping.
+	ProblemStepsKind
+)
+
 // Problem is a structural problem known while building the model.
 type Problem struct {
-	Node    *yaml.Node
-	Message string
+	Node *yaml.Node
+	Kind ProblemKind
+	Name string
 }
 
 // Step is one step.
@@ -174,7 +188,7 @@ func buildBook(root Value, dir string, parent *Book, parentStep int) *Book {
 		b.Style = StyleList
 		for i, el := range steps.Seq {
 			if el.Kind != KindMap {
-				b.Problems = append(b.Problems, Problem{Node: el.Node, Message: "steps の各要素は mapping です"})
+				b.Problems = append(b.Problems, Problem{Node: el.Node, Kind: ProblemStepsElem})
 				continue
 			}
 			b.Steps = append(b.Steps, makeStep(b, i, "", nil, el))
@@ -183,13 +197,13 @@ func buildBook(root Value, dir string, parent *Book, parentStep int) *Book {
 		b.Style = StyleMap
 		for i, e := range steps.Map {
 			if e.Value.Kind != KindMap {
-				b.Problems = append(b.Problems, Problem{Node: e.Value.Node, Message: "step " + e.Key + " の値は mapping です"})
+				b.Problems = append(b.Problems, Problem{Node: e.Value.Node, Kind: ProblemStepValue, Name: e.Key})
 				continue
 			}
 			b.Steps = append(b.Steps, makeStep(b, i, e.Key, e.KeyNode, e.Value))
 		}
 	default:
-		b.Problems = append(b.Problems, Problem{Node: steps.Node, Message: "steps は sequence または mapping です"})
+		b.Problems = append(b.Problems, Problem{Node: steps.Node, Kind: ProblemStepsKind})
 	}
 	return b
 }

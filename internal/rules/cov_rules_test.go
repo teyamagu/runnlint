@@ -21,7 +21,7 @@ func TestCheckConfigNilAndInvalid(t *testing.T) {
 }
 
 // An empty file reports parse with "空のファイルです" and is not a runbook. A file whose top level is a sequence reports "runbook は mapping です".
-// A steps element that is not a mapping reports parse with the problem text from the parser, and the file is still a runbook.
+// A steps shape that is not a mapping reports parse. The model records the kind, and the finding is rendered in the display language with the English sentence kept for baseline.
 func TestLintWithParseFindings(t *testing.T) {
 	cfg := defaultConfig(t)
 	got, is := LintWith("empty.yml", []byte(""), cfg, nil)
@@ -37,7 +37,23 @@ func TestLintWithParseFindings(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 	parse := findRule(got, "parse")
-	if len(parse) != 1 || parse[0].Message != "steps の各要素は mapping です" || parse[0].Line != 3 || parse[0].File != "steps.yml" {
+	if len(parse) != 1 || parse[0].Message != "steps の各要素は mapping です" || parse[0].Match != "each steps element is a mapping" || parse[0].Line != 3 || parse[0].File != "steps.yml" {
+		t.Fatalf("%+v", got)
+	}
+	got, is = LintWith("named.yml", []byte("steps:\n  bad: 1\n"), cfg, nil)
+	parse = findRule(got, "parse")
+	if !is || len(parse) != 1 || parse[0].Message != "step bad の値は mapping です" || parse[0].Match != "the value of step bad is a mapping" {
+		t.Fatalf("%+v", got)
+	}
+	got, is = LintWith("scalar.yml", []byte("steps: 1\n"), cfg, nil)
+	parse = findRule(got, "parse")
+	if !is || len(parse) != 1 || parse[0].Message != "steps は sequence または mapping です" || parse[0].Match != "steps is a sequence or a mapping" {
+		t.Fatalf("%v %+v", is, got)
+	}
+	cfg.Language = "en"
+	got, is = LintWith("steps.yml", []byte("desc: d\nsteps:\n  - 1\n"), cfg, nil)
+	parse = findRule(got, "parse")
+	if !is || len(parse) != 1 || parse[0].Message != "each steps element is a mapping" || parse[0].Match != "each steps element is a mapping" {
 		t.Fatalf("%+v", got)
 	}
 }

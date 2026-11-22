@@ -34,6 +34,9 @@ var (
 
 	FileEmpty    = spec("file-empty", "空のファイルです", "file is empty")
 	BookNotMap   = spec("book-not-map", "runbook は mapping です", "a runbook is a mapping")
+	StepsElem    = spec("steps-elem", "steps の各要素は mapping です", "each steps element is a mapping")
+	StepValue    = spec("step-value", "step %s の値は mapping です", "the value of step %s is a mapping")
+	StepsKind    = spec("steps-kind", "steps は sequence または mapping です", "steps is a sequence or a mapping")
 	ConfigAbsent = spec("config-absent", "設定がありません", "configuration is missing")
 	UsesUnknown  = spec("uses-unknown", "ルール %s の uses %q は未定義です", "rule %s uses %q, which is not defined")
 
@@ -73,6 +76,7 @@ var (
 	IncludeRootDir  = spec("include-root-dir", "--include-root %s はディレクトリではありません", "--include-root %s is not a directory")
 	FormatUnknown   = spec("format-unknown", "不明な出力形式です: %s", "unknown output format: %s")
 	YamllintFailed  = spec("yamllint-failed", "yamllint の実行に失敗しました: %s", "yamllint failed: %s")
+	YamllintAbsent  = spec("yamllint-absent", "yamllint が見つかりません。一般的な YAML lint をスキップしました。pip install yamllint で導入できます", "yamllint was not found. Generic YAML lint was skipped. Install it with pip install yamllint")
 
 	ExprUnclosed  = spec("expr-unclosed", "{{ が閉じられていません", "{{ is not closed")
 	ExprNotBrace  = spec("expr-not-brace", "%s は式なので {{ }} で囲みません", "%s is an expression, so do not wrap it in {{ }}")

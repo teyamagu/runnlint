@@ -10,7 +10,6 @@ import (
 	"github.com/teyamagu/runnlint/internal/app"
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/message"
-	"github.com/teyamagu/runnlint/internal/rules"
 	"github.com/teyamagu/runnlint/internal/version"
 )
 
@@ -86,57 +85,28 @@ func run(args []string) int {
 		os.Stdout.Write(b)
 		return 0
 	}
+	var code int
+	var err error
 	if listRules {
-		cfg, err := config.Load(configPath)
-		if err != nil {
-			show := message.JA
-			if langFlag == "en" {
-				show = message.EN
-			}
-			fmt.Fprintln(os.Stderr, message.Localize(show, err))
-			return 2
-		}
-		if langFlag != "" {
-			cfg.Language = langFlag
-		}
-		switch cfg.Language {
-		case "", "ja", "en":
-		default:
-			fmt.Fprintln(os.Stderr, message.Text(message.JA, message.LangUnknown, cfg.Language))
-			return 2
-		}
-		show := message.JA
-		if cfg.Language == "en" {
-			show = message.EN
-		}
-		for _, w := range cfg.Warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", message.Localize(show, w))
-		}
-		if err := rules.CheckConfig(cfg); err != nil {
-			fmt.Fprintln(os.Stderr, message.Localize(show, err))
-			return 2
-		}
-		for _, rule := range cfg.Rules {
-			kind := "check"
-			if rule.Uses != "" {
-				kind = "builtin:" + rule.Uses
-			}
-			fmt.Printf("%s\t%s\t%s\n", rule.ID, rule.Severity, kind)
-		}
-		return 0
+		code, err = app.ListRules(app.Options{
+			Config: configPath,
+			Lang:   langFlag,
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		})
+	} else {
+		code, err = app.Run(context.Background(), app.Options{
+			Paths:         fs.Args(),
+			Config:        configPath,
+			Format:        format,
+			NoYamllint:    noYamllint,
+			Strict:        strict,
+			Baseline:      baselinePath,
+			WriteBaseline: writeBaseline,
+			IncludeRoots:  includeRoots,
+			Lang:          langFlag,
+		})
 	}
-
-	code, err := app.Run(context.Background(), app.Options{
-		Paths:         fs.Args(),
-		Config:        configPath,
-		Format:        format,
-		NoYamllint:    noYamllint,
-		Strict:        strict,
-		Baseline:      baselinePath,
-		WriteBaseline: writeBaseline,
-		IncludeRoots:  includeRoots,
-		Lang:          langFlag,
-	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		if code == 0 {
