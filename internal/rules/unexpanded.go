@@ -39,8 +39,9 @@ func unexpandedRef(c *Context) {
 			root.check(c, e.Value)
 		}
 		bound := boundNames(b)
+		scans := bindScans(b, bound)
 		for i := range b.Steps {
-			scan := stepScan(b, &b.Steps[i], bound)
+			scan := scans[i]
 			for _, e := range b.Steps[i].Value.Map {
 				switch e.Key {
 				case "desc", "if", "test", "bind", "loop":
@@ -80,6 +81,101 @@ func boundNames(b *runbook.Book) map[int][]string {
 		}
 	}
 	return out
+}
+
+// bindScans returns the bound names visible to each step.
+// Ordinary steps share one set that grows in file order. A step's own bind runs after its request, so it is added after that step.
+// A defer step sees every ordinary bind and the binds of later defer steps, which run before it.
+// A book whose step indexes are not their positions keeps the per-step walk.
+func bindScans(b *runbook.Book, bound map[int][]string) []refScan {
+	scans := make([]refScan, len(b.Steps))
+	if !indexesMatchPosition(b) {
+		for i := range b.Steps {
+			scans[i] = stepScan(b, &b.Steps[i], bound)
+		}
+		return scans
+	}
+	cur := newBindScan()
+	var deferred []int
+	for i := range b.Steps {
+		if b.Steps[i].Defer {
+			deferred = append(deferred, i)
+			continue
+		}
+		scans[i] = cur
+		cur = cur.withBinds(bound[i])
+	}
+	if len(deferred) == 0 {
+		return scans
+	}
+	names, starts := laterDeferBinds(deferred, bound, cur.binds)
+	for di, i := range deferred {
+		start := len(names)
+		if di+1 < len(starts) {
+			start = starts[di+1]
+		}
+		scans[i] = cur.withBinds(names[start:])
+	}
+	return scans
+}
+
+func indexesMatchPosition(b *runbook.Book) bool {
+	for i := range b.Steps {
+		if b.Steps[i].Index != i {
+			return false
+		}
+	}
+	return true
+}
+
+func newBindScan() refScan {
+	return refScan{roots: append([]string(nil), unexpandedRoots...), binds: map[string]struct{}{}}
+}
+
+// withBinds returns a scan that also contains names not already bound. The receiver is left unchanged.
+func (r refScan) withBinds(names []string) refScan {
+	var roots []string
+	binds := r.binds
+	for _, name := range names {
+		if _, ok := binds[name]; ok {
+			continue
+		}
+		if roots == nil {
+			roots = append([]string(nil), r.roots...)
+			binds = make(map[string]struct{}, len(r.binds)+len(names))
+			for k := range r.binds {
+				binds[k] = struct{}{}
+			}
+		}
+		binds[name] = struct{}{}
+		roots = append(roots, name)
+	}
+	if roots == nil {
+		return r
+	}
+	return refScan{roots: roots, binds: binds}
+}
+
+// laterDeferBinds lists bind names of each defer step, in file order.
+// starts[i] is the index of the first name introduced by deferred[i].
+// Names already bound by an ordinary step are omitted. A name bound by several defer steps is kept on each of those steps, so an earlier defer still sees it on a later defer. Later defer steps run first.
+func laterDeferBinds(deferred []int, bound map[int][]string, seen map[string]struct{}) (names []string, starts []int) {
+	starts = make([]int, len(deferred))
+	for di, i := range deferred {
+		starts[di] = len(names)
+		added := map[string]struct{}{}
+		for _, name := range bound[i] {
+			if _, ok := seen[name]; ok {
+				continue
+			}
+			if _, ok := added[name]; ok {
+				continue
+			}
+			added[name] = struct{}{}
+			names = append(names, name)
+		}
+	}
+	return names, starts
 }
 
 // stepScan adds the names bound by steps that run before step. A step's own bind runs after its request, so it is not added.

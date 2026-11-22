@@ -274,3 +274,32 @@ steps:
 		t.Fatalf("%+v", found)
 	}
 }
+
+// Two defer steps bind the same name. The earlier defer runs after the later one, so a reference in the earlier defer sees that name.
+func TestUnexpandedRefSharedDeferBind(t *testing.T) {
+	src := `
+desc: d
+runners:
+  req: https://example.com
+steps:
+  - exec:
+      command: echo token.value
+    defer: true
+    bind:
+      token: current.stdout
+  - exec:
+      command: echo done
+    defer: true
+    bind:
+      token: current.stdout
+`
+	got := lint(t, src)
+	found := findRule(got, "unexpanded-ref")
+	if len(found) != 1 {
+		t.Fatalf("want 1 finding, got %+v", found)
+	}
+	f := found[0]
+	if f.Line != 7 || f.Severity != finding.Warning || f.Match != message.English(message.RefUnexpanded, "token.value") {
+		t.Fatalf("%+v", f)
+	}
+}

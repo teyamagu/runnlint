@@ -6,6 +6,10 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Changed
+
+- Large runbooks and many files no longer walk the same runners, binds, paths, and file contents again. The result is the same when files do not change during the run.
+
 ## [0.4.1]
 
 ### Changed

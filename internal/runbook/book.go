@@ -40,6 +40,12 @@ type Book struct {
 	Parent        *Book
 	ParentRunners []Runner
 	Problems      []Problem
+	// indexed is set once Steps will not grow. RunnersAt and StepByName then reuse one index.
+	indexed bool
+	// runnersBefore[i] is the runners visible before step i. The last entry is the set after every step.
+	// A map is shared until a step defines runner:. Callers must not modify it.
+	runnersBefore []map[string]Runner
+	stepsByName   map[string]Step
 }
 
 // ProblemKind identifies a structural problem found while building a book.
@@ -102,18 +108,51 @@ func (b *Book) VarNames() map[string]struct{} {
 	return names
 }
 
-// StepByName looks up a step name used by map-style steps.
+// StepByName looks up a step name used by map-style steps. The first step with that name wins.
 func (b *Book) StepByName(name string) (Step, bool) {
-	for _, s := range b.Steps {
-		if s.Name == name {
-			return s, true
-		}
+	if b == nil {
+		return Step{}, false
 	}
-	return Step{}, false
+	if !b.indexed {
+		for _, s := range b.Steps {
+			if s.Name == name {
+				return s, true
+			}
+		}
+		return Step{}, false
+	}
+	b.ensureIndexes()
+	s, ok := b.stepsByName[name]
+	return s, ok
 }
 
 // RunnersAt returns the runners available before stepIndex.
+// After the book is built, the result is cached. The returned map must not be modified.
 func (b *Book) RunnersAt(stepIndex int) map[string]Runner {
+	if b == nil {
+		return nil
+	}
+	if !b.indexed {
+		return b.collectRunners(stepIndex)
+	}
+	b.ensureIndexes()
+	if len(b.runnersBefore) == 0 {
+		return map[string]Runner{}
+	}
+	// When the step's index matches its position, that slot holds the runners before it.
+	if stepIndex >= 0 && stepIndex < len(b.Steps) && b.Steps[stepIndex].Index == stepIndex {
+		return b.runnersBefore[stepIndex]
+	}
+	for i := range b.Steps {
+		if b.Steps[i].Index >= stepIndex {
+			return b.runnersBefore[i]
+		}
+	}
+	return b.runnersBefore[len(b.Steps)]
+}
+
+// collectRunners walks earlier steps. It is used only while the book is still being built.
+func (b *Book) collectRunners(stepIndex int) map[string]Runner {
 	out := map[string]Runner{}
 	for _, r := range b.ParentRunners {
 		out[r.Name] = r
@@ -125,21 +164,61 @@ func (b *Book) RunnersAt(stepIndex int) map[string]Runner {
 		if s.Index >= stepIndex {
 			break
 		}
-		def, ok := s.Value.Get("runner")
+		addStepRunners(out, s)
+	}
+	return out
+}
+
+// ensureIndexes builds the runner and step-name indexes once. A step that does not define runner: keeps the previous map.
+func (b *Book) ensureIndexes() {
+	if b.runnersBefore != nil {
+		return
+	}
+	current := map[string]Runner{}
+	for _, r := range b.ParentRunners {
+		current[r.Name] = r
+	}
+	for _, r := range b.Runners {
+		current[r.Name] = r
+	}
+	b.runnersBefore = make([]map[string]Runner, len(b.Steps)+1)
+	for i := range b.Steps {
+		b.runnersBefore[i] = current
+		def, ok := b.Steps[i].Value.Get("runner")
 		if !ok || def.Kind != KindMap {
 			continue
 		}
-		for _, e := range def.Map {
-			out[e.Key] = Runner{
-				Name:     e.Key,
-				NameNode: e.KeyNode,
-				Value:    e.Value,
-				Kind:     DetectKind(e.Value),
-				FromStep: s.Index,
-			}
+		next := make(map[string]Runner, len(current)+len(def.Map))
+		for name, r := range current {
+			next[name] = r
+		}
+		addStepRunners(next, b.Steps[i])
+		current = next
+	}
+	b.runnersBefore[len(b.Steps)] = current
+	b.stepsByName = make(map[string]Step, len(b.Steps))
+	for _, s := range b.Steps {
+		if _, ok := b.stepsByName[s.Name]; ok {
+			continue
+		}
+		b.stepsByName[s.Name] = s
+	}
+}
+
+func addStepRunners(out map[string]Runner, s Step) {
+	def, ok := s.Value.Get("runner")
+	if !ok || def.Kind != KindMap {
+		return
+	}
+	for _, e := range def.Map {
+		out[e.Key] = Runner{
+			Name:     e.Key,
+			NameNode: e.KeyNode,
+			Value:    e.Value,
+			Kind:     DetectKind(e.Value),
+			FromStep: s.Index,
 		}
 	}
-	return out
 }
 
 // Walk visits every book, including inline includes.
@@ -163,6 +242,7 @@ func (b *Book) LoopEnabled() bool {
 
 func buildBook(root Value, dir string, parent *Book, parentStep int) *Book {
 	b := &Book{Dir: dir, Root: root, Parent: parent, Style: StyleMissing}
+	defer func() { b.indexed = true }()
 	if parent != nil && parentStep >= 0 {
 		for _, r := range parent.RunnersAt(parentStep) {
 			b.ParentRunners = append(b.ParentRunners, r)
