@@ -2,9 +2,9 @@ package runnspec
 
 import "testing"
 
-// TestSchemaSuppliesNotationKeys checks that the imported schema is version v1.11.1 and that the top-level keys, x-, labels, the HTTP, exec, loop, and step keys, and each required list match. loop's required list does not include count.
+// TestSchemaSuppliesNotationKeys checks that the imported schema is version v1.11.2 and that the top-level keys, x-, labels, the HTTP, exec, loop, and step keys, and each required list match. loop's required list does not include count.
 func TestSchemaSuppliesNotationKeys(t *testing.T) {
-	if Version() != "v1.11.1" {
+	if Version() != "v1.11.2" {
 		t.Fatalf("version = %s", Version())
 	}
 	for _, key := range []string{"desc", "steps", "runners", "hostRules", "anchors"} {
