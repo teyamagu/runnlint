@@ -162,11 +162,15 @@ The default config also contains declarative rules. `require-desc` reports a mis
 Implementation adds a failing test before the change. The map from contracts to tests is in [docs/en/test-design.md](docs/en/test-design.md).
 
 ```console
+golangci-lint fmt
+golangci-lint run
 go test ./...
 go run ./cmd/runnlint --no-yamllint examples/valid
 go run ./cmd/runnlint --no-yamllint examples/bad/http-request.yml
 go run ./cmd/runnlint --no-yamllint --include-root examples examples/bad/included-unreferenced.yml
 ```
+
+`golangci-lint fmt` formats Go files with gofmt and goimports. `golangci-lint run` checks unchecked errors, `go vet`, ineffective assignments, staticcheck, unused code, and the same formatting. CI runs `run` with v2.15.0. The tool is GPL, so it is not a module dependency.
 
 `go test ./...` also checks the following.
 

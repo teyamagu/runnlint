@@ -102,7 +102,7 @@ func TestDeclarativeOperatorsPairwise(t *testing.T) {
 				want = append(want, en(message.KeyForbid))
 			}
 		case "one_of":
-			if kind != "missing" && !(kind == "string" || kind == "number" || kind == "bool") {
+			if kind != "missing" && kind != "string" && kind != "number" && kind != "bool" {
 				want = append(want, en(message.ValueOneOf))
 			}
 		case "min_len":

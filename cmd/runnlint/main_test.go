@@ -24,9 +24,14 @@ func capture(t *testing.T, args []string) (int, string, string) {
 	}
 	os.Stdout, os.Stderr = outW, errW
 	code := run(args)
-	outW.Close()
-	errW.Close()
+	closeOut, closeErr := outW.Close(), errW.Close()
 	os.Stdout, os.Stderr = stdout, stderr
+	if closeOut != nil {
+		t.Fatal(closeOut)
+	}
+	if closeErr != nil {
+		t.Fatal(closeErr)
+	}
 	var outBuf, errBuf bytes.Buffer
 	if _, err := io.Copy(&outBuf, outR); err != nil {
 		t.Fatal(err)

@@ -73,7 +73,10 @@ func run(args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 2
 		}
-		os.Stdout.Write(b)
+		if _, err := os.Stdout.Write(b); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
 		return 0
 	}
 	if printYamllint {
@@ -82,7 +85,10 @@ func run(args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 2
 		}
-		os.Stdout.Write(b)
+		if _, err := os.Stdout.Write(b); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
 		return 0
 	}
 	var code int

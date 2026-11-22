@@ -139,9 +139,10 @@ func collectStepExprs(b *runbook.Book, step *runbook.Step, sites *[]site) {
 		addExpr(sites, b, step, v, "test")
 	}
 	if v, ok := step.Value.Get("dump"); ok {
-		if v.Kind == runbook.KindString {
+		switch v.Kind {
+		case runbook.KindString:
 			addExpr(sites, b, step, v, "dump")
-		} else if v.Kind == runbook.KindMap {
+		case runbook.KindMap:
 			if expr, ok := v.Get("expr"); ok {
 				addExpr(sites, b, step, expr, "dump")
 			}

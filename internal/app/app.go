@@ -101,18 +101,26 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		if err := baseline.Write(opt.WriteBaseline, findings); err != nil {
 			return 2, present(cfg.Language, err)
 		}
-		fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineWrote, opt.WriteBaseline, len(findings)))
+		if _, err := fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineWrote, opt.WriteBaseline, len(findings))); err != nil {
+			return 2, err
+		}
 		return 0, nil
 	}
 	if base != nil {
 		res := base.Filter(findings)
 		findings = res.Findings
 		if res.Suppressed > 0 || res.Stale > 0 {
-			fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineKept, opt.Baseline, res.Suppressed))
-			if res.Stale > 0 {
-				fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineStale, res.Stale))
+			if _, err := fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineKept, opt.Baseline, res.Suppressed)); err != nil {
+				return 2, err
 			}
-			fmt.Fprintln(opt.Stderr)
+			if res.Stale > 0 {
+				if _, err := fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineStale, res.Stale)); err != nil {
+					return 2, err
+				}
+			}
+			if _, err := fmt.Fprintln(opt.Stderr); err != nil {
+				return 2, err
+			}
 		}
 	}
 	if err := report.Write(opt.Stdout, opt.Format, findings); err != nil {
@@ -141,7 +149,9 @@ func ListRules(opt Options) (int, error) {
 		if rule.Uses != "" {
 			kind = "builtin:" + rule.Uses
 		}
-		fmt.Fprintf(opt.Stdout, "%s\t%s\t%s\n", rule.ID, rule.Severity, kind)
+		if _, err := fmt.Fprintf(opt.Stdout, "%s\t%s\t%s\n", rule.ID, rule.Severity, kind); err != nil {
+			return 2, err
+		}
 	}
 	return 0, nil
 }
@@ -165,7 +175,9 @@ func prepare(opt Options) (*config.Config, message.Lang, error) {
 		lang = message.EN
 	}
 	for _, w := range cfg.Warnings {
-		fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w))
+		if _, err := fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w)); err != nil {
+			return nil, "", err
+		}
 	}
 	if err := rules.CheckConfig(cfg); err != nil {
 		return nil, "", present(cfg.Language, err)
