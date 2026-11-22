@@ -71,7 +71,7 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		return 2, present(cfg.Language, err)
 	}
 
-	refs, err := buildRefs(paths, opt.IncludeRoots, files)
+	refs, srcs, err := buildRefs(paths, opt.IncludeRoots, files)
 	if err != nil {
 		return 2, present(cfg.Language, err)
 	}
@@ -79,7 +79,7 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	var findings []finding.Finding
 	var yamlFiles []string
 	for _, file := range files {
-		src, err := os.ReadFile(file.path)
+		src, err := readCached(refs, srcs, file.path)
 		if err != nil {
 			return 2, present(cfg.Language, err)
 		}
@@ -229,7 +229,8 @@ func collect(paths []string, cfg *config.Config) ([]input, error) {
 
 // buildRefs collects include references. Every YAML file under walked directories and roots is read as a referrer, whether or not ignore applies.
 // Only files in that range are treated as having had every referrer read. A file passed directly as an argument is read only as a referrer.
-func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
+// The returned bytes are the files that will be linted, keyed by absolute path, so the lint loop does not read them again.
+func buildRefs(paths, roots []string, files []input) (*rules.Refs, map[string][]byte, error) {
 	var scopes []string
 	for _, path := range paths {
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
@@ -239,17 +240,26 @@ func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
 	for _, root := range roots {
 		info, err := os.Stat(root)
 		if err != nil {
-			return nil, message.Wrap(message.IncludeRootStat, err)
+			return nil, nil, message.Wrap(message.IncludeRootStat, err)
 		}
 		if !info.IsDir() {
-			return nil, message.New(message.IncludeRootDir, root)
+			return nil, nil, message.New(message.IncludeRootDir, root)
 		}
 		scopes = append(scopes, root)
 	}
 	refs := rules.NewRefs(scopes...)
+	keep := map[string]struct{}{}
+	for _, file := range files {
+		abs, err := refs.Abs(file.path)
+		if err != nil {
+			return nil, nil, err
+		}
+		keep[abs] = struct{}{}
+	}
+	read := map[string][]byte{}
 	seen := map[string]struct{}{}
 	add := func(name string) error {
-		abs, err := filepath.Abs(name)
+		abs, err := refs.Abs(name)
 		if err != nil {
 			return err
 		}
@@ -260,6 +270,9 @@ func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
 		src, err := os.ReadFile(name)
 		if err != nil {
 			return err
+		}
+		if _, ok := keep[abs]; ok {
+			read[abs] = src
 		}
 		refs.Add(name, src)
 		return nil
@@ -281,15 +294,29 @@ func buildRefs(paths, roots []string, files []input) (*rules.Refs, error) {
 			return add(name)
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	for _, file := range files {
 		if err := add(file.path); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return refs, nil
+	return refs, read, nil
+}
+
+// readCached returns bytes gathered while collecting references. A path that was not read there is read from disk.
+func readCached(refs *rules.Refs, srcs map[string][]byte, path string) ([]byte, error) {
+	if refs != nil {
+		abs, err := refs.Abs(path)
+		if err != nil {
+			return nil, err
+		}
+		if src, ok := srcs[abs]; ok {
+			return src, nil
+		}
+	}
+	return os.ReadFile(path)
 }
 
 func present(lang string, err error) error {
