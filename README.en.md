@@ -7,7 +7,7 @@
 [![code to test ratio](docs/ratio.svg)](docs/ratio.svg)
 [![test execution time](docs/time.svg)](docs/time.svg)
 
-runnlint is a linter for [runn](https://github.com/k1LoW/runn) runbooks.
+runnlint is a linter for [runn](https://github.com/k1LoW/runn) runbooks. This version follows the notation of [runn v1.11.2](https://github.com/k1LoW/runn/releases/tag/v1.11.2). A release that does not change the notation produces the same result.
 
 General YAML checks, such as indentation, duplicate keys, and line length, are delegated to [yamllint](https://yamllint.readthedocs.io/). This tool checks runn-specific runners, steps, `{{ }}`, and `steps` references. Enable, set the severity of, and add rules in YAML.
 

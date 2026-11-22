@@ -57,7 +57,7 @@ runn の公式 JSON Schema（`runbook.schema.yaml`）は、上の 1 のとおり
 
 毎週の [runn follow](../../.github/workflows/runn-follow.yml) は、その差があるときだけ次を行う。
 
-1. 新しいタグの `runbook.schema.yaml` と `cdpfn.go` を、`internal/runnspec/runbook.schema.yaml` と `internal/runnspec/cdpfn.src` に置き換える。`internal/runnspec/VERSION` をそのタグにする。
+1. 新しいタグの `runbook.schema.yaml` と `cdpfn.go` を、`internal/runnspec/runbook.schema.yaml` と `internal/runnspec/cdpfn.src` に置き換える。`internal/runnspec/VERSION` をそのタグにする。README.md と README.en.md の冒頭の追従対象もそのタグにする。
 2. `go test ./...` で、ルールと examples がまだ通るかを確認する。
 3. 結果を本文に書いた PR を作る。テストが失敗した PR は draft にする。スキーマに無い規則は自動では変えないので、失敗しているときはパーサ上書きか examples を手で直す。
 

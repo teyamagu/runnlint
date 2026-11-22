@@ -7,7 +7,7 @@
 [![code to test ratio](docs/ratio.svg)](docs/ratio.svg)
 [![test execution time](docs/time.svg)](docs/time.svg)
 
-[runn](https://github.com/k1LoW/runn) の runbook を検査する linter である。
+[runn](https://github.com/k1LoW/runn) の runbook を検査する linter である。この版は [runn v1.11.2](https://github.com/k1LoW/runn/releases/tag/v1.11.2) の記法に合わせている。記法が変わらないリリースでは、検査結果は同じである。
 
 インデント、重複キー、行長といった一般的な YAML の検査は [yamllint](https://yamllint.readthedocs.io/) に任せる。runn 固有の runner、step、`{{ }}`、`steps` の参照は、このツールが検査する。ルールの有効化、深刻度、追加は YAML で記述する。
 
