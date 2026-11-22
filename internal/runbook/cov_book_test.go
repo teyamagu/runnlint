@@ -29,18 +29,19 @@ func TestCovBuildBookProblems(t *testing.T) {
 	cases := []struct {
 		src   string
 		steps int
-		msg   string
+		kind  ProblemKind
+		name  string
 	}{
-		{"steps:\n  - 1\n  - test: \"true\"\n", 1, "steps の各要素は mapping です"},
-		{"steps:\n  bad: 1\n  ok:\n    test: \"true\"\n", 1, "step bad の値は mapping です"},
-		{"steps: 1\n", 0, "steps は sequence または mapping です"},
+		{"steps:\n  - 1\n  - test: \"true\"\n", 1, ProblemStepsElem, ""},
+		{"steps:\n  bad: 1\n  ok:\n    test: \"true\"\n", 1, ProblemStepValue, "bad"},
+		{"steps: 1\n", 0, ProblemStepsKind, ""},
 	}
 	for _, tc := range cases {
 		doc, err := Parse([]byte(tc.src))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(doc.Book.Steps) != tc.steps || len(doc.Book.Problems) != 1 || doc.Book.Problems[0].Message != tc.msg {
+		if len(doc.Book.Steps) != tc.steps || len(doc.Book.Problems) != 1 || doc.Book.Problems[0].Kind != tc.kind || doc.Book.Problems[0].Name != tc.name {
 			t.Fatalf("%q: steps=%d problems=%+v", tc.src, len(doc.Book.Steps), doc.Book.Problems)
 		}
 	}

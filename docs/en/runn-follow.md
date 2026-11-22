@@ -2,9 +2,9 @@
 
 [日本語](../ja/runn-follow.md)
 
-The runn that runnlint follows is [v1.11.1](https://github.com/k1LoW/runn/releases/tag/v1.11.1). The tag is in `internal/runnspec/VERSION`.
+The runn that runnlint follows is [v1.11.2](https://github.com/k1LoW/runn/releases/tag/v1.11.2). The tag is in `internal/runnspec/VERSION`.
 
-Reading the [CHANGELOG](https://github.com/k1LoW/runn/blob/main/CHANGELOG.md) from v0.101 (2024-03) through v1.11.1 (2026-09), most releases are dependency updates. Few releases change runbook notation, and the changes fall into the three kinds below. The follow mechanism matches that split.
+Reading the [CHANGELOG](https://github.com/k1LoW/runn/blob/main/CHANGELOG.md) from v0.101 (2024-03) through v1.11.2 (2026-11), most releases are dependency updates. Few releases change runbook notation, and the changes fall into the three kinds below. The follow mechanism matches that split.
 
 ## How the notation changes
 

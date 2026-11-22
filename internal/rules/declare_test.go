@@ -118,6 +118,20 @@ func TestDeclarativeOperators(t *testing.T) {
 			wantHit: true,
 		},
 		{
+			// min_len: 2 on a runbook whose desc is ab does not report custom. The length is equal to the limit.
+			name:    "min len exact",
+			check:   "select: desc\n      min_len: 2\n",
+			src:     book,
+			wantHit: false,
+		},
+		{
+			// not_matches: ^1 on a number 1 reports custom. A number is compared, not only a string.
+			name:    "not matches number",
+			check:   "select: vars.n\n      not_matches: '^1'\n",
+			src:     "vars:\n  n: 1\nsteps:\n  - test: \"true\"\n",
+			wantHit: true,
+		},
+		{
 			// max_len: 0 on a runbook with one label reports custom.
 			name:    "max len sequence",
 			check:   "select: labels\n      max_len: 0\n",

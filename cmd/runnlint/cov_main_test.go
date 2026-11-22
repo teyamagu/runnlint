@@ -31,7 +31,7 @@ func TestCovListRulesLoadError(t *testing.T) {
 	}
 }
 
-// --list-rules applies --lang, rejects a config language that is neither ja nor en, prints configuration warnings in the chosen language, and exits 2 when a rule's uses is unknown.
+// --list-rules applies --lang, rejects a config language that is neither ja nor en, prints an unknown-key warning in English when --lang is en, and exits 2 when a rule's uses is unknown.
 func TestCovListRulesLanguageWarningsAndCheck(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -46,7 +46,7 @@ func TestCovListRulesLanguageWarningsAndCheck(t *testing.T) {
 	}
 	explicit := writeFile(t, dir, "with-unknown.yaml", "version: 1\nowner: me\n")
 	code, stdout, stderr = capture(t, []string{"--list-rules", "--lang", "en", "-c", explicit})
-	if code != 0 || !strings.HasPrefix(stderr, "warning: ") || !strings.Contains(stderr, "owner") || !strings.Contains(stdout, "require-desc\twarning\tcheck") {
+	if code != 0 || !strings.Contains(stderr, "is not part of a runnlint rules file") || strings.Contains(stderr, "ルールファイルに無いキー") || !strings.Contains(stdout, "require-desc\twarning\tcheck") {
 		t.Fatalf("code=%d\n%s\n%s", code, stdout, stderr)
 	}
 	writeFile(t, dir, ".runnlint-runn.yaml", "rules:\n  - id: x\n    uses: no-such\n")

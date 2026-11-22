@@ -76,7 +76,7 @@ func fetchText(t *testing.T, url string) []byte {
 	if err != nil {
 		t.Fatalf("%s を取得できません: %v", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	if err != nil {
 		t.Fatal(err)

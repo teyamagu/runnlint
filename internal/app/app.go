@@ -51,27 +51,9 @@ func Run(ctx context.Context, opt Options) (int, error) {
 	if opt.Format == "" {
 		opt.Format = "text"
 	}
-	cfg, err := config.Load(opt.Config)
+	cfg, lang, err := prepare(opt)
 	if err != nil {
-		return 2, present(opt.Lang, err)
-	}
-	if opt.Lang != "" {
-		cfg.Language = opt.Lang
-	}
-	switch cfg.Language {
-	case "", "ja", "en":
-	default:
-		return 2, present(opt.Lang, message.New(message.LangUnknown, cfg.Language))
-	}
-	lang := message.JA
-	if cfg.Language == "en" {
-		lang = message.EN
-	}
-	for _, w := range cfg.Warnings {
-		fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w))
-	}
-	if err := rules.CheckConfig(cfg); err != nil {
-		return 2, present(cfg.Language, err)
+		return 2, err
 	}
 	var base *baseline.Baseline
 	if opt.Baseline != "" && opt.WriteBaseline == "" {
@@ -109,7 +91,7 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		yamlFiles = append(yamlFiles, file.path)
 	}
 	if !opt.NoYamllint {
-		extra, err := yamllint.Run(ctx, cfg.Yamllint, cfg.SourceDir, yamlFiles)
+		extra, err := yamllint.Run(ctx, cfg.Yamllint, cfg.SourceDir, yamlFiles, lang)
 		if err != nil {
 			return 2, present(cfg.Language, err)
 		}
@@ -119,18 +101,26 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		if err := baseline.Write(opt.WriteBaseline, findings); err != nil {
 			return 2, present(cfg.Language, err)
 		}
-		fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineWrote, opt.WriteBaseline, len(findings)))
+		if _, err := fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineWrote, opt.WriteBaseline, len(findings))); err != nil {
+			return 2, err
+		}
 		return 0, nil
 	}
 	if base != nil {
 		res := base.Filter(findings)
 		findings = res.Findings
 		if res.Suppressed > 0 || res.Stale > 0 {
-			fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineKept, opt.Baseline, res.Suppressed))
-			if res.Stale > 0 {
-				fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineStale, res.Stale))
+			if _, err := fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineKept, opt.Baseline, res.Suppressed)); err != nil {
+				return 2, err
 			}
-			fmt.Fprintln(opt.Stderr)
+			if res.Stale > 0 {
+				if _, err := fmt.Fprint(opt.Stderr, message.Text(lang, message.BaselineStale, res.Stale)); err != nil {
+					return 2, err
+				}
+			}
+			if _, err := fmt.Fprintln(opt.Stderr); err != nil {
+				return 2, err
+			}
 		}
 	}
 	if err := report.Write(opt.Stdout, opt.Format, findings); err != nil {
@@ -140,6 +130,59 @@ func Run(ctx context.Context, opt Options) (int, error) {
 		return 1, nil
 	}
 	return 0, nil
+}
+
+// ListRules writes the enabled rules as id, severity, and builtin or check. It uses the same config prelude as Run.
+func ListRules(opt Options) (int, error) {
+	if opt.Stdout == nil {
+		opt.Stdout = os.Stdout
+	}
+	if opt.Stderr == nil {
+		opt.Stderr = os.Stderr
+	}
+	cfg, _, err := prepare(opt)
+	if err != nil {
+		return 2, err
+	}
+	for _, rule := range cfg.Rules {
+		kind := "check"
+		if rule.Uses != "" {
+			kind = "builtin:" + rule.Uses
+		}
+		if _, err := fmt.Fprintf(opt.Stdout, "%s\t%s\t%s\n", rule.ID, rule.Severity, kind); err != nil {
+			return 2, err
+		}
+	}
+	return 0, nil
+}
+
+// prepare loads the rules file, applies the language override, prints config warnings, and checks that uses names exist.
+func prepare(opt Options) (*config.Config, message.Lang, error) {
+	cfg, err := config.Load(opt.Config)
+	if err != nil {
+		return nil, "", present(opt.Lang, err)
+	}
+	if opt.Lang != "" {
+		cfg.Language = opt.Lang
+	}
+	switch cfg.Language {
+	case "", "ja", "en":
+	default:
+		return nil, "", present(opt.Lang, message.New(message.LangUnknown, cfg.Language))
+	}
+	lang := message.JA
+	if cfg.Language == "en" {
+		lang = message.EN
+	}
+	for _, w := range cfg.Warnings {
+		if _, err := fmt.Fprintf(opt.Stderr, "warning: %s\n", message.Localize(lang, w)); err != nil {
+			return nil, "", err
+		}
+	}
+	if err := rules.CheckConfig(cfg); err != nil {
+		return nil, "", present(cfg.Language, err)
+	}
+	return cfg, lang, nil
 }
 
 type input struct {

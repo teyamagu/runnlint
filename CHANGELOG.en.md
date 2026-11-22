@@ -6,6 +6,10 @@ Versions follow [Semantic Versioning 2.0.0](https://semver.org/). How to bump th
 
 ## [Unreleased]
 
+### Fixed
+
+- A steps element that is not a mapping, a named step whose value is not a mapping, and steps that are neither a sequence nor a mapping are reported in the selected language. The baseline records the English sentence. A missing yamllint command is reported the same way. Rewrite a baseline that recorded these sentences in Japanese with `--write-baseline`.
+
 ## [0.4.0]
 
 ### Added

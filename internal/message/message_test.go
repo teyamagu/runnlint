@@ -17,10 +17,8 @@ func TestCatalogVerbsMatch(t *testing.T) {
 			t.Fatalf("%s verbs ja=%v en=%v\n%s\n%s", id, ja, en, pair[0], pair[1])
 		}
 		for i := range ja {
-			if ja[i] != en[i] && !(ja[i] == "%s" && en[i] == "%s") {
-				if ja[i] != en[i] {
-					t.Fatalf("%s verb %d ja=%s en=%s", id, i, ja[i], en[i])
-				}
+			if ja[i] != en[i] {
+				t.Fatalf("%s verb %d ja=%s en=%s", id, i, ja[i], en[i])
 			}
 		}
 		if pair[0] == "" || pair[1] == "" {

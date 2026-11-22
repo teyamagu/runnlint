@@ -9,6 +9,7 @@ import (
 
 	"github.com/teyamagu/runnlint/internal/config"
 	"github.com/teyamagu/runnlint/internal/finding"
+	"github.com/teyamagu/runnlint/internal/message"
 )
 
 // TestParseOutput checks that two yamllint lines become file, line, column, severity, and yamllint/rule. A malformed line and empty output produce no diagnostic.
@@ -51,20 +52,24 @@ func TestResolveConfig(t *testing.T) {
 func TestRunMissingBinary(t *testing.T) {
 	ctx := context.Background()
 	bin := "runnlint-no-such-yamllint"
-	got, err := Run(ctx, config.Yamllint{Bin: bin, Missing: "error"}, "", []string{"a.yml"})
-	if err != nil || len(got) != 1 || got[0].Rule != "yamllint" || got[0].Severity != finding.Error {
+	got, err := Run(ctx, config.Yamllint{Bin: bin, Missing: "error"}, "", []string{"a.yml"}, "")
+	if err != nil || len(got) != 1 || got[0].Rule != "yamllint" || got[0].Severity != finding.Error || got[0].Message != "yamllint が見つかりません。一般的な YAML lint をスキップしました。pip install yamllint で導入できます" || got[0].Match != "yamllint was not found. Generic YAML lint was skipped. Install it with pip install yamllint" {
 		t.Fatalf("err=%v %+v", err, got)
 	}
-	got, err = Run(ctx, config.Yamllint{Bin: bin, Missing: "off"}, "", []string{"a.yml"})
+	got, err = Run(ctx, config.Yamllint{Bin: bin, Missing: "error"}, "", []string{"a.yml"}, message.EN)
+	if err != nil || len(got) != 1 || got[0].Message != got[0].Match || got[0].Message != "yamllint was not found. Generic YAML lint was skipped. Install it with pip install yamllint" {
+		t.Fatalf("en: err=%v %+v", err, got)
+	}
+	got, err = Run(ctx, config.Yamllint{Bin: bin, Missing: "off"}, "", []string{"a.yml"}, "")
 	if err != nil || got != nil {
 		t.Fatalf("off: err=%v %+v", err, got)
 	}
 	disabled := false
-	got, err = Run(ctx, config.Yamllint{Enabled: &disabled, Bin: bin}, "", []string{"a.yml"})
+	got, err = Run(ctx, config.Yamllint{Enabled: &disabled, Bin: bin}, "", []string{"a.yml"}, "")
 	if err != nil || got != nil {
 		t.Fatalf("disabled: err=%v %+v", err, got)
 	}
-	got, err = Run(ctx, config.Yamllint{Bin: bin}, "", nil)
+	got, err = Run(ctx, config.Yamllint{Bin: bin}, "", nil, "")
 	if err != nil || got != nil {
 		t.Fatalf("no files: err=%v %+v", err, got)
 	}

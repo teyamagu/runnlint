@@ -31,7 +31,7 @@ func itoa(n int) string {
 // With an empty bin, yamllint is looked up on PATH. With an empty missing, a missing command is a warning.
 func TestCovRunDefaultsBinAndMissing(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	got, err := Run(context.Background(), config.Yamllint{}, "", []string{"a.yml"})
+	got, err := Run(context.Background(), config.Yamllint{}, "", []string{"a.yml"}, "")
 	if err != nil || len(got) != 1 || got[0].Severity != finding.Warning || got[0].Rule != "yamllint" {
 		t.Fatalf("err=%v %+v", err, got)
 	}
@@ -41,7 +41,7 @@ func TestCovRunDefaultsBinAndMissing(t *testing.T) {
 func TestCovRunParsesOutput(t *testing.T) {
 	dir := t.TempDir()
 	bin := fakeYamllint(t, dir, "a.yml:3:1: [error] trailing spaces (trailing-spaces)", 1)
-	got, err := Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml", "b.yml"})
+	got, err := Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml", "b.yml"}, "")
 	if err != nil || len(got) != 1 || got[0].Rule != "yamllint/trailing-spaces" || got[0].Line != 3 {
 		t.Fatalf("err=%v %+v", err, got)
 	}
@@ -62,7 +62,7 @@ func TestCovRunPassesConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfgDir, "lint.yaml"), []byte("extends: default\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Run(context.Background(), config.Yamllint{Bin: bin, Config: "lint.yaml"}, cfgDir, []string{"a.yml"})
+	got, err := Run(context.Background(), config.Yamllint{Bin: bin, Config: "lint.yaml"}, cfgDir, []string{"a.yml"}, "")
 	if err != nil || len(got) != 0 {
 		t.Fatalf("err=%v %+v", err, got)
 	}
@@ -79,17 +79,17 @@ func TestCovRunPassesConfig(t *testing.T) {
 func TestCovRunFailures(t *testing.T) {
 	dir := t.TempDir()
 	bin := fakeYamllint(t, dir, "usage: yamllint [-h]", 2)
-	_, err := Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml"})
+	_, err := Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml"}, "")
 	if err == nil || message.Localize(message.EN, err) != "yamllint failed: usage: yamllint [-h]" {
 		t.Fatalf("%v", err)
 	}
 	bin = fakeYamllint(t, dir, "", 3)
-	_, err = Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml"})
+	_, err = Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml"}, "")
 	if err == nil || message.Localize(message.EN, err) != "yamllint failed: exit status 3" {
 		t.Fatalf("%v", err)
 	}
 	bin = fakeYamllint(t, dir, "a.yml:1:1: [warning] missing document start (document-start)", 2)
-	got, err := Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml"})
+	got, err := Run(context.Background(), config.Yamllint{Bin: bin}, "", []string{"a.yml"}, "")
 	if err != nil || len(got) != 1 || got[0].Rule != "yamllint/document-start" {
 		t.Fatalf("err=%v %+v", err, got)
 	}

@@ -242,7 +242,7 @@ func checkGRPC(c *Context, v runbook.Value) {
 	if hasMessage && hasMessages {
 		c.Add(call.Value.Node, message.GRPCMsgBoth)
 	}
-	if msg, ok := call.Value.Get("message"); ok && msg.Kind != runbook.KindMap && !(msg.Kind == runbook.KindString && strings.Contains(msg.String, "{{")) {
+	if msg, ok := call.Value.Get("message"); ok && msg.Kind != runbook.KindMap && (msg.Kind != runbook.KindString || !strings.Contains(msg.String, "{{")) {
 		c.Add(msg.Node, message.GRPCMessage)
 	}
 	if msgs, ok := call.Value.Get("messages"); ok {

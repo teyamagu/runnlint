@@ -47,9 +47,9 @@ func TestCovLen(t *testing.T) {
 	}
 }
 
-// Display renders null, a bool, a number, a quoted string cut at 80 characters, a sequence, a mapping, and an unknown kind.
+// Display renders null, a bool, a number, a quoted string, a sequence, a mapping, and an unknown kind.
+// A string of 80 characters is kept. A string of 81 is cut to 77 characters and an ellipsis.
 func TestCovDisplay(t *testing.T) {
-	long := strings.Repeat("x", 100)
 	cases := []struct {
 		v    Value
 		want string
@@ -58,7 +58,8 @@ func TestCovDisplay(t *testing.T) {
 		{Value{Kind: KindBool, Bool: true}, "true"},
 		{Value{Kind: KindNumber, Number: "3.5"}, "3.5"},
 		{Value{Kind: KindString, String: "ab"}, `"ab"`},
-		{Value{Kind: KindString, String: long}, `"` + strings.Repeat("x", 77) + `..."`},
+		{Value{Kind: KindString, String: strings.Repeat("x", 80)}, `"` + strings.Repeat("x", 80) + `"`},
+		{Value{Kind: KindString, String: strings.Repeat("x", 81)}, `"` + strings.Repeat("x", 77) + `..."`},
 		{Value{Kind: KindSeq, Seq: []Value{{}, {}}}, "sequence(2)"},
 		{Value{Kind: KindMap, Map: []Entry{{Key: "a"}}}, "mapping(1)"},
 		{Value{Kind: Kind(99)}, ""},

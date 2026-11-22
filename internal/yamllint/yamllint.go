@@ -50,7 +50,7 @@ func ParseOutput(out string) []finding.Finding {
 }
 
 // Run runs yamllint on a set of files.
-func Run(ctx context.Context, cfg config.Yamllint, configDir string, files []string) ([]finding.Finding, error) {
+func Run(ctx context.Context, cfg config.Yamllint, configDir string, files []string, lang message.Lang) ([]finding.Finding, error) {
 	if !cfg.EnabledOrDefault() || len(files) == 0 {
 		return nil, nil
 	}
@@ -66,13 +66,17 @@ func Run(ctx context.Context, cfg config.Yamllint, configDir string, files []str
 		if sev == finding.Off {
 			return nil, nil
 		}
+		if lang == "" {
+			lang = message.JA
+		}
 		return []finding.Finding{{
 			File:     files[0],
 			Line:     1,
 			Column:   1,
 			Severity: sev,
 			Rule:     "yamllint",
-			Message:  "yamllint が見つかりません。一般的な YAML lint をスキップしました。pip install yamllint で導入できます",
+			Message:  message.Text(lang, message.YamllintAbsent),
+			Match:    message.English(message.YamllintAbsent),
 		}}, nil
 	}
 

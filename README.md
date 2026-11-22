@@ -162,11 +162,15 @@ rules:
 実装は、失敗するテストを先に追加してから行う。契約とテストの対応は [docs/ja/test-design.md](docs/ja/test-design.md) に書いてある。
 
 ```console
+golangci-lint fmt
+golangci-lint run
 go test ./...
 go run ./cmd/runnlint --no-yamllint examples/valid
 go run ./cmd/runnlint --no-yamllint examples/bad/http-request.yml
 go run ./cmd/runnlint --no-yamllint --include-root examples examples/bad/included-unreferenced.yml
 ```
+
+`golangci-lint fmt` は gofmt と goimports で Go のファイルを整形する。`golangci-lint run` は、戻し忘れのエラー、`go vet`、無効な代入、staticcheck、未使用のコード、および同じ整形を検査する。CI は v2.15.0 で `run` を実行する。このツールは GPL なので、モジュールの依存には入れない。
 
 `go test ./...` は、次も確認する。
 

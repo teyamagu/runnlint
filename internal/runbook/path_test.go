@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// ParsePath splits on dots, keeps a double-quoted segment as one literal key, and reports an unclosed quote or text after a closing quote.
+// ParsePath splits on dots, keeps a double-quoted segment as one literal key, including an empty pair of quotes, and reports an unclosed quote or text after a closing quote.
 func TestParsePath(t *testing.T) {
 	segs, err := ParsePath(`steps.*.req."/v1/{id}.json".get.**`)
 	if err != nil {
@@ -24,6 +24,9 @@ func TestParsePath(t *testing.T) {
 		t.Fatalf("%+v %v", segs, err)
 	}
 	if segs, err := ParsePath(`"*"`); err != nil || len(segs) != 1 || !segs[0].Quoted || segs[0].Key != "*" {
+		t.Fatalf("%+v %v", segs, err)
+	}
+	if segs, err := ParsePath(`""`); err != nil || len(segs) != 1 || !segs[0].Quoted || segs[0].Key != "" {
 		t.Fatalf("%+v %v", segs, err)
 	}
 	if _, err := ParsePath(`a."b`); err == nil || !strings.Contains(err.Error(), "引用符") {

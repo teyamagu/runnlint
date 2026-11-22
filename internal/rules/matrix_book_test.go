@@ -77,8 +77,8 @@ func TestBookShapePairwise(t *testing.T) {
 				want = append(want, en(message.FieldBoolOrStr, field))
 			}
 		case "interval":
-			if !(isNumber || value == "duration" || value == "string" && false) {
-				if !(value == "number" || value == "neg-number" || value == "duration") {
+			if !isNumber && value != "duration" {
+				if value != "number" && value != "neg-number" && value != "duration" {
 					want = append(want, en(message.IntervalDur))
 				}
 			}

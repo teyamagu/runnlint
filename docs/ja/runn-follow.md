@@ -2,9 +2,9 @@
 
 [English](../en/runn-follow.md)
 
-runnlint が合わせる runn は [v1.11.1](https://github.com/k1LoW/runn/releases/tag/v1.11.1) である。タグは `internal/runnspec/VERSION` にある。
+runnlint が合わせる runn は [v1.11.2](https://github.com/k1LoW/runn/releases/tag/v1.11.2) である。タグは `internal/runnspec/VERSION` にある。
 
-[CHANGELOG](https://github.com/k1LoW/runn/blob/main/CHANGELOG.md) を v0.101（2024-03）から v1.11.1（2026-09）まで見ると、リリースの大半は依存関係の更新である。runbook の記法が変わるリリースは少なく、変わり方は次の3種類に分かれる。追従の仕組みはこの分かれ方に合わせている。
+[CHANGELOG](https://github.com/k1LoW/runn/blob/main/CHANGELOG.md) を v0.101（2024-03）から v1.11.2（2026-11）まで見ると、リリースの大半は依存関係の更新である。runbook の記法が変わるリリースは少なく、変わり方は次の3種類に分かれる。追従の仕組みはこの分かれ方に合わせている。
 
 ## 記法の変わり方
 

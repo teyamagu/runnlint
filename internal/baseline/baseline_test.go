@@ -93,11 +93,17 @@ func TestWriteIsStable(t *testing.T) {
 func TestLoadErrors(t *testing.T) {
 	dir := t.TempDir()
 	broken := filepath.Join(dir, "broken.json")
-	os.WriteFile(broken, []byte("{"), 0o644)
+	if err := os.WriteFile(broken, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	future := filepath.Join(dir, "future.json")
-	os.WriteFile(future, []byte(`{"version": 99, "findings": []}`), 0o644)
+	if err := os.WriteFile(future, []byte(`{"version": 99, "findings": []}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	old := filepath.Join(dir, "v1.json")
-	os.WriteFile(old, []byte(`{"version": 1, "findings": []}`), 0o644)
+	if err := os.WriteFile(old, []byte(`{"version": 1, "findings": []}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	for _, path := range []string{broken, future, old, filepath.Join(dir, "missing.json")} {
 		if _, err := Load(path); err == nil {
 			t.Fatalf("%s を受けています", path)

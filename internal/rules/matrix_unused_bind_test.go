@@ -128,7 +128,7 @@ func buildUnusedBindCase(p pick) unusedBindCase {
 	outerUnknown := withRefs && c == "static-broken"
 	outerUsed := withRefs && (c == "static-member" || c == "static-previous" || c == "static-include-vars" || c == "static-template" || c == "dynamic-ref" || c == "needs-ref")
 	requires := p["cond"] == "included" || p["cond"] == "included == true" || p["cond"] == "included && vars.flag"
-	expect := hasDef && !localUnknown && !outerUnknown && !localUsed && !outerUsed && !(!found && requires)
+	expect := hasDef && !localUnknown && !outerUnknown && !localUsed && !outerUsed && (found || !requires)
 	return unusedBindCase{target: target, caller: caller, withRefs: withRefs, expect: expect}
 }
 
